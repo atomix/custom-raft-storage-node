@@ -44,28 +44,26 @@ func (c *RaftClient) Connect(cluster atomix.Cluster) error {
 }
 
 func (c *RaftClient) Write(ctx context.Context, in []byte, ch chan<- service.Output) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.requestID++
 	request := &CommandRequest{
-		SequenceNumber: c.requestID,
 		Value:          in,
 	}
-	return c.write(ctx, request, ch)
+	go c.write(ctx, request, ch)
+	return nil
 }
 
 func (c *RaftClient) Read(ctx context.Context, in []byte, ch chan<- service.Output) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	request := &QueryRequest{
 		Value:           in,
 		ReadConsistency: c.consistency,
 	}
-	return c.read(ctx, request, ch)
+	go c.read(ctx, request, ch)
+	return nil
 }
 
 // resetConn resets the client connection to reconnect to a new member
 func (c *RaftClient) resetConn() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.memberConn != nil {
 		c.memberConn.Close()
 	}
@@ -99,6 +97,8 @@ func (c *RaftClient) getConn() (*grpc.ClientConn, error) {
 
 // getClient gets the current Raft client connection
 func (c *RaftClient) getClient() (RaftServiceClient, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.client == nil {
 		conn, err := c.getConn()
 		if err != nil {
@@ -126,6 +126,7 @@ func (c *RaftClient) write(ctx context.Context, request *CommandRequest, ch chan
 			break
 		}
 		if err != nil {
+			c.resetConn()
 			return err
 		}
 

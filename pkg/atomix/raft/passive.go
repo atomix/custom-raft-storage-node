@@ -241,7 +241,7 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 
 			// If the index is less than the commit index, apply the entry
 			if index <= commitIndex {
-				r.raft.state.enqueueEntry(&IndexedEntry{
+				r.raft.state.applyEntry(&IndexedEntry{
 					Index: index,
 					Entry: entry,
 				}, nil)
@@ -370,7 +370,7 @@ func (r *PassiveRole) applyQuery(request *QueryRequest, server RaftService_Query
 	ch := make(chan service.Output)
 
 	// Apply the entry to the state machine
-	r.raft.state.enqueueEntry(entry, ch)
+	r.raft.state.applyEntry(entry, ch)
 
 	// Iterate through results and translate them into QueryResponses.
 	for result := range ch {

@@ -140,8 +140,7 @@ message InstallResponse {
 }
 
 message CommandRequest {
-    int64 sequence_number = 1;
-    bytes value = 2;
+    bytes value = 1;
 }
 
 message CommandResponse {

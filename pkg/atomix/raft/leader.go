@@ -70,7 +70,7 @@ func (r *LeaderRole) commitInitializeEntry() {
 		r.raft.setLeader("")
 		r.raft.becomeFollower()
 	} else {
-		r.raft.state.enqueueEntry(indexed, nil)
+		r.raft.state.applyEntry(indexed, nil)
 	}
 
 }
@@ -134,7 +134,7 @@ func (r *LeaderRole) Command(request *CommandRequest, server RaftService_Command
 		})
 	} else {
 		ch := make(chan service.Output)
-		r.raft.state.enqueueEntry(indexed, ch)
+		r.raft.state.applyEntry(indexed, ch)
 		for output := range ch {
 			if output.Succeeded() {
 				err := server.Send(&CommandResponse{
@@ -196,7 +196,7 @@ func (r *LeaderRole) queryLinearizable(request *QueryRequest, server RaftService
 	ch := make(chan service.Output)
 
 	// Apply the entry to the state machine
-	r.raft.state.enqueueEntry(entry, ch)
+	r.raft.state.applyEntry(entry, ch)
 
 	// Iterate through results and translate them into QueryResponses.
 	for result := range ch {

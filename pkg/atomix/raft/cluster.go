@@ -9,16 +9,19 @@ import (
 // newRaftCluster returns a new RaftCluster with the given configuration
 func newRaftCluster(cluster atomix.Cluster) *RaftCluster {
 	members := make(map[string]*RaftMember)
+	memberIDs := make([]string, 0, len(cluster.Members))
 	for id, member := range cluster.Members {
 		members[id] = &RaftMember{
 			MemberId: member.ID,
 			Type:     RaftMember_ACTIVE,
 			Updated:  time.Now().UnixNano(),
 		}
+		memberIDs = append(memberIDs, id)
 	}
 	return &RaftCluster{
 		member:    cluster.MemberID,
 		members:   members,
+		memberIDs: memberIDs,
 		locations: cluster.Members,
 		conns:     make(map[string]*grpc.ClientConn),
 	}

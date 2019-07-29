@@ -32,13 +32,19 @@ func (r *FollowerRole) Name() string {
 }
 
 func (r *FollowerRole) start() error {
+	// If there are no other members in the cluster, immediately transition to leader.
+	if len(r.raft.cluster.members) == 1 {
+		log.Debugf("Single node cluster; starting election")
+		r.raft.becomeCandidate()
+		return nil
+	}
 	r.ActiveRole.start()
 	r.resetHeartbeatTimeout()
 	return nil
 }
 
 func (r *FollowerRole) stop() error {
-	if r.heartbeatTimer.Stop() {
+	if r.heartbeatTimer != nil && r.heartbeatTimer.Stop() {
 		r.heartbeatStop <- true
 	}
 	return r.ActiveRole.stop()
@@ -91,9 +97,9 @@ func (r *FollowerRole) sendPollRequests() {
 	votingMembers := r.raft.cluster.memberIDs
 
 	// If there are no other members in the cluster, immediately transition to leader.
-	if len(votingMembers) == 0 {
-		log.Debugf("Single node cluster; skipping election")
-		r.raft.becomeLeader()
+	if len(votingMembers) == 1 {
+		log.Debugf("Single node cluster; starting election")
+		r.raft.becomeCandidate()
 		return
 	}
 

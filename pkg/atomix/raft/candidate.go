@@ -38,7 +38,7 @@ func (r *CandidateRole) start() error {
 }
 
 func (r *CandidateRole) stop() error {
-	if r.electionTimer.Stop() {
+	if r.electionTimer != nil && r.electionTimer.Stop() {
 		r.electionExpired <- true
 	}
 	return r.ActiveRole.stop()
@@ -128,7 +128,7 @@ func (r *CandidateRole) sendVoteRequests() {
 	votingMembers := r.raft.cluster.memberIDs
 
 	// If there are no other members in the cluster, immediately transition to leader.
-	if len(votingMembers) == 0 {
+	if len(votingMembers) == 1 {
 		log.Debug("Single node cluster; skipping election")
 		r.raft.becomeLeader()
 		return

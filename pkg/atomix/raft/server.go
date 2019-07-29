@@ -112,10 +112,12 @@ func (s *RaftServer) setLastVotedFor(candidate string) {
 }
 
 func (s *RaftServer) setStatus(status RaftStatus) {
-	log.Infof("Server is %s", status)
-	s.status = status
-	if status == RaftStatusReady {
-		s.readyCh <- struct{}{}
+	if s.status != status {
+		log.Infof("Server is %s", status)
+		s.status = status
+		if status == RaftStatusReady {
+			s.readyCh <- struct{}{}
+		}
 	}
 }
 
