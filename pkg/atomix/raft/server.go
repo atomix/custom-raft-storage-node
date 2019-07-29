@@ -18,8 +18,8 @@ const (
 	RaftStatusReady   RaftStatus = "ready"
 )
 
-// newRaftServer returns a new Raft consensus protocol server
-func newRaftServer(cluster atomix.Cluster, electionTimeout time.Duration) *RaftServer {
+// NewRaftServer returns a new Raft consensus protocol server
+func NewRaftServer(cluster atomix.Cluster, electionTimeout time.Duration) *RaftServer {
 	log := newMemoryLog()
 	reader := log.OpenReader(0)
 	writer := log.Writer()

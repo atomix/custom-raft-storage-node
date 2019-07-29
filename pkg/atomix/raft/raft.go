@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+func NewRaftProtocol(config *RaftProtocolConfig) *RaftProtocol {
+	return &RaftProtocol{
+		config: config,
+	}
+}
+
 // RaftProtocol is an implementation of the Protocol interface providing the Raft consensus protocol
 type RaftProtocol struct {
 	atomix.Protocol
@@ -15,7 +21,7 @@ type RaftProtocol struct {
 }
 
 func (p *RaftProtocol) Start(cluster atomix.Cluster, registry *service.ServiceRegistry) error {
-	p.server = newRaftServer(cluster, 5*time.Second)
+	p.server = NewRaftServer(cluster, 5*time.Second)
 	if err := p.server.Start(); err != nil {
 		return err
 	}
