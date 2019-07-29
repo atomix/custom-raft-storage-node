@@ -28,6 +28,11 @@ type LeaderRole struct {
 	transferIndex int64
 }
 
+// Name is the name of the role
+func (r *LeaderRole) Name() string {
+	return "Leader"
+}
+
 func (r *LeaderRole) start() error {
 	r.setLeadership()
 	r.startAppender()
@@ -61,11 +66,11 @@ func (r *LeaderRole) commitInitializeEntry() {
 	// that the commitIndex is not increased until the no-op entry is committed.
 	err := r.appender.append(indexed)
 	if err != nil {
-		log.Debug("Failed to commit entry from leader's term; transitioning to follower")
+		log.Debugf("Failed to commit entry from leader's term; transitioning to follower")
 		r.raft.setLeader("")
 		r.raft.becomeFollower()
 	} else {
-		r.raft.state.enqueueIndex(indexed.Index)
+		r.raft.state.enqueueEntry(indexed, nil)
 	}
 
 }

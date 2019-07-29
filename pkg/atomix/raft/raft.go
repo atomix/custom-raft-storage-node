@@ -3,7 +3,7 @@ package raft
 import (
 	"github.com/atomix/atomix-go-node/pkg/atomix"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
-	"time"
+	"github.com/golang/protobuf/ptypes"
 )
 
 func NewRaftProtocol(config *RaftProtocolConfig) *RaftProtocol {
@@ -21,12 +21,17 @@ type RaftProtocol struct {
 }
 
 func (p *RaftProtocol) Start(cluster atomix.Cluster, registry *service.ServiceRegistry) error {
-	p.server = NewRaftServer(cluster, 5*time.Second)
+	electionTimeout, err := ptypes.Duration(p.config.ElectionTimeout)
+	if err != nil {
+		return err
+	}
+
+	p.server = NewRaftServer(cluster, registry, electionTimeout)
 	if err := p.server.Start(); err != nil {
 		return err
 	}
 
-	p.client = newRaftClient()
+	p.client = newRaftClient(ReadConsistency_SEQUENTIAL)
 	if err := p.client.Connect(cluster); err != nil {
 		return err
 	}

@@ -13,8 +13,10 @@ import (
 )
 
 // newRaftClient returns a new Raft client
-func newRaftClient() *RaftClient {
-	return &RaftClient{}
+func newRaftClient(consistency ReadConsistency) *RaftClient {
+	return &RaftClient{
+		consistency: consistency,
+	}
 }
 
 // RaftClient is a service Client implementation for the Raft consensus protocol
@@ -36,7 +38,7 @@ func (c *RaftClient) Connect(cluster atomix.Cluster) error {
 	c.membersList = list.New()
 	for name, member := range cluster.Members {
 		c.members[name] = &member
-		c.membersList.PushBack(member)
+		c.membersList.PushBack(&member)
 	}
 	return nil
 }

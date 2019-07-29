@@ -53,6 +53,11 @@ type raftAppender struct {
 
 // heartbeat sends a heartbeat to a majority of followers
 func (a *raftAppender) heartbeat() error {
+	// If there are no members to send the entry to, immediately return.
+	if len(a.members) == 0 {
+		return nil
+	}
+
 	ch := make(chan int64)
 	future := heartbeatFuture{}
 	a.heartbeatFutures.PushBack(future)
@@ -69,6 +74,12 @@ func (a *raftAppender) heartbeat() error {
 
 // append replicates the given entry to all followers
 func (a *raftAppender) append(entry *IndexedEntry) error {
+	// If there are no members to send the entry to, immediately commit it.
+	if len(a.members) == 0 {
+		a.raft.setCommitIndex(entry.Index)
+		return nil
+	}
+
 	ch := make(chan int64)
 	a.commitChannels[entry.Index] = ch
 	for _, member := range a.members {
@@ -152,11 +163,11 @@ func (a *raftAppender) commitIndex(member string, index int64) {
 		})
 
 		commitIndex := indexes[len(a.members)/2]
-		for a.raft.commitIndex < commitIndex {
-			a.raft.commitIndex++
-			ch, ok := a.commitChannels[a.raft.commitIndex]
+		for i := a.raft.commitIndex + 1; i <= commitIndex; i++ {
+			a.raft.setCommitIndex(i)
+			ch, ok := a.commitChannels[i]
 			if ok {
-				ch <- a.raft.commitIndex
+				ch <- i
 			}
 		}
 	}
@@ -322,7 +333,7 @@ func (a *memberAppender) append() {
 	} else {
 		snapshot := a.raft.snapshot.CurrentSnapshot()
 		if snapshot != nil && a.snapshotIndex < snapshot.Index() && snapshot.Index() >= a.nextIndex {
-			log.Debug("Replicating snapshot %d to %s", snapshot.Index, a.member.MemberId)
+			log.Debugf("Replicating snapshot %d to %s", snapshot.Index(), a.member.MemberId)
 			a.sendInstallRequests(snapshot)
 		} else {
 			a.sendAppendRequest(a.nextAppendRequest())
@@ -390,7 +401,7 @@ func (a *memberAppender) sendInstallRequests(snapshot Snapshot) {
 	n, err := reader.Read(bytes)
 	for n > 0 && err == nil {
 		request := a.newInstallRequest(snapshot, bytes[:n])
-		log.Trace("Sending %v to %s", request, a.member.MemberId)
+		log.Tracef("Sending %v to %s", request, a.member.MemberId)
 		n, err = reader.Read(bytes)
 	}
 	if err != nil {
@@ -399,7 +410,7 @@ func (a *memberAppender) sendInstallRequests(snapshot Snapshot) {
 
 	response, err := stream.CloseAndRecv()
 	if err == nil {
-		log.Trace("Received %v from %s", response, a.member.MemberId)
+		log.Tracef("Received %v from %s", response, a.member.MemberId)
 		if response.Status == ResponseStatus_OK {
 			a.handleInstallResponse(snapshot, response, startTime)
 		} else {
@@ -430,7 +441,7 @@ func (a *memberAppender) handleInstallFailure(snapshot Snapshot, response *Insta
 }
 
 func (a *memberAppender) handleInstallError(snapshot Snapshot, err error, startTime time.Time) {
-	log.Debug("Failed to install %s", a.member.MemberId, err);
+	log.Debugf("Failed to install %s: %s", a.member.MemberId, err)
 	a.fail(startTime)
 	a.requeue()
 }
@@ -531,11 +542,11 @@ func (a *memberAppender) sendAppendRequest(request *AppendRequest) {
 	ctx, cancel := context.WithTimeout(context.Background(), a.raft.electionTimeout)
 	defer cancel()
 
-	log.Trace("Sending %v to %s", request, a.member.MemberId)
+	log.Tracef("Sending %v to %s", request, a.member.MemberId)
 	response, err := client.Append(ctx, request)
 
 	if err == nil {
-		log.Trace("Received %v from %s", response, a.member.MemberId)
+		log.Tracef("Received %v from %s", response, a.member.MemberId)
 		if response.Status == ResponseStatus_OK {
 			a.handleAppendResponse(request, response, startTime)
 		} else {
@@ -581,9 +592,9 @@ func (a *memberAppender) handleAppendResponse(request *AppendRequest, response *
 		// Reset the matchIndex and nextIndex according to the response.
 		if response.LastLogIndex < a.matchIndex {
 			a.matchIndex = response.LastLogIndex
-			log.Trace("Reset match index for %s to %d", a.member.MemberId, a.matchIndex)
+			log.Tracef("Reset match index for %s to %d", a.member.MemberId, a.matchIndex)
 			a.nextIndex = a.matchIndex + 1
-			log.Trace("Reset next index for %s to %d", a.member.MemberId, a.nextIndex);
+			log.Tracef("Reset next index for %s to %d", a.member.MemberId, a.nextIndex)
 		}
 
 		// Notify the appender that the next index can be appended.

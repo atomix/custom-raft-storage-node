@@ -17,6 +17,11 @@ type PassiveRole struct {
 	active bool
 }
 
+// Name is the name of the role
+func (r *PassiveRole) Name() string {
+	return "Passive"
+}
+
 // start starts the role
 func (r *PassiveRole) start() error {
 	r.active = true
@@ -244,6 +249,9 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 		}
 	}
 
+	// Set the first commit index if necessary.
+	r.raft.setFirstCommitIndex(request.CommitIndex)
+
 	// Update the context commit and global indices.
 	r.raft.setCommitIndex(commitIndex)
 
@@ -325,7 +333,7 @@ func (r *PassiveRole) Query(request *QueryRequest, server RaftService_QueryServe
 	// query to the leader. This ensures that a follower does not tell the client its session
 	// doesn't exist if the follower hasn't had a chance to see the session's registration entry.
 	if r.raft.status != RaftStatusReady {
-		log.Trace("State out of sync, forwarding query to leader");
+		log.Tracef("State out of sync, forwarding query to leader");
 		return r.forwardQuery(request, server)
 	}
 
@@ -335,7 +343,7 @@ func (r *PassiveRole) Query(request *QueryRequest, server RaftService_QueryServe
 		// If the commit index is not in the log then we've fallen too far behind the leader to perform a local query.
 		// Forward the request to the leader.
 		if r.raft.writer.LastIndex() < r.raft.commitIndex {
-			log.Trace("State out of sync, forwarding query to leader");
+			log.Tracef("State out of sync, forwarding query to leader");
 			return r.forwardQuery(request, server)
 		}
 		return r.applyQuery(request, server);
@@ -396,7 +404,7 @@ func (r *PassiveRole) forwardQuery(request *QueryRequest, server RaftService_Que
 			Error:  RaftError_NO_LEADER,
 		})
 	} else {
-		log.Trace("Forwarding %v", request)
+		log.Tracef("Forwarding %v", request)
 		client, err := r.raft.getClient(leader)
 		if err != nil {
 			return err

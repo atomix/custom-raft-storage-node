@@ -82,7 +82,7 @@ type IndexedEntry struct {
 
 func newMemoryLog() RaftLog {
 	log := &memoryRaftLog{
-		entries:    make([]*IndexedEntry, 1024),
+		entries:    make([]*IndexedEntry, 0, 1024),
 		firstIndex: 1,
 	}
 	log.writer = &memoryRaftLogWriter{

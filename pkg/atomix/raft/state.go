@@ -5,6 +5,16 @@ import (
 	"time"
 )
 
+// newStateManager returns a new Raft state manager
+func newStateManager(raft *RaftServer, registry *service.ServiceRegistry) *stateManager {
+	sm := &stateManager{
+		reader: raft.log.OpenReader(0),
+		ch:     make(chan *change),
+	}
+	sm.state = service.NewPrimitiveStateMachine(registry, sm)
+	return sm
+}
+
 // stateManager manages the Raft state machine
 type stateManager struct {
 	state        service.StateMachine
@@ -14,15 +24,6 @@ type stateManager struct {
 	reader       RaftLogReader
 	operation    service.OperationType
 	ch           chan *change
-}
-
-// enqueueIndex enqueues an operation to apply all operations up to the given index to the state machine
-func (m *stateManager) enqueueIndex(index int64) {
-	m.ch <- &change{
-		entry: &IndexedEntry{
-			Index: index,
-		},
-	}
 }
 
 // enqueueEntry enqueues the given entry to be applied to the state machine, returning output on the given channel

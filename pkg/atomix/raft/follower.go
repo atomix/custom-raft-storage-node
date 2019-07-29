@@ -26,6 +26,11 @@ type FollowerRole struct {
 	heartbeatStop  chan bool
 }
 
+// Name is the name of the role
+func (r *FollowerRole) Name() string {
+	return "Follower"
+}
+
 func (r *FollowerRole) start() error {
 	r.ActiveRole.start()
 	r.resetHeartbeatTimeout()
@@ -56,9 +61,9 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 	go func() {
 		select {
 		case <-r.heartbeatTimer.C:
-			if r.active && (r.raft.firstCommitIndex == 0 || r.raft.status == RaftStatusReady) {
+			if r.active {
 				r.raft.setLeader("")
-				log.Debug("Heartbeat timed out in %d", timeout);
+				log.Debugf("Heartbeat timed out in %d", timeout);
 				r.sendPollRequests();
 			}
 		case <-r.heartbeatStop:
@@ -75,7 +80,7 @@ func (r *FollowerRole) sendPollRequests() {
 	go func() {
 		select {
 		case <-timeoutTimer.C:
-			log.Debug("Failed to poll a majority of the cluster in %d", r.raft.electionTimeout)
+			log.Debugf("Failed to poll a majority of the cluster in %d", r.raft.electionTimeout)
 			r.resetHeartbeatTimeout()
 		case <-timeoutExpired:
 			return
@@ -87,7 +92,7 @@ func (r *FollowerRole) sendPollRequests() {
 
 	// If there are no other members in the cluster, immediately transition to leader.
 	if len(votingMembers) == 0 {
-		log.Debug("Single node cluster; skipping election")
+		log.Debugf("Single node cluster; skipping election")
 		r.raft.becomeLeader()
 		return
 	}
@@ -106,14 +111,14 @@ func (r *FollowerRole) sendPollRequests() {
 				// If no leader has been discovered and the quorum was reached, transition to candidate.
 				acceptCount++
 				if r.raft.leader == "" && acceptCount == quorum {
-					log.Debug("Received %d/%d pre-votes; transitioning to candidate", acceptCount, quorum)
+					log.Debugf("Received %d/%d pre-votes; transitioning to candidate", acceptCount, quorum)
 					r.raft.becomeCandidate()
 					return
 				}
 			} else {
 				rejectCount++
 				if rejectCount == quorum {
-					log.Debug("Received %d/%d rejected pre-votes; resetting heartbeat timeout", rejectCount, quorum)
+					log.Debugf("Received %d/%d rejected pre-votes; resetting heartbeat timeout", rejectCount, quorum)
 					r.resetHeartbeatTimeout()
 					return
 				}
@@ -137,7 +142,7 @@ func (r *FollowerRole) sendPollRequests() {
 		lastTerm = lastEntry.Entry.Term
 	}
 
-	log.Debug("Polling members %v", votingMembers);
+	log.Debugf("Polling members %v", votingMembers);
 
 	// Once we got the last log term, iterate through each current member
 	// of the cluster and vote each member for a vote.
@@ -149,7 +154,7 @@ func (r *FollowerRole) sendPollRequests() {
 		}
 
 		go func() {
-			log.Debug("Polling %s for next term %d", member, r.raft.term+1)
+			log.Debugf("Polling %s for next term %d", member, r.raft.term+1)
 			request := &PollRequest{
 				Term:         r.raft.term,
 				Candidate:    r.raft.cluster.member,
@@ -169,13 +174,13 @@ func (r *FollowerRole) sendPollRequests() {
 					}
 
 					if !response.Accepted {
-						log.Debug("Received rejected poll from %s", member);
+						log.Debugf("Received rejected poll from %s", member);
 						votes <- false
 					} else if response.Term != r.raft.term {
-						log.Debug("Received accepted poll for a different term from %s", member);
+						log.Debugf("Received accepted poll for a different term from %s", member);
 						votes <- false
 					} else {
-						log.Debug("Received accepted poll from %s", member);
+						log.Debugf("Received accepted poll from %s", member);
 						votes <- true
 					}
 				}

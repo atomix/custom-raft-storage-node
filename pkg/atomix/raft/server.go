@@ -5,25 +5,28 @@ import (
 	"errors"
 	"fmt"
 	"github.com/atomix/atomix-go-node/pkg/atomix"
+	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"net"
+	"sync"
 	"time"
 )
 
 type RaftStatus string
 
 const (
+	RaftStatusStopped RaftStatus = "stopped"
 	RaftStatusRunning RaftStatus = "running"
 	RaftStatusReady   RaftStatus = "ready"
 )
 
 // NewRaftServer returns a new Raft consensus protocol server
-func NewRaftServer(cluster atomix.Cluster, electionTimeout time.Duration) *RaftServer {
+func NewRaftServer(cluster atomix.Cluster, registry *service.ServiceRegistry, electionTimeout time.Duration) *RaftServer {
 	log := newMemoryLog()
 	reader := log.OpenReader(0)
 	writer := log.Writer()
-	return &RaftServer{
+	server := &RaftServer{
 		cluster:         newRaftCluster(cluster),
 		snapshot:        newMemorySnapshotStore(),
 		metadata:        newMemoryMetadataStore(),
@@ -31,7 +34,11 @@ func NewRaftServer(cluster atomix.Cluster, electionTimeout time.Duration) *RaftS
 		reader:          reader,
 		writer:          writer,
 		electionTimeout: electionTimeout,
+		status:          RaftStatusStopped,
+		readyCh:         make(chan struct{}, 1),
 	}
+	server.state = newStateManager(server, registry)
+	return server
 }
 
 // RaftServer implements the Raft consensus protocol server
@@ -39,12 +46,13 @@ type RaftServer struct {
 	RaftServiceServer
 	server           *grpc.Server
 	status           RaftStatus
+	readyCh          chan struct{}
 	role             Role
 	state            *stateManager
 	term             int64
 	leader           string
 	lastVotedFor     string
-	firstCommitIndex int64
+	firstCommitIndex *int64
 	commitIndex      int64
 	cluster          *RaftCluster
 	metadata         MetadataStore
@@ -53,6 +61,7 @@ type RaftServer struct {
 	writer           RaftLogWriter
 	reader           RaftLogReader
 	electionTimeout  time.Duration
+	mu               sync.Mutex
 }
 
 func (s *RaftServer) setTerm(term int64) {
@@ -89,22 +98,30 @@ func (s *RaftServer) setLastVotedFor(candidate string) {
 
 	// Verify the candidate is a member of the cluster.
 	if _, ok := s.cluster.members[candidate]; !ok {
-		log.Error("Unknown candidate: %s", candidate)
+		log.Errorf("Unknown candidate: %s", candidate)
 	}
 
 	s.lastVotedFor = candidate
 	s.metadata.StoreVote(candidate)
 
 	if candidate != "" {
-		log.Debug("Voted for %s", candidate)
+		log.Debugf("Voted for %s", candidate)
 	} else {
 		log.Trace("Reset last voted for")
 	}
 }
 
+func (s *RaftServer) setStatus(status RaftStatus) {
+	log.Infof("Server is %s", status)
+	s.status = status
+	if status == RaftStatusReady {
+		s.readyCh <- struct{}{}
+	}
+}
+
 func (s *RaftServer) setFirstCommitIndex(commitIndex int64) {
-	if s.firstCommitIndex == 0 {
-		s.firstCommitIndex = commitIndex
+	if s.firstCommitIndex == nil {
+		s.firstCommitIndex = &commitIndex
 	}
 }
 
@@ -113,6 +130,9 @@ func (s *RaftServer) setCommitIndex(commitIndex int64) int64 {
 	if commitIndex > previousCommitIndex {
 		s.commitIndex = commitIndex
 		s.setFirstCommitIndex(commitIndex)
+	}
+	if s.firstCommitIndex != nil && commitIndex >= *s.firstCommitIndex {
+		s.setStatus(RaftStatusReady)
 	}
 	return previousCommitIndex
 }
@@ -128,8 +148,13 @@ func (s *RaftServer) Start() error {
 	if vote != nil {
 		s.lastVotedFor = *vote
 	}
+	s.setStatus(RaftStatusRunning)
 
+	// Start applying changes to the state machine
 	go s.state.start()
+
+	// Transition the node to the follower role
+	go s.becomeFollower()
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.cluster.locations[s.cluster.member].Port))
 	if err != nil {
@@ -139,6 +164,16 @@ func (s *RaftServer) Start() error {
 	s.server = grpc.NewServer()
 	RegisterRaftServiceServer(s.server, s)
 	return s.server.Serve(lis)
+}
+
+// waitForReady blocks the current goroutine until the server is ready
+func (s *RaftServer) waitForReady() error {
+	_, ok := <-s.readyCh
+	if ok {
+		return nil
+	} else {
+		return errors.New("server stopped")
+	}
 }
 
 // getClient returns a connection for the given server
@@ -184,6 +219,7 @@ func (s *RaftServer) setRole(role Role) error {
 		s.role.stop()
 	}
 	s.role = role
+	log.Infof("Transitioning to %s", s.role.Name())
 	return role.start()
 }
 
@@ -215,12 +251,16 @@ func (s *RaftServer) Query(request *QueryRequest, server RaftService_QueryServer
 func (s *RaftServer) Stop() error {
 	s.state.stop()
 	s.server.Stop()
+	close(s.readyCh)
 	return nil
 }
 
 // Role is implemented by server roles to support protocol requests
 type Role interface {
 	RaftServiceServer
+
+	// Name is the name of the role
+	Name() string
 
 	// start initializes the role
 	start() error

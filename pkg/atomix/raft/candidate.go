@@ -26,6 +26,11 @@ type CandidateRole struct {
 	electionExpired chan bool
 }
 
+// Name is the name of the role
+func (r *CandidateRole) Name() string {
+	return "Candidate"
+}
+
 func (r *CandidateRole) start() error {
 	r.ActiveRole.start()
 	r.sendVoteRequests()
@@ -95,7 +100,7 @@ func (r *CandidateRole) resetElectionTimeout() {
 			if r.active {
 				// When the election times out, clear the previous majority vote
 				// check and restart the election.
-				log.Debug("Election round for term %d expired: not enough votes received within the election timeout; restarting election", r.raft.term)
+				log.Debugf("Election round for term %d expired: not enough votes received within the election timeout; restarting election", r.raft.term)
 				r.sendVoteRequests()
 			}
 		case <-r.electionExpired:
@@ -143,7 +148,7 @@ func (r *CandidateRole) sendVoteRequests() {
 				// If no oother leader has been discovered and a quorum of votes was received, transition to leader.
 				voteCount++
 				if r.raft.leader == "" && voteCount == quorum {
-					log.Debug("Won election with %d/%d votes; transitioning to leader", voteCount, quorum)
+					log.Debugf("Won election with %d/%d votes; transitioning to leader", voteCount, quorum)
 					r.raft.becomeLeader()
 					return
 				}
@@ -151,7 +156,7 @@ func (r *CandidateRole) sendVoteRequests() {
 				// If a quorum of vote requests were rejected, transition back to follower.
 				rejectCount++
 				if rejectCount == quorum {
-					log.Debug("Lost election with %d/%d votes rejected; transitioning back to follower", rejectCount, quorum)
+					log.Debugf("Lost election with %d/%d votes rejected; transitioning back to follower", rejectCount, quorum)
 					r.raft.becomeFollower()
 				}
 			}
@@ -174,7 +179,7 @@ func (r *CandidateRole) sendVoteRequests() {
 		lastTerm = lastEntry.Entry.Term
 	}
 
-	log.Debug("Requesting votes for term %d", r.raft.term)
+	log.Debugf("Requesting votes for term %d", r.raft.term)
 
 	// Once we got the last log term, iterate through each current member
 	// of the cluster and request a vote from each.
@@ -186,7 +191,7 @@ func (r *CandidateRole) sendVoteRequests() {
 		}
 
 		go func() {
-			log.Debug("Requesting vote from %s for term %d", member, r.raft.term+1)
+			log.Debugf("Requesting vote from %s for term %d", member, r.raft.term+1)
 			request := &VoteRequest{
 				Term:         r.raft.term,
 				Candidate:    r.raft.cluster.member,
@@ -202,18 +207,18 @@ func (r *CandidateRole) sendVoteRequests() {
 					log.Warn(err)
 				} else {
 					if response.Term > r.raft.term {
-						log.Debug("Received greater term from %s; transitioning back to follower", member)
+						log.Debugf("Received greater term from %s; transitioning back to follower", member)
 						r.raft.setTerm(response.Term)
 						r.raft.becomeFollower()
 						close(votes)
 					} else if !response.Voted {
-						log.Debug("Received rejected vote from %s", member)
+						log.Debugf("Received rejected vote from %s", member)
 						votes <- false
 					} else if response.Term != r.raft.term {
-						log.Debug("Received successful vote for a different term from %s", member)
+						log.Debugf("Received successful vote for a different term from %s", member)
 						votes <- false
 					} else {
-						log.Debug("Received successful vote from %s", member)
+						log.Debugf("Received successful vote from %s", member)
 						votes <- true
 					}
 				}
