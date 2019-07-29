@@ -88,7 +88,7 @@ func (c *RaftClient) getConn() (*grpc.ClientConn, error) {
 	}
 
 	if c.memberConn == nil {
-		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", c.member.Host, c.member.Port))
+		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", c.member.Host, c.member.Port), grpc.WithInsecure())
 		if err != nil {
 			return nil, err
 		}
