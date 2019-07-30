@@ -12,17 +12,17 @@ import (
 )
 
 // newAppender returns a new appender
-func newAppender(raft *RaftServer) *raftAppender {
+func newAppender(server *RaftServer) *raftAppender {
 	commitCh := make(chan memberCommit)
 	failCh := make(chan time.Time)
 	members := make(map[string]*memberAppender)
-	for _, member := range raft.cluster.members {
-		if member.MemberId != raft.cluster.member {
-			members[member.MemberId] = newMemberAppender(raft, member, commitCh, failCh)
+	for _, member := range server.cluster.members {
+		if member.MemberId != server.cluster.member {
+			members[member.MemberId] = newMemberAppender(server, member, commitCh, failCh)
 		}
 	}
 	appender := &raftAppender{
-		raft:             raft,
+		server:           server,
 		members:          members,
 		commitIndexes:    make(map[string]int64),
 		commitTimes:      make(map[string]time.Time),
@@ -38,7 +38,7 @@ func newAppender(raft *RaftServer) *raftAppender {
 
 // raftAppender handles replication on the leader
 type raftAppender struct {
-	raft             *RaftServer
+	server           *RaftServer
 	members          map[string]*memberAppender
 	commitIndexes    map[string]int64
 	commitTimes      map[string]time.Time
@@ -70,7 +70,13 @@ func (a *raftAppender) heartbeat() error {
 
 	ch := make(chan int64)
 	future := heartbeatFuture{}
+
+	// Acquire a lock to add the future to the heartbeat futures.
+	a.mu.Lock()
 	a.heartbeatFutures.PushBack(future)
+	a.mu.Unlock()
+
+	// Iterate through member appenders and add the future time to the heartbeat channels.
 	for _, member := range a.members {
 		member.heartbeatCh <- future.time
 	}
@@ -86,7 +92,9 @@ func (a *raftAppender) heartbeat() error {
 func (a *raftAppender) append(entry *IndexedEntry) error {
 	// If there are no members to send the entry to, immediately commit it.
 	if len(a.members) == 0 {
-		a.raft.setCommitIndex(entry.Index)
+		a.server.writeLock()
+		a.server.setCommitIndex(entry.Index)
+		a.server.writeUnlock()
 		return nil
 	}
 
@@ -140,9 +148,13 @@ func (a *raftAppender) commitIndex(member string, index int64) {
 			return indexes[i] < indexes[j]
 		})
 
+		// Acquire a write lock to increment the commitIndex.
+		a.server.writeLock()
+		defer a.server.writeUnlock()
+
 		commitIndex := indexes[len(a.members)/2]
-		for i := a.raft.commitIndex + 1; i <= commitIndex; i++ {
-			a.raft.setCommitIndex(i)
+		for i := a.server.commitIndex + 1; i <= commitIndex; i++ {
+			a.server.setCommitIndex(i)
 			ch, ok := a.commitChannels[i]
 			if ok {
 				ch <- i
@@ -168,12 +180,14 @@ func (a *raftAppender) commitTime(member string, time time.Time) {
 		})
 
 		commitTime := times[len(a.members)/2]
+		a.mu.Lock()
 		for commitFuture := a.heartbeatFutures.Front(); commitFuture != nil && commitFuture.Value.(heartbeatFuture).time.UnixNano() < commitTime; commitFuture = a.heartbeatFutures.Front() {
 			ch := commitFuture.Value.(heartbeatFuture).ch
 			ch <- struct{}{}
 			close(ch)
 			a.heartbeatFutures.Remove(commitFuture)
 		}
+		a.mu.Unlock()
 
 		// Update the last time a quorum of the cluster was reached
 		a.lastQuorumTime = time
@@ -181,11 +195,11 @@ func (a *raftAppender) commitTime(member string, time time.Time) {
 }
 
 func (a *raftAppender) failTime(failTime time.Time) {
-	if failTime.Sub(a.lastQuorumTime) > a.raft.electionTimeout*2 {
-		log.WithField("memberID", a.raft.cluster.member).
+	if failTime.Sub(a.lastQuorumTime) > a.server.electionTimeout*2 {
+		log.WithField("memberID", a.server.cluster.member).
 			Warn("Suspected network partition; stepping down")
-		a.raft.setLeader("")
-		a.raft.becomeFollower()
+		a.server.setLeader("")
+		a.server.becomeFollower()
 	}
 }
 
@@ -217,11 +231,11 @@ const (
 	maxBatchSize           = 1024 * 1024
 )
 
-func newMemberAppender(raft *RaftServer, member *RaftMember, commitCh chan<- memberCommit, failCh chan<- time.Time) *memberAppender {
-	ticker := time.NewTicker(raft.electionTimeout / 2)
-	reader := raft.log.OpenReader(0)
+func newMemberAppender(server *RaftServer, member *RaftMember, commitCh chan<- memberCommit, failCh chan<- time.Time) *memberAppender {
+	ticker := time.NewTicker(server.electionTimeout / 2)
+	reader := server.log.OpenReader(0)
 	return &memberAppender{
-		raft:        raft,
+		server:      server,
 		member:      member,
 		nextIndex:   reader.LastIndex() + 1,
 		entryCh:     make(chan *IndexedEntry),
@@ -239,7 +253,7 @@ func newMemberAppender(raft *RaftServer, member *RaftMember, commitCh chan<- mem
 
 // memberAppender handles replication to a member
 type memberAppender struct {
-	raft              *RaftServer
+	server            *RaftServer
 	member            *RaftMember
 	active            bool
 	snapshotIndex     int64
@@ -302,14 +316,15 @@ func (a *memberAppender) processEvents() {
 func (a *memberAppender) append() {
 	if a.failureCount >= minBackoffFailureCount {
 		timeSinceFailure := float64(time.Now().Sub(a.firstFailureTime))
-		heartbeatWaitTime := math.Min(float64(a.failureCount)*float64(a.failureCount)*float64(a.raft.electionTimeout), float64(maxHeartbeatWait))
+		heartbeatWaitTime := math.Min(float64(a.failureCount)*float64(a.failureCount)*float64(a.server.electionTimeout), float64(maxHeartbeatWait))
 		if timeSinceFailure > heartbeatWaitTime {
 			a.sendAppendRequest(a.nextAppendRequest())
 		}
 	} else {
-		snapshot := a.raft.snapshot.CurrentSnapshot()
+		// TODO: The snapshot store needs concurrency control when accessing the snapshots for replication.
+		snapshot := a.server.snapshot.CurrentSnapshot()
 		if snapshot != nil && a.snapshotIndex < snapshot.Index() && snapshot.Index() >= a.nextIndex {
-			log.WithField("memberID", a.raft.cluster.member).
+			log.WithField("memberID", a.server.cluster.member).
 				Debugf("Replicating snapshot %d to %s", snapshot.Index(), a.member.MemberId)
 			a.sendInstallRequests(snapshot)
 		} else {
@@ -345,9 +360,11 @@ func (a *memberAppender) requeue() {
 }
 
 func (a *memberAppender) newInstallRequest(snapshot Snapshot, bytes []byte) *InstallRequest {
+	a.server.readLock()
+	defer a.server.readUnlock()
 	return &InstallRequest{
-		Term:      a.raft.term,
-		Leader:    a.raft.leader,
+		Term:      a.server.term,
+		Leader:    a.server.leader,
 		Index:     snapshot.Index(),
 		Timestamp: snapshot.Timestamp(),
 		Data:      bytes,
@@ -358,12 +375,12 @@ func (a *memberAppender) sendInstallRequests(snapshot Snapshot) {
 	// Start the append to the member.
 	startTime := time.Now()
 
-	client, err := a.raft.getClient(a.member.MemberId)
+	client, err := a.server.cluster.getClient(a.member.MemberId)
 	if err != nil {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), a.raft.electionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), a.server.electionTimeout)
 	defer cancel()
 
 	stream, err := client.Install(ctx)
@@ -378,25 +395,25 @@ func (a *memberAppender) sendInstallRequests(snapshot Snapshot) {
 	n, err := reader.Read(bytes)
 	for n > 0 && err == nil {
 		request := a.newInstallRequest(snapshot, bytes[:n])
-		a.raft.logSendTo("InstallRequest", request, a.member.MemberId)
+		a.server.logSendTo("InstallRequest", request, a.member.MemberId)
 		stream.Send(request)
 		n, err = reader.Read(bytes)
 	}
 	if err != nil {
-		log.WithField("memberID", a.raft.cluster.member).
+		log.WithField("memberID", a.server.cluster.member).
 			Warn("Failed to read snapshot", err)
 	}
 
 	response, err := stream.CloseAndRecv()
 	if err == nil {
-		a.raft.logReceiveFrom("InstallResponse", response, a.member.MemberId)
+		a.server.logReceiveFrom("InstallResponse", response, a.member.MemberId)
 		if response.Status == ResponseStatus_OK {
 			a.handleInstallResponse(snapshot, response, startTime)
 		} else {
 			a.handleInstallFailure(snapshot, response, startTime)
 		}
 	} else {
-		a.raft.logErrorFrom("InstallRequest", err, a.member.MemberId)
+		a.server.logErrorFrom("InstallRequest", err, a.member.MemberId)
 		a.handleInstallError(snapshot, err, startTime)
 	}
 }
@@ -421,8 +438,9 @@ func (a *memberAppender) handleInstallFailure(snapshot Snapshot, response *Insta
 }
 
 func (a *memberAppender) handleInstallError(snapshot Snapshot, err error, startTime time.Time) {
-	log.WithField("memberID", a.raft.cluster.member).
+	log.WithField("memberID", a.server.cluster.member).
 		Debugf("Failed to install %s: %s", a.member.MemberId, err)
+	a.server.cluster.resetClient(a.member.MemberId)
 	a.fail(startTime)
 	a.requeue()
 }
@@ -433,6 +451,8 @@ func (a *memberAppender) nextAppendRequest() *AppendRequest {
 	// If the next index is greater than the last index then send an empty commit.
 	// If the member failed to respond to recent communication send an empty commit. This
 	// helps avoid doing expensive work until we can ascertain the member is back up.
+	a.server.readLock()
+	defer a.server.readUnlock()
 	if a.failureCount > 0 || a.reader.CurrentIndex() == a.reader.LastIndex() {
 		return a.emptyAppendRequest()
 	} else {
@@ -442,21 +462,21 @@ func (a *memberAppender) nextAppendRequest() *AppendRequest {
 
 func (a *memberAppender) emptyAppendRequest() *AppendRequest {
 	return &AppendRequest{
-		Term:         a.raft.term,
-		Leader:       a.raft.leader,
+		Term:         a.server.term,
+		Leader:       a.server.leader,
 		PrevLogIndex: a.nextIndex - 1,
 		PrevLogTerm:  a.prevTerm,
-		CommitIndex:  a.raft.commitIndex,
+		CommitIndex:  a.server.commitIndex,
 	}
 }
 
 func (a *memberAppender) entriesAppendRequest() *AppendRequest {
 	request := &AppendRequest{
-		Term:         a.raft.term,
-		Leader:       a.raft.leader,
+		Term:         a.server.term,
+		Leader:       a.server.leader,
 		PrevLogIndex: a.nextIndex - 1,
 		PrevLogTerm:  a.prevTerm,
-		CommitIndex:  a.raft.commitIndex,
+		CommitIndex:  a.server.commitIndex,
 	}
 
 	entriesList := list.New()
@@ -516,26 +536,26 @@ func (a *memberAppender) sendAppendRequest(request *AppendRequest) {
 	// Start the append to the member.
 	startTime := time.Now()
 
-	client, err := a.raft.getClient(a.member.MemberId)
+	client, err := a.server.cluster.getClient(a.member.MemberId)
 	if err != nil {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), a.raft.electionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), a.server.electionTimeout)
 	defer cancel()
 
-	a.raft.logSendTo("AppendRequest", request, a.member.MemberId)
+	a.server.logSendTo("AppendRequest", request, a.member.MemberId)
 	response, err := client.Append(ctx, request)
 
 	if err == nil {
-		a.raft.logReceiveFrom("AppendResponse", response, a.member.MemberId)
+		a.server.logReceiveFrom("AppendResponse", response, a.member.MemberId)
 		if response.Status == ResponseStatus_OK {
 			a.handleAppendResponse(request, response, startTime)
 		} else {
 			a.handleAppendFailure(request, response, startTime)
 		}
 	} else {
-		a.raft.logErrorFrom("AppendRequest", err, a.member.MemberId)
+		a.server.logErrorFrom("AppendRequest", err, a.member.MemberId)
 		a.handleAppendError(request, err, startTime)
 	}
 }
@@ -570,21 +590,35 @@ func (a *memberAppender) handleAppendResponse(request *AppendRequest, response *
 
 		// Notify the appender that the next index can be appended.
 		a.appendCh <- a.nextIndex
-	} else if response.Term > a.raft.term {
-		// If we've received a greater term, update the term and transition back to follower.
-		a.raft.setTerm(response.Term)
-		a.raft.setLeader("")
-		a.raft.becomeFollower()
 	} else {
-		// If the response failed, the follower should have provided the correct last index in their log. This helps
-		// us converge on the matchIndex faster than by simply decrementing nextIndex one index at a time.
+		// If the request was rejected, use a double checked lock to compare the response term to the
+		// server's term. If the term is greater than the local server's term, transition back to follower.
+		a.server.readLock()
+		if response.Term > a.server.term {
+			a.server.readUnlock()
+			a.server.writeLock()
+			defer a.server.writeUnlock()
+			if response.Term > a.server.term {
+				// If we've received a greater term, update the term and transition back to follower.
+				a.server.setTerm(response.Term)
+				a.server.setLeader("")
+				go a.server.becomeFollower()
+				return
+			}
+			return
+		} else {
+			a.server.readUnlock()
+		}
+
+		// If the request was rejected, the follower should have provided the correct last index in their log.
+		// This helps us converge on the matchIndex faster than by simply decrementing nextIndex one index at a time.
 		// Reset the matchIndex and nextIndex according to the response.
 		if response.LastLogIndex < a.matchIndex {
 			a.matchIndex = response.LastLogIndex
-			log.WithField("memberID", a.raft.cluster.member).
+			log.WithField("memberID", a.server.cluster.member).
 				Tracef("Reset match index for %s to %d", a.member.MemberId, a.matchIndex)
 			a.nextIndex = a.matchIndex + 1
-			log.WithField("memberID", a.raft.cluster.member).
+			log.WithField("memberID", a.server.cluster.member).
 				Tracef("Reset next index for %s to %d", a.member.MemberId, a.nextIndex)
 		}
 
@@ -599,6 +633,7 @@ func (a *memberAppender) handleAppendFailure(request *AppendRequest, response *A
 }
 
 func (a *memberAppender) handleAppendError(request *AppendRequest, err error, startTime time.Time) {
+	a.server.cluster.resetClient(a.member.MemberId)
 	a.fail(startTime)
 	a.requeue()
 }

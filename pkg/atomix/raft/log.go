@@ -2,7 +2,6 @@ package raft
 
 import (
 	"io"
-	"sync"
 )
 
 // RaftLog provides for reading and writing entries in the Raft log
@@ -34,12 +33,6 @@ type RaftLogWriter interface {
 
 	// Truncate truncates the tail of the log to the given index
 	Truncate(index int64)
-
-	// Lock locks the writer
-	Lock()
-
-	// Unlock unlocks the writer
-	Unlock()
 }
 
 // RaftLogReader supports reading of entries from the Raft log
@@ -66,12 +59,6 @@ type RaftLogReader interface {
 
 	// Reset resets the log reader to the given index
 	Reset(index int64)
-
-	// Lock locks the reader
-	Lock()
-
-	// Unlock unlocks the reader
-	Unlock()
 }
 
 // IndexedEntry is an indexed Raft log entry
@@ -95,7 +82,6 @@ func newMemoryLog() RaftLog {
 type memoryRaftLog struct {
 	entries    []*IndexedEntry
 	firstIndex int64
-	mu         sync.RWMutex
 	writer     *memoryRaftLogWriter
 	readers    []*memoryRaftLogReader
 }
@@ -105,8 +91,6 @@ func (l *memoryRaftLog) Writer() RaftLogWriter {
 }
 
 func (l *memoryRaftLog) OpenReader(index int64) RaftLogReader {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
 	readerIndex := -1
 	for i := 0; i < len(l.entries); i++ {
 		if l.entries[i].Index == index {
@@ -180,14 +164,6 @@ func (w *memoryRaftLogWriter) Truncate(index int64) {
 	}
 }
 
-func (w *memoryRaftLogWriter) Lock() {
-	w.log.mu.Lock()
-}
-
-func (w *memoryRaftLogWriter) Unlock() {
-	w.log.mu.Unlock()
-}
-
 func (w *memoryRaftLogWriter) Close() error {
 	panic("implement me")
 }
@@ -250,14 +226,6 @@ func (r *memoryRaftLogReader) maybeReset() {
 	if r.index >= 0 && len(r.log.entries) <= r.index {
 		r.index = len(r.log.entries)-1
 	}
-}
-
-func (r *memoryRaftLogReader) Lock() {
-	r.log.mu.RLock()
-}
-
-func (r *memoryRaftLogReader) Unlock() {
-	r.log.mu.RUnlock()
 }
 
 func (r *memoryRaftLogReader) Close() error {

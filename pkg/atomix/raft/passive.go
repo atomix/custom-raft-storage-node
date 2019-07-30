@@ -11,6 +11,12 @@ import (
 	"time"
 )
 
+func newPassiveRole(server *RaftServer) *PassiveRole {
+	return &PassiveRole{
+		raftRole: newRaftRole(server),
+	}
+}
+
 // PassiveRole implements a Raft follower
 type PassiveRole struct {
 	*raftRole
@@ -24,19 +30,21 @@ func (r *PassiveRole) Name() string {
 func (r *PassiveRole) updateTermAndLeader(term int64, leader string) bool {
 	// If the request indicates a term that is greater than the current term or no leader has been
 	// set for the current term, update leader and term.
-	if term > r.raft.term || (term == r.raft.term && r.raft.leader == "" && leader != "") {
-		r.raft.setTerm(term)
-		r.raft.setLeader(leader)
+	if term > r.server.term || (term == r.server.term && r.server.leader == "" && leader != "") {
+		r.server.setTerm(term)
+		r.server.setLeader(leader)
 		return true
 	}
 	return false
 }
 
 func (r *PassiveRole) Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
-	r.raft.logRequest("AppendRequest", request)
+	r.server.logRequest("AppendRequest", request)
+	r.server.writeLock()
+	defer r.server.writeUnlock()
 	r.updateTermAndLeader(request.Term, request.Leader)
 	response, err := r.handleAppend(ctx, request)
-	r.raft.logResponse("AppendResponse", response, err)
+	r.server.logResponse("AppendResponse", response, err)
 	return response, err
 }
 
@@ -52,17 +60,17 @@ func (r *PassiveRole) handleAppend(ctx context.Context, request *AppendRequest) 
 }
 
 func (r *PassiveRole) checkTerm(request *AppendRequest) *AppendResponse {
-	if request.Term < r.raft.term {
-		log.WithField("memberID", r.raft.cluster.member).
-			Debugf("Rejected %v: request term is less than the current term (%d)", request, r.raft.term)
-		return r.failAppend(r.raft.log.Writer().LastIndex())
+	if request.Term < r.server.term {
+		log.WithField("memberID", r.server.cluster.member).
+			Debugf("Rejected %v: request term is less than the current term (%d)", request, r.server.term)
+		return r.failAppend(r.server.log.Writer().LastIndex())
 	}
 	return nil
 }
 
 func (r *PassiveRole) checkPreviousEntry(request *AppendRequest) *AppendResponse {
-	writer := r.raft.writer
-	reader := r.raft.reader
+	writer := r.server.writer
+	reader := r.server.reader
 
 	// If the previous term is set, validate that it matches the local log.
 	// We check the previous log term since that indicates whether any entry is present in the leader's
@@ -76,7 +84,7 @@ func (r *PassiveRole) checkPreviousEntry(request *AppendRequest) *AppendResponse
 		if lastEntry != nil {
 			// If the previous log index is greater than the last entry index, fail the attempt.
 			if request.PrevLogIndex > lastEntry.Index {
-				log.WithField("memberID", r.raft.cluster.member).
+				log.WithField("memberID", r.server.cluster.member).
 					Debugf("Rejected %v: Previous index (%d) is greater than the local log's last index (%d)", request, request.PrevLogIndex, lastEntry.Index)
 				return r.failAppend(lastEntry.Index)
 			}
@@ -91,27 +99,27 @@ func (r *PassiveRole) checkPreviousEntry(request *AppendRequest) *AppendResponse
 				// The previous entry should exist in the log if we've gotten this far.
 				previousEntry := reader.NextEntry()
 				if previousEntry == nil {
-					log.WithField("memberID", r.raft.cluster.member).
+					log.WithField("memberID", r.server.cluster.member).
 						Debugf("Rejected %v: Previous entry does not exist in the local log", request)
 					return r.failAppend(lastEntry.Index)
 				}
 
 				// Read the previous entry and validate that the term matches the request previous log term.
 				if request.PrevLogTerm != previousEntry.Entry.Term {
-					log.WithField("memberID", r.raft.cluster.member).
+					log.WithField("memberID", r.server.cluster.member).
 						Debugf("Rejected %v: Previous entry term (%d) does not match local log's term for the same entry (%d)", request, request.PrevLogTerm, previousEntry.Entry.Term)
 					return r.failAppend(request.PrevLogIndex - 1)
 				}
 				// If the previous log term doesn't equal the last entry term, fail the append, sending the prior entry.
 			} else if request.PrevLogTerm != lastEntry.Entry.Term {
-				log.WithField("memberID", r.raft.cluster.member).
+				log.WithField("memberID", r.server.cluster.member).
 					Debugf("Rejected %v: Previous entry term (%d) does not equal the local log's last term (%d)", request, request.PrevLogTerm, lastEntry.Entry.Term)
 				return r.failAppend(request.PrevLogIndex - 1)
 			}
 		} else {
 			// If the previous log index is set and the last entry is null, fail the append.
 			if request.PrevLogIndex > 0 {
-				log.WithField("memberID", r.raft.cluster.member).
+				log.WithField("memberID", r.server.cluster.member).
 					Debugf("Rejected %v: Previous index (%d) is greater than the local log's last index (0)", request, request.PrevLogIndex)
 				return r.failAppend(0)
 			}
@@ -125,18 +133,18 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 	lastEntryIndex := request.PrevLogIndex + int64(len(request.Entries))
 
 	// Ensure the commitIndex is not increased beyond the index of the last entry in the request.
-	commitIndex := int64(math.Max(float64(r.raft.commitIndex), math.Min(float64(request.CommitIndex), float64(lastEntryIndex))))
+	commitIndex := int64(math.Max(float64(r.server.commitIndex), math.Min(float64(request.CommitIndex), float64(lastEntryIndex))))
 
 	// Track the last log index while entries are appended.
 	index := request.PrevLogIndex
 
 	// Set the first commit index if necessary.
-	r.raft.setFirstCommitIndex(request.CommitIndex)
-	prevCommitIndex := r.raft.commitIndex
+	r.server.setFirstCommitIndex(request.CommitIndex)
+	prevCommitIndex := r.server.commitIndex
 
 	if len(request.Entries) > 0 {
-		writer := r.raft.writer
-		reader := r.raft.reader
+		writer := r.server.writer
+		reader := r.server.reader
 
 		// If the previous term is zero, that indicates the previous index represents the beginning of the log.
 		// Reset the log to the previous index plus one.
@@ -181,7 +189,7 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 					if lastEntry.Entry.Term != entry.Term {
 						writer.Truncate(index - 1)
 						indexed := writer.Append(entry)
-						log.WithField("memberID", r.raft.cluster.member).
+						log.WithField("memberID", r.server.cluster.member).
 							Tracef("Appended %v", indexed)
 					}
 					// Otherwise, this entry is being appended at the end of the log.
@@ -193,20 +201,20 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 
 					// Append the entry and log a message.
 					indexed := writer.Append(entry)
-					log.WithField("memberID", r.raft.cluster.member).
+					log.WithField("memberID", r.server.cluster.member).
 						Tracef("Appended %v", indexed)
 				}
 				// Otherwise, if the last entry is null just append the entry and log a message.
 			} else {
 				indexed := writer.Append(entry)
-				log.WithField("memberID", r.raft.cluster.member).
+				log.WithField("memberID", r.server.cluster.member).
 					Tracef("Appended %v", indexed)
 			}
 
 			// Commit the entry. If the index is less than the commit index, apply the entry.
-			r.raft.setCommitIndex(index)
+			r.server.setCommitIndex(index)
 			if index <= commitIndex {
-				r.raft.state.applyEntry(&IndexedEntry{
+				r.server.state.applyEntry(&IndexedEntry{
 					Index: index,
 					Entry: entry,
 				}, nil)
@@ -234,7 +242,7 @@ func (r *PassiveRole) succeedAppend(lastIndex int64) *AppendResponse {
 func (r *PassiveRole) completeAppend(succeeded bool, lastIndex int64) *AppendResponse {
 	return &AppendResponse{
 		Status:       ResponseStatus_OK,
-		Term:         r.raft.term,
+		Term:         r.server.term,
 		Succeeded:    succeeded,
 		LastLogIndex: lastIndex,
 	}
@@ -244,7 +252,7 @@ func (r *PassiveRole) Install(stream RaftService_InstallServer) error {
 	var writer io.WriteCloser
 	for {
 		request, err := stream.Recv()
-		r.raft.logRequest("InstallRequest", request)
+		r.server.logRequest("InstallRequest", request)
 
 		// If the stream has ended, close the writer and respond successfully.
 		if err == io.EOF {
@@ -252,99 +260,114 @@ func (r *PassiveRole) Install(stream RaftService_InstallServer) error {
 			response := &InstallResponse{
 				Status: ResponseStatus_OK,
 			}
-			return r.raft.logResponse("InstallResponse", response, stream.SendAndClose(response))
+			return r.server.logResponse("InstallResponse", response, stream.SendAndClose(response))
 		}
 
 		// If an error occurred, return the error.
 		if err != nil {
-			return r.raft.logResponse("InstallResponse", nil, err)
+			return r.server.logResponse("InstallResponse", nil, err)
 		}
+
+		// Acquire a write lock to write the snapshot.
+		r.server.writeLock()
 
 		// Update the term and leader
 		r.updateTermAndLeader(request.Term, request.Leader)
 
 		// If the request is for a lesser term, reject the request.
-		if request.Term < r.raft.term {
+		if request.Term < r.server.term {
 			response := &InstallResponse{
 				Status: ResponseStatus_ERROR,
 				Error:  RaftError_ILLEGAL_MEMBER_STATE,
 			}
-			return r.raft.logResponse("InstallResponse", response, stream.SendAndClose(response))
+			return r.server.logResponse("InstallResponse", response, stream.SendAndClose(response))
 		}
 
 		if writer == nil {
-			snapshot := r.raft.snapshot.newSnapshot(request.Index, request.Timestamp)
+			snapshot := r.server.snapshot.newSnapshot(request.Index, request.Timestamp)
 			writer = snapshot.Writer()
 		}
 
-		if _, err := writer.Write(request.Data); err != nil {
+		_, err = writer.Write(request.Data)
+		r.server.writeUnlock()
+		if err != nil {
 			response := &InstallResponse{
 				Status: ResponseStatus_ERROR,
 				Error:  RaftError_PROTOCOL_ERROR,
 			}
-			return r.raft.logResponse("InstallResponse", response, stream.SendAndClose(response))
+			return r.server.logResponse("InstallResponse", response, stream.SendAndClose(response))
 		}
 	}
 }
 
 func (r *PassiveRole) Command(request *CommandRequest, server RaftService_CommandServer) error {
-	r.raft.logRequest("CommandRequest", request)
+	r.server.logRequest("CommandRequest", request)
+	r.server.readLock()
 	response := &CommandResponse{
 		Status: ResponseStatus_ERROR,
 		Error:  RaftError_ILLEGAL_MEMBER_STATE,
-		Leader: r.raft.leader,
-		Term:   r.raft.term,
+		Leader: r.server.leader,
+		Term:   r.server.term,
 	}
-	return r.raft.logResponse("CommandResponse", response, server.Send(response))
+	r.server.readUnlock()
+	return r.server.logResponse("CommandResponse", response, server.Send(response))
 }
 
 func (r *PassiveRole) Query(request *QueryRequest, server RaftService_QueryServer) error {
-	r.raft.logRequest("QueryRequest", request)
+	r.server.logRequest("QueryRequest", request)
+	r.server.readLock()
+	leader := r.server.leader
 
 	// If this server has not yet applied entries up to the client's session ID, forward the
 	// query to the leader. This ensures that a follower does not tell the client its session
 	// doesn't exist if the follower hasn't had a chance to see the session's registration entry.
-	if r.raft.status != RaftStatusReady {
-		log.WithField("memberID", r.raft.cluster.member).
+	if r.server.status != RaftStatusReady {
+		r.server.readUnlock()
+		log.WithField("memberID", r.server.cluster.member).
 			Tracef("State out of sync, forwarding query to leader")
-		return r.forwardQuery(request, server)
+		return r.forwardQuery(request, leader, server)
 	}
 
 	// If the session's consistency level is SEQUENTIAL, handle the request here, otherwise forward it.
 	if request.ReadConsistency == ReadConsistency_SEQUENTIAL {
-
 		// If the commit index is not in the log then we've fallen too far behind the leader to perform a local query.
 		// Forward the request to the leader.
-		if r.raft.writer.LastIndex() < r.raft.commitIndex {
-			log.WithField("memberID", r.raft.cluster.member).
+		if r.server.writer.LastIndex() < r.server.commitIndex {
+			r.server.readUnlock()
+			log.WithField("memberID", r.server.cluster.member).
 				Tracef("State out of sync, forwarding query to leader")
-			return r.forwardQuery(request, server)
+			return r.forwardQuery(request, leader, server)
 		}
-		return r.applyQuery(request, server)
+
+		entry := &IndexedEntry{
+			Index: r.server.writer.LastIndex(),
+			Entry: &RaftLogEntry{
+				Term:      r.server.term,
+				Timestamp: time.Now().UnixNano(),
+				Entry: &RaftLogEntry_Query{
+					Query: &QueryEntry{
+						Value: request.Value,
+					},
+				},
+			},
+		}
+
+		// Release the read lock before applying the entry.
+		r.server.readUnlock()
+
+		return r.applyQuery(entry, server)
 	} else {
-		return r.forwardQuery(request, server)
+		r.server.readUnlock()
+		return r.forwardQuery(request, leader, server)
 	}
 }
 
-func (r *PassiveRole) applyQuery(request *QueryRequest, server RaftService_QueryServer) error {
-	entry := &IndexedEntry{
-		Index: r.raft.writer.LastIndex(),
-		Entry: &RaftLogEntry{
-			Term:      r.raft.term,
-			Timestamp: time.Now().UnixNano(),
-			Entry: &RaftLogEntry_Query{
-				Query: &QueryEntry{
-					Value: request.Value,
-				},
-			},
-		},
-	}
-
+func (r *PassiveRole) applyQuery(entry *IndexedEntry, server RaftService_QueryServer) error {
 	// Create a result channel
 	ch := make(chan service.Output)
 
 	// Apply the entry to the state machine
-	r.raft.state.applyEntry(entry, ch)
+	r.server.state.applyEntry(entry, ch)
 
 	// Iterate through results and translate them into QueryResponses.
 	for result := range ch {
@@ -353,7 +376,7 @@ func (r *PassiveRole) applyQuery(request *QueryRequest, server RaftService_Query
 				Status: ResponseStatus_OK,
 				Output: result.Value,
 			}
-			err := r.raft.logResponse("QueryResponse", response, server.Send(response))
+			err := r.server.logResponse("QueryResponse", response, server.Send(response))
 			if err != nil {
 				return err
 			}
@@ -362,7 +385,7 @@ func (r *PassiveRole) applyQuery(request *QueryRequest, server RaftService_Query
 				Status:  ResponseStatus_ERROR,
 				Message: result.Error.Error(),
 			}
-			err := r.raft.logResponse("QueryResponse", response, server.Send(response))
+			err := r.server.logResponse("QueryResponse", response, server.Send(response))
 			if err != nil {
 				return err
 			}
@@ -372,25 +395,24 @@ func (r *PassiveRole) applyQuery(request *QueryRequest, server RaftService_Query
 }
 
 // forwardQuery forwards a query request to the leader
-func (r *PassiveRole) forwardQuery(request *QueryRequest, server RaftService_QueryServer) error {
-	leader := r.raft.leader
+func (r *PassiveRole) forwardQuery(request *QueryRequest, leader string, server RaftService_QueryServer) error {
 	if leader == "" {
 		response := &QueryResponse{
 			Status: ResponseStatus_ERROR,
 			Error:  RaftError_NO_LEADER,
 		}
-		return r.raft.logResponse("QueryResponse", response, server.Send(response))
+		return r.server.logResponse("QueryResponse", response, server.Send(response))
 	} else {
-		log.WithField("memberID", r.raft.cluster.member).
+		log.WithField("memberID", r.server.cluster.member).
 			Tracef("Forwarding %v", request)
-		client, err := r.raft.getClient(leader)
+		client, err := r.server.cluster.getClient(leader)
 		if err != nil {
-			return r.raft.logResponse("QueryResponse", nil, err)
+			return r.server.logResponse("QueryResponse", nil, err)
 		}
 
 		stream, err := client.Query(context.Background(), request)
 		if err != nil {
-			return r.raft.logResponse("QueryResponse", nil, err)
+			return r.server.logResponse("QueryResponse", nil, err)
 		}
 
 		for {
@@ -399,10 +421,10 @@ func (r *PassiveRole) forwardQuery(request *QueryRequest, server RaftService_Que
 				break
 			}
 			if err != nil {
-				return r.raft.logResponse("QueryResponse", nil, err)
+				return r.server.logResponse("QueryResponse", nil, err)
 			}
-			r.raft.logRequest("QueryResponse", response)
-			r.raft.logResponse("QueryResponse", response, server.Send(response))
+			r.server.logRequest("QueryResponse", response)
+			r.server.logResponse("QueryResponse", response, server.Send(response))
 		}
 		return nil
 	}

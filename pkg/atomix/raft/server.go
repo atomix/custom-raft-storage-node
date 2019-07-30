@@ -63,7 +63,23 @@ type RaftServer struct {
 	writer           RaftLogWriter
 	reader           RaftLogReader
 	electionTimeout  time.Duration
-	mu               sync.Mutex
+	mu               sync.RWMutex
+}
+
+func (s *RaftServer) readLock() {
+	s.mu.RLock()
+}
+
+func (s *RaftServer) readUnlock() {
+	s.mu.RUnlock()
+}
+
+func (s *RaftServer) writeLock() {
+	s.mu.Lock()
+}
+
+func (s *RaftServer) writeUnlock() {
+	s.mu.Unlock()
 }
 
 func (s *RaftServer) setTerm(term int64) {
@@ -180,29 +196,6 @@ func (s *RaftServer) waitForReady() error {
 	}
 }
 
-// getClient returns a connection for the given server
-func (s *RaftServer) getClient(server string) (RaftServiceClient, error) {
-	_, ok := s.cluster.members[server]
-	if !ok {
-		return nil, errors.New(fmt.Sprintf("unknown member %s", server))
-	}
-
-	conn, ok := s.cluster.conns[server]
-	if !ok {
-		location, ok := s.cluster.locations[server]
-		if !ok {
-			return nil, errors.New(fmt.Sprintf("unknown member %s", server))
-		}
-
-		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", location.Host, location.Port), grpc.WithInsecure())
-		if err != nil {
-			return nil, err
-		}
-		return NewRaftServiceClient(conn), nil
-	}
-	return NewRaftServiceClient(conn), nil
-}
-
 func (s *RaftServer) logReceive(name string, message interface{}) {
 	log.WithField("memberID", s.cluster.member).
 		Tracef("Received %s [%v]", name, message)
@@ -263,11 +256,13 @@ func (s *RaftServer) becomeLeader() error {
 }
 
 func (s *RaftServer) setRole(role Role) error {
+	s.writeLock()
+	log.WithField("memberID", s.cluster.member).Infof("Transitioning to %s", role.Name())
 	if s.role != nil {
 		s.role.stop()
 	}
 	s.role = role
-	log.WithField("memberID", s.cluster.member).Infof("Transitioning to %s", s.role.Name())
+	s.writeUnlock()
 	return role.start()
 }
 

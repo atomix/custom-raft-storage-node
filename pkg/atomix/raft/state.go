@@ -5,11 +5,15 @@ import (
 	"time"
 )
 
+const (
+	stateBufferSize = 1024
+)
+
 // newStateManager returns a new Raft state manager
 func newStateManager(raft *RaftServer, registry *service.ServiceRegistry) *stateManager {
 	sm := &stateManager{
 		reader: raft.log.OpenReader(0),
-		ch:     make(chan *change),
+		ch:     make(chan *change, stateBufferSize),
 	}
 	sm.state = service.NewPrimitiveStateMachine(registry, sm)
 	return sm

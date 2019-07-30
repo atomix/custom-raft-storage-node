@@ -9,15 +9,9 @@ import (
 )
 
 // newFollowerRole returns a new follower role
-func newFollowerRole(raft *RaftServer) Role {
+func newFollowerRole(server *RaftServer) Role {
 	return &FollowerRole{
-		ActiveRole: &ActiveRole{
-			PassiveRole: &PassiveRole{
-				raftRole: &raftRole{
-					raft: raft,
-				},
-			},
-		},
+		ActiveRole: newActiveRole(server),
 	}
 }
 
@@ -34,10 +28,11 @@ func (r *FollowerRole) Name() string {
 }
 
 func (r *FollowerRole) start() error {
-	// If there are no other members in the cluster, immediately transition to leader.
-	if len(r.raft.cluster.members) == 1 {
-		log.WithField("memberID", r.raft.cluster.member).Debugf("Single node cluster; starting election")
-		r.raft.becomeCandidate()
+	// If there are no other members in the cluster, immediately transition to candidate to increment the term.
+	if len(r.server.cluster.members) == 1 {
+		log.WithField("memberID", r.server.cluster.member).
+			Debugf("Single node cluster; starting election")
+		go r.server.becomeCandidate()
 		return nil
 	}
 	r.ActiveRole.start()
@@ -63,17 +58,21 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 
 	// Set the election timeout in a semi-random fashion with the random range
 	// being election timeout and 2 * election timeout.
-	timeout := r.raft.electionTimeout + time.Duration(rand.Int63n(int64(r.raft.electionTimeout)))
+	timeout := r.server.electionTimeout + time.Duration(rand.Int63n(int64(r.server.electionTimeout)))
 	r.heartbeatTimer = time.NewTimer(timeout)
 	r.heartbeatStop = make(chan bool, 1)
 	go func() {
 		select {
 		case <-r.heartbeatTimer.C:
+			r.server.writeLock()
 			if r.active {
-				r.raft.setLeader("")
-				log.WithField("memberID", r.raft.cluster.member).
+				r.server.setLeader("")
+				r.server.writeUnlock()
+				log.WithField("memberID", r.server.cluster.member).
 					Debugf("Heartbeat timed out in %d", timeout)
 				r.sendPollRequests()
+			} else {
+				r.server.writeUnlock()
 			}
 		case <-r.heartbeatStop:
 			return
@@ -84,13 +83,13 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 // sendPollRequests sends PollRequests to all members of the cluster
 func (r *FollowerRole) sendPollRequests() {
 	// Set a new timer within which other nodes must respond in order for this node to transition to candidate.
-	timeoutTimer := time.NewTimer(r.raft.electionTimeout)
+	timeoutTimer := time.NewTimer(r.server.electionTimeout)
 	timeoutExpired := make(chan bool, 1)
 	go func() {
 		select {
 		case <-timeoutTimer.C:
-			log.WithField("memberID", r.raft.cluster.member).
-				Debugf("Failed to poll a majority of the cluster in %d", r.raft.electionTimeout)
+			log.WithField("memberID", r.server.cluster.member).
+				Debugf("Failed to poll a majority of the cluster in %d", r.server.electionTimeout)
 			r.resetHeartbeatTimeout()
 		case <-timeoutExpired:
 			return
@@ -98,43 +97,39 @@ func (r *FollowerRole) sendPollRequests() {
 	}()
 
 	// Create a quorum that will track the number of nodes that have responded to the poll request.
-	votingMembers := r.raft.cluster.memberIDs
-
-	// If there are no other members in the cluster, immediately transition to leader.
-	if len(votingMembers) == 1 {
-		log.WithField("memberID", r.raft.cluster.member).
-			Debugf("Single node cluster; starting election")
-		r.raft.becomeCandidate()
-		return
-	}
-
-	// Compute the quorum and create a goroutine to count votes
+	votingMembers := r.server.cluster.memberIDs
 	votes := make(chan bool, len(votingMembers))
 	quorum := int(math.Floor(float64(len(votingMembers))/2.0) + 1)
 	go func() {
 		acceptCount := 0
 		rejectCount := 0
 		for vote := range votes {
+			r.server.readLock()
 			if !r.active {
+				r.server.readUnlock()
 				return
 			}
 			if vote {
 				// If no leader has been discovered and the quorum was reached, transition to candidate.
 				acceptCount++
-				if r.raft.leader == "" && acceptCount == quorum {
-					log.WithField("memberID", r.raft.cluster.member).
+				if r.server.leader == "" && acceptCount == quorum {
+					r.server.readUnlock()
+					log.WithField("memberID", r.server.cluster.member).
 						Debugf("Received %d/%d pre-votes; transitioning to candidate", acceptCount, len(votingMembers))
-					r.raft.becomeCandidate()
+					go r.server.becomeCandidate()
 					return
+				} else {
+					r.server.readUnlock()
 				}
 			} else {
 				rejectCount++
 				if rejectCount == quorum {
-					log.WithField("memberID", r.raft.cluster.member).
+					log.WithField("memberID", r.server.cluster.member).
 						Debugf("Received %d/%d rejected pre-votes; resetting heartbeat timeout", rejectCount, len(votingMembers))
 					r.resetHeartbeatTimeout()
 					return
 				}
+				r.server.readUnlock()
 			}
 		}
 
@@ -144,7 +139,9 @@ func (r *FollowerRole) sendPollRequests() {
 
 	// First, load the last log entry to get its term. We load the entry
 	// by its index since the index is required by the protocol.
-	lastEntry := r.raft.writer.LastEntry()
+	r.server.readLock()
+	lastEntry := r.server.writer.LastEntry()
+	r.server.readUnlock()
 	var lastIndex int64
 	if lastEntry != nil {
 		lastIndex = lastEntry.Index
@@ -155,54 +152,64 @@ func (r *FollowerRole) sendPollRequests() {
 		lastTerm = lastEntry.Entry.Term
 	}
 
-	log.WithField("memberID", r.raft.cluster.member).
+	log.WithField("memberID", r.server.cluster.member).
 		Debugf("Polling members %v", votingMembers)
 
 	// Once we got the last log term, iterate through each current member
 	// of the cluster and vote each member for a vote.
 	for _, member := range votingMembers {
 		// Vote for yourself!
-		if member == r.raft.cluster.member {
+		if member == r.server.cluster.member {
 			votes <- true
 			continue
 		}
 
 		go func(member string) {
-			log.WithField("memberID", r.raft.cluster.member).
-				Debugf("Polling %s for next term %d", member, r.raft.term+1)
+			r.server.readLock()
+			term := r.server.term
+			r.server.readUnlock()
+			log.WithField("memberID", r.server.cluster.member).
+				Debugf("Polling %s for next term %d", member, term+1)
 			request := &PollRequest{
-				Term:         r.raft.term,
-				Candidate:    r.raft.cluster.member,
+				Term:         term,
+				Candidate:    r.server.cluster.member,
 				LastLogIndex: lastIndex,
 				LastLogTerm:  lastTerm,
 			}
 
-			client, err := r.raft.getClient(member)
+			client, err := r.server.cluster.getClient(member)
 			if err != nil {
 				votes <- false
-				log.WithField("memberID", r.raft.cluster.member).Warn(err)
+				log.WithField("memberID", r.server.cluster.member).Warn(err)
 			} else {
-				r.raft.logSend("PollRequest", request)
+				r.server.logSend("PollRequest", request)
 				response, err := client.Poll(context.Background(), request)
 				if err != nil {
 					votes <- false
-					log.WithField("memberID", r.raft.cluster.member).Warn(err)
+					log.WithField("memberID", r.server.cluster.member).Warn(err)
 				} else {
-					r.raft.logReceive("PollResponse", response)
-					if response.Term > r.raft.term {
-						r.raft.setTerm(response.Term)
+					r.server.logReceive("PollResponse", response)
+
+					// If the response term is greater than the term we send, use a double checked lock
+					// to increment the term.
+					if response.Term > term {
+						r.server.writeLock()
+						if response.Term > r.server.term {
+							r.server.setTerm(response.Term)
+						}
+						r.server.writeUnlock()
 					}
 
 					if !response.Accepted {
-						log.WithField("memberID", r.raft.cluster.member).
+						log.WithField("memberID", r.server.cluster.member).
 							Debugf("Received rejected poll from %s", member)
 						votes <- false
-					} else if response.Term != r.raft.term {
-						log.WithField("memberID", r.raft.cluster.member).
+					} else if response.Term != request.Term {
+						log.WithField("memberID", r.server.cluster.member).
 							Debugf("Received accepted poll for a different term from %s", member)
 						votes <- false
 					} else {
-						log.WithField("memberID", r.raft.cluster.member).
+						log.WithField("memberID", r.server.cluster.member).
 							Debugf("Received accepted poll from %s", member)
 						votes <- true
 					}
@@ -231,7 +238,9 @@ func (r *FollowerRole) Append(ctx context.Context, request *AppendRequest) (*App
 }
 
 func (r *FollowerRole) handleVote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
+	r.server.writeLock()
 	response, err := r.ActiveRole.handleVote(ctx, request)
+	r.server.writeUnlock()
 	if response.Voted {
 		r.resetHeartbeatTimeout()
 	}
