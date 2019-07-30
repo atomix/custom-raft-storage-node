@@ -22,15 +22,18 @@ func newRaftClient(consistency ReadConsistency) *RaftClient {
 // RaftClient is a service Client implementation for the Raft consensus protocol
 type RaftClient struct {
 	service.Client
-	members     map[string]*atomix.Member
-	membersList *list.List
-	memberNode  *list.Element
-	member      *atomix.Member
-	memberConn  *grpc.ClientConn
-	client      RaftServiceClient
-	consistency ReadConsistency
-	requestID   int64
-	mu          sync.Mutex
+	members      map[string]*atomix.Member
+	membersList  *list.List
+	memberNode   *list.Element
+	member       *atomix.Member
+	memberConn   *grpc.ClientConn
+	client       RaftServiceClient
+	leader       *atomix.Member
+	leaderConn   *grpc.ClientConn
+	leaderClient RaftServiceClient
+	consistency  ReadConsistency
+	requestID    int64
+	mu           sync.Mutex
 }
 
 func (c *RaftClient) Connect(cluster atomix.Cluster) error {
@@ -45,7 +48,7 @@ func (c *RaftClient) Connect(cluster atomix.Cluster) error {
 
 func (c *RaftClient) Write(ctx context.Context, in []byte, ch chan<- service.Output) error {
 	request := &CommandRequest{
-		Value:          in,
+		Value: in,
 	}
 	go c.write(ctx, request, ch)
 	return nil
@@ -57,6 +60,99 @@ func (c *RaftClient) Read(ctx context.Context, in []byte, ch chan<- service.Outp
 		ReadConsistency: c.consistency,
 	}
 	go c.read(ctx, request, ch)
+	return nil
+}
+
+// resetLeaderConn resets the client's connection to the leader
+func (c *RaftClient) resetLeaderConn() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.leaderConn != nil {
+		c.leaderConn.Close()
+	}
+}
+
+// getLeaderConn gets the gRPC client connection to the leader
+func (c *RaftClient) getLeaderConn() (*grpc.ClientConn, error) {
+	if c.leader == nil {
+		return c.getConn()
+	}
+	if c.leaderConn != nil {
+		return c.leaderConn, nil
+	}
+
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", c.leader.Host, c.leader.Port), grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	c.leaderConn = conn
+	return c.leaderConn, nil
+}
+
+// getClient gets the current Raft client connection for the leader
+func (c *RaftClient) getLeaderClient() (RaftServiceClient, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.leaderClient == nil {
+		conn, err := c.getLeaderConn()
+		if err != nil {
+			return nil, err
+		}
+		c.leaderClient = NewRaftServiceClient(conn)
+	}
+	return c.leaderClient, nil
+}
+
+func (c *RaftClient) write(ctx context.Context, request *CommandRequest, ch chan<- service.Output) error {
+	client, err := c.getLeaderClient()
+	if err != nil {
+		return err
+	}
+
+	stream, err := client.Command(ctx, request)
+	if err != nil {
+		return err
+	}
+
+	for {
+		response, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			c.resetConn()
+			return err
+		}
+
+		if response.Status == ResponseStatus_OK {
+			ch <- service.Output{
+				Value: response.Output,
+			}
+		} else if response.Error == RaftError_ILLEGAL_MEMBER_STATE {
+			if c.leader == nil || response.Leader != c.leader.ID {
+				leader, ok := c.members[response.Leader]
+				if ok {
+					c.leader = leader
+					c.resetLeaderConn()
+					return c.write(ctx, request, ch)
+				} else {
+					ch <- service.Output{
+						Error: errors.New(response.Message),
+					}
+					return nil
+				}
+			} else {
+				ch <- service.Output{
+					Error: errors.New(response.Message),
+				}
+				return nil
+			}
+		} else {
+			ch <- service.Output{
+				Error: errors.New(response.Message),
+			}
+		}
+	}
 	return nil
 }
 
@@ -109,40 +205,6 @@ func (c *RaftClient) getClient() (RaftServiceClient, error) {
 	return c.client, nil
 }
 
-func (c *RaftClient) write(ctx context.Context, request *CommandRequest, ch chan<- service.Output) error {
-	client, err := c.getClient()
-	if err != nil {
-		return err
-	}
-
-	stream, err := client.Command(ctx, request)
-	if err != nil {
-		return err
-	}
-
-	for {
-		response, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			c.resetConn()
-			return err
-		}
-
-		if response.Status == ResponseStatus_OK {
-			ch <- service.Output{
-				Value: response.Output,
-			}
-		} else {
-			ch <- service.Output{
-				Error: errors.New(response.Message),
-			}
-		}
-	}
-	return nil
-}
-
 func (c *RaftClient) read(ctx context.Context, request *QueryRequest, ch chan<- service.Output) error {
 	client, err := c.getClient()
 	if err != nil {
@@ -167,6 +229,9 @@ func (c *RaftClient) read(ctx context.Context, request *QueryRequest, ch chan<- 
 			ch <- service.Output{
 				Value: response.Output,
 			}
+		} else if response.Error == RaftError_ILLEGAL_MEMBER_STATE {
+			c.resetConn()
+			return c.read(ctx, request, ch)
 		} else {
 			ch <- service.Output{
 				Error: errors.New(response.Message),
@@ -177,5 +242,11 @@ func (c *RaftClient) read(ctx context.Context, request *QueryRequest, ch chan<- 
 }
 
 func (c *RaftClient) Close() error {
+	if c.memberConn != nil {
+		c.memberConn.Close()
+	}
+	if c.leaderConn != nil {
+		c.leaderConn.Close()
+	}
 	return nil
 }
