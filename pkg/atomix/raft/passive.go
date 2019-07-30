@@ -38,8 +38,8 @@ func (r *PassiveRole) updateTermAndLeader(term int64, leader string) bool {
 	// If the request indicates a term that is greater than the current term or no leader has been
 	// set for the current term, update leader and term.
 	if term > r.raft.term || (term == r.raft.term && r.raft.leader == "" && leader != "") {
-		r.raft.setTerm(term);
-		r.raft.setLeader(leader);
+		r.raft.setTerm(term)
+		r.raft.setLeader(leader)
 		return true
 	}
 	return false
@@ -146,7 +146,7 @@ func (r *PassiveRole) checkPreviousEntry(request *AppendRequest) *AppendResponse
 				// The previous entry should exist in the log if we've gotten this far.
 				previousEntry := reader.NextEntry()
 				if previousEntry == nil {
-					return r.failAppend(lastEntry.Index);
+					return r.failAppend(lastEntry.Index)
 				}
 
 				// Read the previous entry and validate that the term matches the request previous log term.
@@ -333,7 +333,7 @@ func (r *PassiveRole) Query(request *QueryRequest, server RaftService_QueryServe
 	// query to the leader. This ensures that a follower does not tell the client its session
 	// doesn't exist if the follower hasn't had a chance to see the session's registration entry.
 	if r.raft.status != RaftStatusReady {
-		log.Tracef("State out of sync, forwarding query to leader");
+		log.WithField("memberID", r.raft.cluster.member).Tracef("State out of sync, forwarding query to leader")
 		return r.forwardQuery(request, server)
 	}
 
@@ -343,12 +343,12 @@ func (r *PassiveRole) Query(request *QueryRequest, server RaftService_QueryServe
 		// If the commit index is not in the log then we've fallen too far behind the leader to perform a local query.
 		// Forward the request to the leader.
 		if r.raft.writer.LastIndex() < r.raft.commitIndex {
-			log.Tracef("State out of sync, forwarding query to leader");
+			log.WithField("memberID", r.raft.cluster.member).Tracef("State out of sync, forwarding query to leader")
 			return r.forwardQuery(request, server)
 		}
-		return r.applyQuery(request, server);
+		return r.applyQuery(request, server)
 	} else {
-		return r.forwardQuery(request, server);
+		return r.forwardQuery(request, server)
 	}
 }
 
@@ -404,7 +404,7 @@ func (r *PassiveRole) forwardQuery(request *QueryRequest, server RaftService_Que
 			Error:  RaftError_NO_LEADER,
 		})
 	} else {
-		log.Tracef("Forwarding %v", request)
+		log.WithField("memberID", r.raft.cluster.member).Tracef("Forwarding %v", request)
 		client, err := r.raft.getClient(leader)
 		if err != nil {
 			return err

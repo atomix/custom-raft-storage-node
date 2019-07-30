@@ -27,6 +27,7 @@ func TestRaftNode(t *testing.T) {
 
 	server := newServer("foo", cluster)
 	go server.Start()
+	defer server.Stop()
 	server.waitForReady()
 
 	client := newRaftClient(ReadConsistency_SEQUENTIAL)
@@ -96,6 +97,10 @@ func TestRaftCluster(t *testing.T) {
 	go startServer(serverBar, wg)
 	go startServer(serverBaz, wg)
 	wg.Wait()
+
+	defer serverFoo.Stop()
+	defer serverBar.Stop()
+	defer serverBaz.Stop()
 }
 
 func newServer(memberID string, cluster atomix.Cluster) *RaftServer {

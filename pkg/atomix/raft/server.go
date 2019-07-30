@@ -1,6 +1,7 @@
 package raft
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
@@ -93,27 +95,27 @@ func (s *RaftServer) setLeader(leader string) {
 func (s *RaftServer) setLastVotedFor(candidate string) {
 	// If we've already voted for another candidate in this term then the last voted for candidate cannot be overridden.
 	if s.lastVotedFor != "" && candidate != "" {
-		log.Error("Already voted for another candidate")
+		log.WithField("memberID", s.cluster.member).Error("Already voted for another candidate")
 	}
 
 	// Verify the candidate is a member of the cluster.
 	if _, ok := s.cluster.members[candidate]; !ok {
-		log.Errorf("Unknown candidate: %s", candidate)
+		log.WithField("memberID", s.cluster.member).Errorf("Unknown candidate: %s", candidate)
 	}
 
 	s.lastVotedFor = candidate
 	s.metadata.StoreVote(candidate)
 
 	if candidate != "" {
-		log.Debugf("Voted for %s", candidate)
+		log.WithField("memberID", s.cluster.member).Debugf("Voted for %s", candidate)
 	} else {
-		log.Trace("Reset last voted for")
+		log.WithField("memberID", s.cluster.member).Trace("Reset last voted for")
 	}
 }
 
 func (s *RaftServer) setStatus(status RaftStatus) {
 	if s.status != status {
-		log.Infof("Server is %s", status)
+		log.WithField("memberID", s.cluster.member).Infof("Server is %s", status)
 		s.status = status
 		if status == RaftStatusReady {
 			s.readyCh <- struct{}{}
@@ -192,7 +194,7 @@ func (s *RaftServer) getClient(server string) (RaftServiceClient, error) {
 			return nil, errors.New(fmt.Sprintf("unknown member %s", server))
 		}
 
-		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", location.Host, location.Port))
+		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", location.Host, location.Port), grpc.WithInsecure())
 		if err != nil {
 			return nil, err
 		}
@@ -221,7 +223,7 @@ func (s *RaftServer) setRole(role Role) error {
 		s.role.stop()
 	}
 	s.role = role
-	log.Infof("Transitioning to %s", s.role.Name())
+	log.WithField("memberID", s.cluster.member).Infof("Transitioning to %s", s.role.Name())
 	return role.start()
 }
 
@@ -269,4 +271,27 @@ type Role interface {
 
 	// stop stops the role
 	stop() error
+}
+
+type serverFormatter struct{}
+
+func (f *serverFormatter) Format(entry *log.Entry) ([]byte, error) {
+	buf := bytes.Buffer{}
+	buf.Write([]byte(entry.Time.Format(time.StampMilli)))
+	buf.Write([]byte(" "))
+	buf.Write([]byte(fmt.Sprintf("%-6v", strings.ToUpper(entry.Level.String()))))
+	buf.Write([]byte(" "))
+	memberID := entry.Data["memberID"]
+	if memberID == nil {
+		memberID = ""
+	}
+	buf.Write([]byte(fmt.Sprintf("%-10v", memberID)))
+	buf.Write([]byte(" "))
+	buf.Write([]byte(entry.Message))
+	buf.Write([]byte("\n"))
+	return buf.Bytes(), nil
+}
+
+func init() {
+	log.SetFormatter(&serverFormatter{})
 }

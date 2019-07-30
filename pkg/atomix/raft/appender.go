@@ -204,7 +204,7 @@ func (a *raftAppender) commitTime(member string, time time.Time) {
 
 func (a *raftAppender) failTime(failTime time.Time) {
 	if failTime.Sub(a.lastQuorumTime) > a.raft.electionTimeout*2 {
-		log.Warn("Suspected network partition; stepping down")
+		log.WithField("memberID", a.raft.cluster.member).Warn("Suspected network partition; stepping down")
 		a.raft.setLeader("")
 		a.raft.becomeFollower()
 	}
@@ -333,7 +333,7 @@ func (a *memberAppender) append() {
 	} else {
 		snapshot := a.raft.snapshot.CurrentSnapshot()
 		if snapshot != nil && a.snapshotIndex < snapshot.Index() && snapshot.Index() >= a.nextIndex {
-			log.Debugf("Replicating snapshot %d to %s", snapshot.Index(), a.member.MemberId)
+			log.WithField("memberID", a.raft.cluster.member).Debugf("Replicating snapshot %d to %s", snapshot.Index(), a.member.MemberId)
 			a.sendInstallRequests(snapshot)
 		} else {
 			a.sendAppendRequest(a.nextAppendRequest())
@@ -401,16 +401,16 @@ func (a *memberAppender) sendInstallRequests(snapshot Snapshot) {
 	n, err := reader.Read(bytes)
 	for n > 0 && err == nil {
 		request := a.newInstallRequest(snapshot, bytes[:n])
-		log.Tracef("Sending %v to %s", request, a.member.MemberId)
+		log.WithField("memberID", a.raft.cluster.member).Tracef("Sending %v to %s", request, a.member.MemberId)
 		n, err = reader.Read(bytes)
 	}
 	if err != nil {
-		log.Warn("Failed to read snapshot", err)
+		log.WithField("memberID", a.raft.cluster.member).Warn("Failed to read snapshot", err)
 	}
 
 	response, err := stream.CloseAndRecv()
 	if err == nil {
-		log.Tracef("Received %v from %s", response, a.member.MemberId)
+		log.WithField("memberID", a.raft.cluster.member).Tracef("Received %v from %s", response, a.member.MemberId)
 		if response.Status == ResponseStatus_OK {
 			a.handleInstallResponse(snapshot, response, startTime)
 		} else {
@@ -441,7 +441,7 @@ func (a *memberAppender) handleInstallFailure(snapshot Snapshot, response *Insta
 }
 
 func (a *memberAppender) handleInstallError(snapshot Snapshot, err error, startTime time.Time) {
-	log.Debugf("Failed to install %s: %s", a.member.MemberId, err)
+	log.WithField("memberID", a.raft.cluster.member).Debugf("Failed to install %s: %s", a.member.MemberId, err)
 	a.fail(startTime)
 	a.requeue()
 }
@@ -542,11 +542,11 @@ func (a *memberAppender) sendAppendRequest(request *AppendRequest) {
 	ctx, cancel := context.WithTimeout(context.Background(), a.raft.electionTimeout)
 	defer cancel()
 
-	log.Tracef("Sending %v to %s", request, a.member.MemberId)
+	log.WithField("memberID", a.raft.cluster.member).Tracef("Sending %v to %s", request, a.member.MemberId)
 	response, err := client.Append(ctx, request)
 
 	if err == nil {
-		log.Tracef("Received %v from %s", response, a.member.MemberId)
+		log.WithField("memberID", a.raft.cluster.member).Tracef("Received %v from %s", response, a.member.MemberId)
 		if response.Status == ResponseStatus_OK {
 			a.handleAppendResponse(request, response, startTime)
 		} else {
@@ -592,9 +592,9 @@ func (a *memberAppender) handleAppendResponse(request *AppendRequest, response *
 		// Reset the matchIndex and nextIndex according to the response.
 		if response.LastLogIndex < a.matchIndex {
 			a.matchIndex = response.LastLogIndex
-			log.Tracef("Reset match index for %s to %d", a.member.MemberId, a.matchIndex)
+			log.WithField("memberID", a.raft.cluster.member).Tracef("Reset match index for %s to %d", a.member.MemberId, a.matchIndex)
 			a.nextIndex = a.matchIndex + 1
-			log.Tracef("Reset next index for %s to %d", a.member.MemberId, a.nextIndex)
+			log.WithField("memberID", a.raft.cluster.member).Tracef("Reset next index for %s to %d", a.member.MemberId, a.nextIndex)
 		}
 
 		// Notify the appender that the next index can be appended.

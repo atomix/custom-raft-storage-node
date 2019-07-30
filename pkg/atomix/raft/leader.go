@@ -66,7 +66,7 @@ func (r *LeaderRole) commitInitializeEntry() {
 	// that the commitIndex is not increased until the no-op entry is committed.
 	err := r.appender.append(indexed)
 	if err != nil {
-		log.Debugf("Failed to commit entry from leader's term; transitioning to follower")
+		log.WithField("memberID", r.raft.cluster.member).Debugf("Failed to commit entry from leader's term; transitioning to follower")
 		r.raft.setLeader("")
 		r.raft.becomeFollower()
 	} else {
@@ -85,7 +85,7 @@ func (r *LeaderRole) Poll(ctx context.Context, request *PollRequest) (*PollRespo
 
 func (r *LeaderRole) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
 	if r.updateTermAndLeader(request.Term, "") {
-		log.Debug("Received greater term")
+		log.WithField("memberID", r.raft.cluster.member).Debug("Received greater term")
 		defer r.raft.becomeFollower()
 		return r.ActiveRole.Vote(ctx, request);
 	} else {
