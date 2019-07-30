@@ -464,7 +464,7 @@ func (a *memberAppender) entriesAppendRequest() *AppendRequest {
 	// Build a list of entries starting at the nextIndex, using the cache if possible.
 	size := 0
 	nextIndex := a.nextIndex
-	for nextIndex < a.reader.LastIndex() {
+	for nextIndex <= a.reader.LastIndex() {
 		// First, try to get the entry from the cache.
 		entry := a.queue.Front()
 		if entry != nil {
