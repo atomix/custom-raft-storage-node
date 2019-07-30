@@ -69,8 +69,9 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 		case <-r.heartbeatTimer.C:
 			if r.active {
 				r.raft.setLeader("")
-				log.WithField("memberID", r.raft.cluster.member).Debugf("Heartbeat timed out in %d", timeout);
-				r.sendPollRequests();
+				log.WithField("memberID", r.raft.cluster.member).
+					Debugf("Heartbeat timed out in %d", timeout)
+				r.sendPollRequests()
 			}
 		case <-r.heartbeatStop:
 			return
@@ -86,7 +87,8 @@ func (r *FollowerRole) sendPollRequests() {
 	go func() {
 		select {
 		case <-timeoutTimer.C:
-			log.WithField("memberID", r.raft.cluster.member).Debugf("Failed to poll a majority of the cluster in %d", r.raft.electionTimeout)
+			log.WithField("memberID", r.raft.cluster.member).
+				Debugf("Failed to poll a majority of the cluster in %d", r.raft.electionTimeout)
 			r.resetHeartbeatTimeout()
 		case <-timeoutExpired:
 			return
@@ -98,7 +100,8 @@ func (r *FollowerRole) sendPollRequests() {
 
 	// If there are no other members in the cluster, immediately transition to leader.
 	if len(votingMembers) == 1 {
-		log.WithField("memberID", r.raft.cluster.member).Debugf("Single node cluster; starting election")
+		log.WithField("memberID", r.raft.cluster.member).
+			Debugf("Single node cluster; starting election")
 		r.raft.becomeCandidate()
 		return
 	}
@@ -117,14 +120,16 @@ func (r *FollowerRole) sendPollRequests() {
 				// If no leader has been discovered and the quorum was reached, transition to candidate.
 				acceptCount++
 				if r.raft.leader == "" && acceptCount == quorum {
-					log.WithField("memberID", r.raft.cluster.member).Debugf("Received %d/%d pre-votes; transitioning to candidate", acceptCount, quorum)
+					log.WithField("memberID", r.raft.cluster.member).
+						Debugf("Received %d/%d pre-votes; transitioning to candidate", acceptCount, quorum)
 					r.raft.becomeCandidate()
 					return
 				}
 			} else {
 				rejectCount++
 				if rejectCount == quorum {
-					log.WithField("memberID", r.raft.cluster.member).Debugf("Received %d/%d rejected pre-votes; resetting heartbeat timeout", rejectCount, quorum)
+					log.WithField("memberID", r.raft.cluster.member).
+						Debugf("Received %d/%d rejected pre-votes; resetting heartbeat timeout", rejectCount, quorum)
 					r.resetHeartbeatTimeout()
 					return
 				}
@@ -148,7 +153,8 @@ func (r *FollowerRole) sendPollRequests() {
 		lastTerm = lastEntry.Entry.Term
 	}
 
-	log.WithField("memberID", r.raft.cluster.member).Debugf("Polling members %v", votingMembers);
+	log.WithField("memberID", r.raft.cluster.member).
+		Debugf("Polling members %v", votingMembers)
 
 	// Once we got the last log term, iterate through each current member
 	// of the cluster and vote each member for a vote.
@@ -159,8 +165,9 @@ func (r *FollowerRole) sendPollRequests() {
 			continue
 		}
 
-		go func() {
-			log.WithField("memberID", r.raft.cluster.member).Debugf("Polling %s for next term %d", member, r.raft.term+1)
+		go func(member string) {
+			log.WithField("memberID", r.raft.cluster.member).
+				Debugf("Polling %s for next term %d", member, r.raft.term+1)
 			request := &PollRequest{
 				Term:         r.raft.term,
 				Candidate:    r.raft.cluster.member,
@@ -179,22 +186,25 @@ func (r *FollowerRole) sendPollRequests() {
 					log.WithField("memberID", r.raft.cluster.member).Warn(err)
 				} else {
 					if response.Term > r.raft.term {
-						r.raft.setTerm(response.Term);
+						r.raft.setTerm(response.Term)
 					}
 
 					if !response.Accepted {
-						log.WithField("memberID", r.raft.cluster.member).Debugf("Received rejected poll from %s", member);
+						log.WithField("memberID", r.raft.cluster.member).
+							Debugf("Received rejected poll from %s", member)
 						votes <- false
 					} else if response.Term != r.raft.term {
-						log.WithField("memberID", r.raft.cluster.member).Debugf("Received accepted poll for a different term from %s", member);
+						log.WithField("memberID", r.raft.cluster.member).
+							Debugf("Received accepted poll for a different term from %s", member)
 						votes <- false
 					} else {
-						log.WithField("memberID", r.raft.cluster.member).Debugf("Received accepted poll from %s", member);
+						log.WithField("memberID", r.raft.cluster.member).
+							Debugf("Received accepted poll from %s", member)
 						votes <- true
 					}
 				}
 			}
-		}()
+		}(member)
 	}
 }
 

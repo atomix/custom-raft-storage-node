@@ -112,6 +112,8 @@ func (r *PassiveRole) handleAppend(ctx context.Context, request *AppendRequest) 
 
 func (r *PassiveRole) checkTerm(request *AppendRequest) *AppendResponse {
 	if request.Term < r.raft.term {
+		log.WithField("memberID", r.raft.cluster.member).
+			Debugf("Rejected %v: request term is less than the current term (%d)", request, r.raft.term)
 		return r.failAppend(r.raft.log.Writer().LastIndex())
 	}
 	return nil
@@ -133,6 +135,8 @@ func (r *PassiveRole) checkPreviousEntry(request *AppendRequest) *AppendResponse
 		if lastEntry != nil {
 			// If the previous log index is greater than the last entry index, fail the attempt.
 			if request.PrevLogIndex > lastEntry.Index {
+				log.WithField("memberID", r.raft.cluster.member).
+					Debugf("Rejected %v: Previous index (%d) is greater than the local log's last index (%d)", request, request.PrevLogIndex, lastEntry.Index)
 				return r.failAppend(lastEntry.Index)
 			}
 
@@ -146,20 +150,28 @@ func (r *PassiveRole) checkPreviousEntry(request *AppendRequest) *AppendResponse
 				// The previous entry should exist in the log if we've gotten this far.
 				previousEntry := reader.NextEntry()
 				if previousEntry == nil {
+					log.WithField("memberID", r.raft.cluster.member).
+						Debugf("Rejected %v: Previous entry does not exist in the local log", request)
 					return r.failAppend(lastEntry.Index)
 				}
 
 				// Read the previous entry and validate that the term matches the request previous log term.
 				if request.PrevLogTerm != previousEntry.Entry.Term {
+					log.WithField("memberID", r.raft.cluster.member).
+						Debugf("Rejected %v: Previous entry term (%d) does not match local log's term for the same entry (%d)", request, request.PrevLogTerm, previousEntry.Entry.Term)
 					return r.failAppend(request.PrevLogIndex - 1)
 				}
 				// If the previous log term doesn't equal the last entry term, fail the append, sending the prior entry.
 			} else if request.PrevLogTerm != lastEntry.Entry.Term {
+				log.WithField("memberID", r.raft.cluster.member).
+					Debugf("Rejected %v: Previous entry term (%d) does not equal the local log's last term (%d)", request, request.PrevLogTerm, lastEntry.Entry.Term)
 				return r.failAppend(request.PrevLogIndex - 1)
 			}
 		} else {
 			// If the previous log index is set and the last entry is null, fail the append.
 			if request.PrevLogIndex > 0 {
+				log.WithField("memberID", r.raft.cluster.member).
+					Debugf("Rejected %v: Previous index (%d) is greater than the local log's last index (0)", request, request.PrevLogIndex)
 				return r.failAppend(0)
 			}
 		}
@@ -177,6 +189,10 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 	// Track the last log index while entries are appended.
 	index := request.PrevLogIndex
 
+	// Set the first commit index if necessary.
+	r.raft.setFirstCommitIndex(request.CommitIndex)
+	prevCommitIndex := r.raft.commitIndex
+
 	if len(request.Entries) > 0 {
 		writer := r.raft.writer
 		reader := r.raft.reader
@@ -184,6 +200,7 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 		// If the previous term is zero, that indicates the previous index represents the beginning of the log.
 		// Reset the log to the previous index plus one.
 		if request.PrevLogTerm == 0 {
+			log.Debugf("Reset first index to %d", request.PrevLogIndex+1)
 			writer.Reset(request.PrevLogIndex + 1)
 		}
 
@@ -222,7 +239,9 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 					// the log and append the leader's entry.
 					if lastEntry.Entry.Term != entry.Term {
 						writer.Truncate(index - 1)
-						writer.Append(entry)
+						indexed := writer.Append(entry)
+						log.WithField("memberID", r.raft.cluster.member).
+							Tracef("Appended %v", indexed)
 					}
 					// Otherwise, this entry is being appended at the end of the log.
 				} else {
@@ -232,15 +251,20 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 					}
 
 					// Append the entry and log a message.
-					writer.Append(entry)
+					indexed := writer.Append(entry)
+					log.WithField("memberID", r.raft.cluster.member).
+						Tracef("Appended %v", indexed)
 				}
 				// Otherwise, if the last entry is null just append the entry and log a message.
 			} else {
-				writer.Append(entry)
+				indexed := writer.Append(entry)
+				log.WithField("memberID", r.raft.cluster.member).
+					Tracef("Appended %v", indexed)
 			}
 
 			// If the index is less than the commit index, apply the entry
 			if index <= commitIndex {
+				r.raft.setCommitIndex(index)
 				r.raft.state.applyEntry(&IndexedEntry{
 					Index: index,
 					Entry: entry,
@@ -249,11 +273,10 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 		}
 	}
 
-	// Set the first commit index if necessary.
-	r.raft.setFirstCommitIndex(request.CommitIndex)
-
 	// Update the context commit and global indices.
-	r.raft.setCommitIndex(commitIndex)
+	if commitIndex > prevCommitIndex {
+		log.Tracef("Committed entries up to index %d", commitIndex);
+	}
 
 	// Return a successful append response.
 	return r.succeedAppend(index), nil
@@ -333,7 +356,8 @@ func (r *PassiveRole) Query(request *QueryRequest, server RaftService_QueryServe
 	// query to the leader. This ensures that a follower does not tell the client its session
 	// doesn't exist if the follower hasn't had a chance to see the session's registration entry.
 	if r.raft.status != RaftStatusReady {
-		log.WithField("memberID", r.raft.cluster.member).Tracef("State out of sync, forwarding query to leader")
+		log.WithField("memberID", r.raft.cluster.member).
+			Tracef("State out of sync, forwarding query to leader")
 		return r.forwardQuery(request, server)
 	}
 
@@ -343,7 +367,8 @@ func (r *PassiveRole) Query(request *QueryRequest, server RaftService_QueryServe
 		// If the commit index is not in the log then we've fallen too far behind the leader to perform a local query.
 		// Forward the request to the leader.
 		if r.raft.writer.LastIndex() < r.raft.commitIndex {
-			log.WithField("memberID", r.raft.cluster.member).Tracef("State out of sync, forwarding query to leader")
+			log.WithField("memberID", r.raft.cluster.member).
+				Tracef("State out of sync, forwarding query to leader")
 			return r.forwardQuery(request, server)
 		}
 		return r.applyQuery(request, server)
@@ -404,7 +429,8 @@ func (r *PassiveRole) forwardQuery(request *QueryRequest, server RaftService_Que
 			Error:  RaftError_NO_LEADER,
 		})
 	} else {
-		log.WithField("memberID", r.raft.cluster.member).Tracef("Forwarding %v", request)
+		log.WithField("memberID", r.raft.cluster.member).
+			Tracef("Forwarding %v", request)
 		client, err := r.raft.getClient(leader)
 		if err != nil {
 			return err
