@@ -13,7 +13,9 @@ func newCandidateRole(raft *RaftServer) Role {
 	return &CandidateRole{
 		ActiveRole: &ActiveRole{
 			PassiveRole: &PassiveRole{
-				raft: raft,
+				raftRole: &raftRole{
+					raft: raft,
+				},
 			},
 		},
 	}
@@ -45,38 +47,49 @@ func (r *CandidateRole) stop() error {
 }
 
 func (r *CandidateRole) Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
+	r.raft.logRequest("AppendRequest", request)
+
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context and step down as a candidate.
 	if request.Term >= r.raft.term {
 		r.raft.setTerm(request.Term)
-		r.raft.becomeFollower()
+		defer r.raft.becomeFollower()
 	}
-	return r.ActiveRole.Append(ctx, request)
+	response, err := r.ActiveRole.Append(ctx, request)
+	r.raft.logResponse("AppendResponse", response, err)
+	return response, err
 }
 
 func (r *CandidateRole) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
+	r.raft.logRequest("VoteRequest", request)
+
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context and step down as a candidate.
 	if r.updateTermAndLeader(request.Term, "") {
+		defer r.raft.becomeFollower()
 		response, err := r.ActiveRole.Vote(ctx, request)
-		r.raft.becomeFollower()
+		r.raft.logResponse("VoteResponse", response, err)
 		return response, err
 	}
 
 	// Candidates will always vote for themselves, so if the vote request is for this node then accept the request.
 	// Otherwise, reject it.
 	if request.Candidate == r.raft.cluster.member {
-		return &VoteResponse{
+		response := &VoteResponse{
 			Status: ResponseStatus_OK,
 			Term:   r.raft.term,
 			Voted:  true,
-		}, nil
+		}
+		r.raft.logResponse("VoteResponse", response, nil)
+		return response, nil
 	} else {
-		return &VoteResponse{
+		response := &VoteResponse{
 			Status: ResponseStatus_OK,
 			Term:   r.raft.term,
 			Voted:  false,
-		}, nil
+		}
+		r.raft.logResponse("VoteResponse", response, nil)
+		return response, nil
 	}
 }
 
@@ -151,7 +164,7 @@ func (r *CandidateRole) sendVoteRequests() {
 				voteCount++
 				if r.raft.leader == "" && voteCount == quorum {
 					log.WithField("memberID", r.raft.cluster.member).
-						Debugf("Won election with %d/%d votes; transitioning to leader", voteCount, quorum)
+						Debugf("Won election with %d/%d votes; transitioning to leader", voteCount, len(votingMembers))
 					r.raft.becomeLeader()
 					return
 				}
@@ -160,7 +173,7 @@ func (r *CandidateRole) sendVoteRequests() {
 				rejectCount++
 				if rejectCount == quorum {
 					log.WithField("memberID", r.raft.cluster.member).
-						Debugf("Lost election with %d/%d votes rejected; transitioning back to follower", rejectCount, quorum)
+						Debugf("Lost election with %d/%d votes rejected; transitioning back to follower", rejectCount, len(votingMembers))
 					r.raft.becomeFollower()
 				}
 			}
@@ -207,11 +220,13 @@ func (r *CandidateRole) sendVoteRequests() {
 
 			client, err := r.raft.getClient(member)
 			if err == nil {
+				r.raft.logSend("VoteRequest", request)
 				response, err := client.Vote(context.Background(), request)
 				if err != nil {
 					votes <- false
 					log.WithField("memberID", r.raft.cluster.member).Warn(err)
 				} else {
+					r.raft.logReceive("VoteResponse", response)
 					if response.Term > r.raft.term {
 						log.WithField("memberID", r.raft.cluster.member).
 							Debugf("Received greater term from %s; transitioning back to follower", member)

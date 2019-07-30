@@ -13,7 +13,9 @@ func newFollowerRole(raft *RaftServer) Role {
 	return &FollowerRole{
 		ActiveRole: &ActiveRole{
 			PassiveRole: &PassiveRole{
-				raft: raft,
+				raftRole: &raftRole{
+					raft: raft,
+				},
 			},
 		},
 	}
@@ -121,7 +123,7 @@ func (r *FollowerRole) sendPollRequests() {
 				acceptCount++
 				if r.raft.leader == "" && acceptCount == quorum {
 					log.WithField("memberID", r.raft.cluster.member).
-						Debugf("Received %d/%d pre-votes; transitioning to candidate", acceptCount, quorum)
+						Debugf("Received %d/%d pre-votes; transitioning to candidate", acceptCount, len(votingMembers))
 					r.raft.becomeCandidate()
 					return
 				}
@@ -129,7 +131,7 @@ func (r *FollowerRole) sendPollRequests() {
 				rejectCount++
 				if rejectCount == quorum {
 					log.WithField("memberID", r.raft.cluster.member).
-						Debugf("Received %d/%d rejected pre-votes; resetting heartbeat timeout", rejectCount, quorum)
+						Debugf("Received %d/%d rejected pre-votes; resetting heartbeat timeout", rejectCount, len(votingMembers))
 					r.resetHeartbeatTimeout()
 					return
 				}
@@ -180,11 +182,13 @@ func (r *FollowerRole) sendPollRequests() {
 				votes <- false
 				log.WithField("memberID", r.raft.cluster.member).Warn(err)
 			} else {
+				r.raft.logSend("PollRequest", request)
 				response, err := client.Poll(context.Background(), request)
 				if err != nil {
 					votes <- false
 					log.WithField("memberID", r.raft.cluster.member).Warn(err)
 				} else {
+					r.raft.logReceive("PollResponse", response)
 					if response.Term > r.raft.term {
 						r.raft.setTerm(response.Term)
 					}

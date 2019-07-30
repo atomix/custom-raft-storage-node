@@ -11,17 +11,24 @@ type ActiveRole struct {
 }
 
 func (r *ActiveRole) Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
+	r.raft.logRequest("AppendRequest", request)
+
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context and transition to follower.
 	if r.updateTermAndLeader(request.Term, request.Leader) {
 		defer r.raft.becomeFollower()
 	}
-	return r.handleAppend(ctx, request)
+	response, err := r.handleAppend(ctx, request)
+	r.raft.logResponse("AppendResponse", response, err)
+	return response, err
 }
 
 func (r *ActiveRole) Poll(ctx context.Context, request *PollRequest) (*PollResponse, error) {
+	r.raft.logRequest("PollRequest", request)
 	r.updateTermAndLeader(request.Term, "")
-	return r.handlePoll(ctx, request)
+	response, err := r.handlePoll(ctx, request)
+	r.raft.logResponse("PollResponse", response, err)
+	return response, err
 }
 
 func (r *ActiveRole) handlePoll(ctx context.Context, request *PollRequest) (*PollResponse, error) {
@@ -88,14 +95,16 @@ func (r *ActiveRole) isLogUpToDate(lastIndex int64, lastTerm int64, request inte
 }
 
 func (r *ActiveRole) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
+	r.raft.logRequest("VoteRequest", request)
+
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context.
-	transition := r.updateTermAndLeader(request.Term, "")
+	if r.updateTermAndLeader(request.Term, "") {
+		defer r.raft.becomeFollower()
+	}
 
 	response, err := r.handleVote(ctx, request)
-	if transition {
-		r.raft.becomeFollower()
-	}
+	r.raft.logResponse("VoteResponse", response, err)
 	return response, err
 }
 

@@ -203,6 +203,50 @@ func (s *RaftServer) getClient(server string) (RaftServiceClient, error) {
 	return NewRaftServiceClient(conn), nil
 }
 
+func (s *RaftServer) logReceive(name string, message interface{}) {
+	log.WithField("memberID", s.cluster.member).
+		Tracef("Received %s [%v]", name, message)
+}
+
+func (s *RaftServer) logSend(name string, message interface{}) {
+	log.WithField("memberID", s.cluster.member).
+		Tracef("Sending %s [%v]", name, message)
+}
+
+func (s *RaftServer) logError(name string, err error) {
+	log.WithField("memberID", s.cluster.member).
+		Tracef("Error %s [%v]", name, err)
+}
+
+func (s *RaftServer) logSendTo(name string, message interface{}, member string) {
+	log.WithField("memberID", s.cluster.member).
+		Tracef("Sending %s [%v] to %s", name, message, member)
+}
+
+func (s *RaftServer) logReceiveFrom(name string, message interface{}, member string) {
+	log.WithField("memberID", s.cluster.member).
+		Tracef("Received %s [%v] from %s", name, message, member)
+}
+
+func (s *RaftServer) logErrorFrom(name string, err error, member string) {
+	log.WithField("memberID", s.cluster.member).
+		Warnf("Error %s [%v] from %s", name, err, member)
+}
+
+func (s *RaftServer) logRequest(name string, request interface{}) {
+	s.logReceive(name, request)
+}
+
+func (s *RaftServer) logResponse(name string, response interface{}, err error) error {
+	if response != nil {
+		s.logSend(name, response)
+	}
+	if err != nil {
+		s.logError(name, err)
+	}
+	return err
+}
+
 // becomeFollower transitions the server's role to follower
 func (s *RaftServer) becomeFollower() error {
 	return s.setRole(newFollowerRole(s))
@@ -257,20 +301,6 @@ func (s *RaftServer) Stop() error {
 	s.server.Stop()
 	close(s.readyCh)
 	return nil
-}
-
-// Role is implemented by server roles to support protocol requests
-type Role interface {
-	RaftServiceServer
-
-	// Name is the name of the role
-	Name() string
-
-	// start initializes the role
-	start() error
-
-	// stop stops the role
-	stop() error
 }
 
 type serverFormatter struct{}

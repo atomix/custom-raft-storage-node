@@ -13,25 +13,12 @@ import (
 
 // PassiveRole implements a Raft follower
 type PassiveRole struct {
-	raft   *RaftServer
-	active bool
+	*raftRole
 }
 
 // Name is the name of the role
 func (r *PassiveRole) Name() string {
 	return "Passive"
-}
-
-// start starts the role
-func (r *PassiveRole) start() error {
-	r.active = true
-	return nil
-}
-
-// stop stops the role
-func (r *PassiveRole) stop() error {
-	r.active = false
-	return nil
 }
 
 func (r *PassiveRole) updateTermAndLeader(term int64, leader string) bool {
@@ -45,58 +32,12 @@ func (r *PassiveRole) updateTermAndLeader(term int64, leader string) bool {
 	return false
 }
 
-func (r *PassiveRole) Join(ctx context.Context, request *JoinRequest) (*JoinResponse, error) {
-	return &JoinResponse{
-		Status: ResponseStatus_ERROR,
-		Error:  RaftError_ILLEGAL_MEMBER_STATE,
-	}, nil
-}
-
-func (r *PassiveRole) Leave(ctx context.Context, request *LeaveRequest) (*LeaveResponse, error) {
-	return &LeaveResponse{
-		Status: ResponseStatus_ERROR,
-		Error:  RaftError_ILLEGAL_MEMBER_STATE,
-	}, nil
-}
-
-func (r *PassiveRole) Configure(ctx context.Context, request *ConfigureRequest) (*ConfigureResponse, error) {
-	return &ConfigureResponse{
-		Status: ResponseStatus_ERROR,
-		Error:  RaftError_ILLEGAL_MEMBER_STATE,
-	}, nil
-}
-
-func (r *PassiveRole) Reconfigure(ctx context.Context, request *ReconfigureRequest) (*ReconfigureResponse, error) {
-	return &ReconfigureResponse{
-		Status: ResponseStatus_ERROR,
-		Error:  RaftError_ILLEGAL_MEMBER_STATE,
-	}, nil
-}
-
-func (r *PassiveRole) Poll(ctx context.Context, request *PollRequest) (*PollResponse, error) {
-	return &PollResponse{
-		Status: ResponseStatus_ERROR,
-		Error:  RaftError_ILLEGAL_MEMBER_STATE,
-	}, nil
-}
-
-func (r *PassiveRole) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
-	return &VoteResponse{
-		Status: ResponseStatus_ERROR,
-		Error:  RaftError_ILLEGAL_MEMBER_STATE,
-	}, nil
-}
-
-func (r *PassiveRole) Transfer(ctx context.Context, request *TransferRequest) (*TransferResponse, error) {
-	return &TransferResponse{
-		Status: ResponseStatus_ERROR,
-		Error:  RaftError_ILLEGAL_MEMBER_STATE,
-	}, nil
-}
-
 func (r *PassiveRole) Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
+	r.raft.logRequest("AppendRequest", request)
 	r.updateTermAndLeader(request.Term, request.Leader)
-	return r.handleAppend(ctx, request)
+	response, err := r.handleAppend(ctx, request)
+	r.raft.logResponse("AppendResponse", response, err)
+	return response, err
 }
 
 func (r *PassiveRole) handleAppend(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
@@ -303,18 +244,20 @@ func (r *PassiveRole) Install(stream RaftService_InstallServer) error {
 	var writer io.WriteCloser
 	for {
 		request, err := stream.Recv()
+		r.raft.logRequest("InstallRequest", request)
 
 		// If the stream has ended, close the writer and respond successfully.
 		if err == io.EOF {
 			writer.Close()
-			return stream.SendAndClose(&InstallResponse{
+			response := &InstallResponse{
 				Status: ResponseStatus_OK,
-			})
+			}
+			return r.raft.logResponse("InstallResponse", response, stream.SendAndClose(response))
 		}
 
 		// If an error occurred, return the error.
 		if err != nil {
-			return err
+			return r.raft.logResponse("InstallResponse", nil, err)
 		}
 
 		// Update the term and leader
@@ -322,10 +265,11 @@ func (r *PassiveRole) Install(stream RaftService_InstallServer) error {
 
 		// If the request is for a lesser term, reject the request.
 		if request.Term < r.raft.term {
-			return stream.SendAndClose(&InstallResponse{
+			response := &InstallResponse{
 				Status: ResponseStatus_ERROR,
 				Error:  RaftError_ILLEGAL_MEMBER_STATE,
-			})
+			}
+			return r.raft.logResponse("InstallResponse", response, stream.SendAndClose(response))
 		}
 
 		if writer == nil {
@@ -334,24 +278,29 @@ func (r *PassiveRole) Install(stream RaftService_InstallServer) error {
 		}
 
 		if _, err := writer.Write(request.Data); err != nil {
-			return stream.SendAndClose(&InstallResponse{
+			response := &InstallResponse{
 				Status: ResponseStatus_ERROR,
 				Error:  RaftError_PROTOCOL_ERROR,
-			})
+			}
+			return r.raft.logResponse("InstallResponse", response, stream.SendAndClose(response))
 		}
 	}
 }
 
 func (r *PassiveRole) Command(request *CommandRequest, server RaftService_CommandServer) error {
-	return server.Send(&CommandResponse{
+	r.raft.logRequest("CommandRequest", request)
+	response := &CommandResponse{
 		Status: ResponseStatus_ERROR,
 		Error:  RaftError_ILLEGAL_MEMBER_STATE,
 		Leader: r.raft.leader,
 		Term:   r.raft.term,
-	})
+	}
+	return r.raft.logResponse("CommandResponse", response, server.Send(response))
 }
 
 func (r *PassiveRole) Query(request *QueryRequest, server RaftService_QueryServer) error {
+	r.raft.logRequest("QueryRequest", request)
+
 	// If this server has not yet applied entries up to the client's session ID, forward the
 	// query to the leader. This ensures that a follower does not tell the client its session
 	// doesn't exist if the follower hasn't had a chance to see the session's registration entry.
@@ -400,18 +349,20 @@ func (r *PassiveRole) applyQuery(request *QueryRequest, server RaftService_Query
 	// Iterate through results and translate them into QueryResponses.
 	for result := range ch {
 		if result.Succeeded() {
-			err := server.Send(&QueryResponse{
+			response := &QueryResponse{
 				Status: ResponseStatus_OK,
 				Output: result.Value,
-			})
+			}
+			err := r.raft.logResponse("QueryResponse", response, server.Send(response))
 			if err != nil {
 				return err
 			}
 		} else {
-			err := server.Send(&QueryResponse{
+			response := &QueryResponse{
 				Status:  ResponseStatus_ERROR,
 				Message: result.Error.Error(),
-			})
+			}
+			err := r.raft.logResponse("QueryResponse", response, server.Send(response))
 			if err != nil {
 				return err
 			}
@@ -424,21 +375,22 @@ func (r *PassiveRole) applyQuery(request *QueryRequest, server RaftService_Query
 func (r *PassiveRole) forwardQuery(request *QueryRequest, server RaftService_QueryServer) error {
 	leader := r.raft.leader
 	if leader == "" {
-		return server.Send(&QueryResponse{
+		response := &QueryResponse{
 			Status: ResponseStatus_ERROR,
 			Error:  RaftError_NO_LEADER,
-		})
+		}
+		return r.raft.logResponse("QueryResponse", response, server.Send(response))
 	} else {
 		log.WithField("memberID", r.raft.cluster.member).
 			Tracef("Forwarding %v", request)
 		client, err := r.raft.getClient(leader)
 		if err != nil {
-			return err
+			return r.raft.logResponse("QueryResponse", nil, err)
 		}
 
 		stream, err := client.Query(context.Background(), request)
 		if err != nil {
-			return err
+			return r.raft.logResponse("QueryResponse", nil, err)
 		}
 
 		for {
@@ -447,9 +399,10 @@ func (r *PassiveRole) forwardQuery(request *QueryRequest, server RaftService_Que
 				break
 			}
 			if err != nil {
-				return err
+				return r.raft.logResponse("QueryResponse", nil, err)
 			}
-			server.Send(response)
+			r.raft.logRequest("QueryResponse", response)
+			r.raft.logResponse("QueryResponse", response, server.Send(response))
 		}
 		return nil
 	}

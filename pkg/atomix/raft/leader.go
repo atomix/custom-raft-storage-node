@@ -12,7 +12,9 @@ func newLeaderRole(raft *RaftServer) Role {
 	return &LeaderRole{
 		ActiveRole: &ActiveRole{
 			PassiveRole: &PassiveRole{
-				raft: raft,
+				raftRole: &raftRole{
+					raft: raft,
+				},
 			},
 		},
 		appender: newAppender(raft),
@@ -66,56 +68,76 @@ func (r *LeaderRole) commitInitializeEntry() {
 	// that the commitIndex is not increased until the no-op entry is committed.
 	err := r.appender.append(indexed)
 	if err != nil {
-		log.WithField("memberID", r.raft.cluster.member).Debugf("Failed to commit entry from leader's term; transitioning to follower")
+		log.WithField("memberID", r.raft.cluster.member).
+			Debugf("Failed to commit entry from leader's term; transitioning to follower")
 		r.raft.setLeader("")
 		r.raft.becomeFollower()
 	} else {
 		r.raft.state.applyEntry(indexed, nil)
 	}
-
 }
 
 func (r *LeaderRole) Poll(ctx context.Context, request *PollRequest) (*PollResponse, error) {
-	return &PollResponse{
+	r.raft.logRequest("PollRequest", request)
+	response := &PollResponse{
 		Status:   ResponseStatus_OK,
 		Term:     r.raft.term,
 		Accepted: false,
-	}, nil
+	}
+	r.raft.logResponse("PollResponse", response, nil)
+	return response, nil
 }
 
 func (r *LeaderRole) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
+	r.raft.logRequest("VoteRequest", request)
 	if r.updateTermAndLeader(request.Term, "") {
-		log.WithField("memberID", r.raft.cluster.member).Debug("Received greater term")
+		log.WithField("memberID", r.raft.cluster.member).
+			Debug("Received greater term")
 		defer r.raft.becomeFollower()
-		return r.ActiveRole.Vote(ctx, request);
+		response, err := r.ActiveRole.Vote(ctx, request)
+		r.raft.logResponse("VoteResponse", response, err)
+		return response, err
 	} else {
-		return &VoteResponse{
+		response := &VoteResponse{
 			Status: ResponseStatus_OK,
 			Term:   r.raft.term,
 			Voted:  false,
-		}, nil
+		}
+		r.raft.logResponse("VoteResponse", response, nil)
+		return response, nil
 	}
 }
 
 func (r *LeaderRole) Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
+	r.raft.logRequest("AppendRequest", request)
 	if r.updateTermAndLeader(request.Term, request.Leader) {
+		log.WithField("memberID", r.raft.cluster.member).
+			Debug("Received greater term")
 		defer r.raft.becomeFollower()
-		return r.ActiveRole.Append(ctx, request)
+		response, err := r.ActiveRole.Append(ctx, request)
+		r.raft.logResponse("AppendResponse", response, err)
+		return response, err
 	} else if request.Term < r.raft.term {
-		return &AppendResponse{
+		response := &AppendResponse{
 			Status:       ResponseStatus_OK,
 			Term:         r.raft.term,
 			Succeeded:    false,
 			LastLogIndex: r.raft.writer.LastIndex(),
-		}, nil
+		}
+		r.raft.logResponse("AppendResponse", response, nil)
+		return response, nil
 	} else {
 		r.raft.setLeader(request.Leader)
 		defer r.raft.becomeFollower()
-		return r.ActiveRole.Append(ctx, request);
+		response, err := r.ActiveRole.Append(ctx, request);
+		r.raft.logResponse("AppendResponse", response, err)
+		return response, err
 	}
 }
 
 func (r *LeaderRole) Command(request *CommandRequest, server RaftService_CommandServer) error {
+	r.raft.logRequest("CommandRequest", request)
+
 	entry := &RaftLogEntry{
 		Term:      r.raft.term,
 		Timestamp: time.Now().UnixNano(),
@@ -128,34 +150,37 @@ func (r *LeaderRole) Command(request *CommandRequest, server RaftService_Command
 	indexed := r.raft.writer.Append(entry)
 
 	if err := r.appender.append(indexed); err != nil {
-		return server.Send(&CommandResponse{
+		response := &CommandResponse{
 			Status: ResponseStatus_ERROR,
 			Error:  RaftError_PROTOCOL_ERROR,
-		})
+		}
+		return r.raft.logResponse("CommandResponse", response, server.Send(response))
 	} else {
 		ch := make(chan service.Output)
 		r.raft.state.applyEntry(indexed, ch)
 		for output := range ch {
 			if output.Succeeded() {
-				err := server.Send(&CommandResponse{
+				response := &CommandResponse{
 					Status:  ResponseStatus_OK,
 					Leader:  r.raft.leader,
 					Term:    r.raft.term,
 					Members: r.raft.cluster.memberIDs,
 					Output:  output.Value,
-				})
+				}
+				err := r.raft.logResponse("CommandResponse", response, server.Send(response))
 				if err != nil {
 					return err
 				}
 			} else {
-				err := server.Send(&CommandResponse{
+				response := &CommandResponse{
 					Status:  ResponseStatus_ERROR,
 					Error:   RaftError_APPLICATION_ERROR,
 					Message: output.Error.Error(),
 					Leader:  r.raft.leader,
 					Term:    r.raft.term,
 					Members: r.raft.cluster.memberIDs,
-				})
+				}
+				err := r.raft.logResponse("CommandResponse", response, server.Send(response))
 				if err != nil {
 					return err
 				}
@@ -166,6 +191,7 @@ func (r *LeaderRole) Command(request *CommandRequest, server RaftService_Command
 }
 
 func (r *LeaderRole) Query(request *QueryRequest, server RaftService_QueryServer) error {
+	r.raft.logRequest("QueryRequest", request)
 	switch request.ReadConsistency {
 	case ReadConsistency_LINEARIZABLE:
 		return r.queryLinearizable(request, server)
@@ -202,21 +228,23 @@ func (r *LeaderRole) queryLinearizable(request *QueryRequest, server RaftService
 	for result := range ch {
 		// Send a heartbeat to a majority of the cluster to verify leadership.
 		if err := r.appender.heartbeat(); err != nil {
-			return err
+			return r.raft.logResponse("QueryResponse", nil, err)
 		}
 		if result.Succeeded() {
-			err := server.Send(&QueryResponse{
+			response := &QueryResponse{
 				Status: ResponseStatus_OK,
 				Output: result.Value,
-			})
+			}
+			err := r.raft.logResponse("QueryResponse", response, server.Send(response))
 			if err != nil {
 				return err
 			}
 		} else {
-			err := server.Send(&QueryResponse{
+			response := &QueryResponse{
 				Status:  ResponseStatus_ERROR,
 				Message: result.Error.Error(),
-			})
+			}
+			err := r.raft.logResponse("QueryResponse", response, server.Send(response))
 			if err != nil {
 				return err
 			}
