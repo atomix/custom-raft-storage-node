@@ -23,7 +23,7 @@ func newAppender(raft *RaftServer) *raftAppender {
 	}
 	appender := &raftAppender{
 		raft:             raft,
-		members:          make(map[string]*memberAppender),
+		members:          members,
 		commitIndexes:    make(map[string]int64),
 		commitTimes:      make(map[string]time.Time),
 		heartbeatFutures: list.New(),
@@ -49,6 +49,16 @@ type raftAppender struct {
 	stopped          chan bool
 	lastQuorumTime   time.Time
 	mu               sync.Mutex
+}
+
+// start starts the appender
+func (a *raftAppender) start() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for _, member := range a.members {
+		go member.start()
+	}
+	a.processCommits()
 }
 
 // heartbeat sends a heartbeat to a majority of followers
@@ -90,38 +100,6 @@ func (a *raftAppender) append(entry *IndexedEntry) error {
 		return nil
 	} else {
 		return errors.New("failed to commit entry")
-	}
-}
-
-// start starts the appender
-func (a *raftAppender) start() {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	go a.processCommits()
-}
-
-// configure updates the appender's configuration
-func (a *raftAppender) configure(config *RaftConfiguration) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	// Add new members to the configuration
-	allMembers := make(map[string]bool)
-	for _, member := range config.Members {
-		if member.MemberId == a.raft.cluster.member {
-			continue
-		}
-		if _, ok := a.members[member.MemberId]; !ok {
-			a.members[member.MemberId] = newMemberAppender(a.raft, member, a.commitCh, a.failCh)
-		}
-		allMembers[member.MemberId] = true
-	}
-
-	// Remove old members from the configuration
-	for id := range a.members {
-		if _, ok := allMembers[id]; !ok {
-			delete(a.members, id)
-		}
 	}
 }
 
@@ -240,16 +218,21 @@ const (
 )
 
 func newMemberAppender(raft *RaftServer, member *RaftMember, commitCh chan<- memberCommit, failCh chan<- time.Time) *memberAppender {
+	ticker := time.NewTicker(raft.electionTimeout / 2)
+	reader := raft.log.OpenReader(0)
 	return &memberAppender{
 		raft:        raft,
 		member:      member,
+		nextIndex:   reader.LastIndex() + 1,
 		entryCh:     make(chan *IndexedEntry),
 		appendCh:    make(chan int64),
 		commitCh:    commitCh,
 		failCh:      failCh,
 		heartbeatCh: make(chan time.Time),
 		stopped:     make(chan bool),
-		reader:      raft.log.OpenReader(0),
+		reader:      reader,
+		tickTicker:  ticker,
+		tickCh:      ticker.C,
 		queue:       list.New(),
 	}
 }
@@ -259,8 +242,6 @@ type memberAppender struct {
 	raft              *RaftServer
 	member            *RaftMember
 	active            bool
-	configIndex       int64
-	configTerm        int64
 	snapshotIndex     int64
 	prevTerm          int64
 	nextIndex         int64
@@ -285,13 +266,7 @@ type memberAppender struct {
 // start starts sending append requests to the member
 func (a *memberAppender) start() {
 	a.active = true
-	a.entryCh = make(chan *IndexedEntry)
-	a.appendCh = make(chan int64)
-	a.tickTicker = time.NewTicker(a.raft.electionTimeout / 2)
-	a.tickCh = a.tickTicker.C
-	a.heartbeatCh = make(chan time.Time)
-	a.stopped = make(chan bool)
-	go a.processEvents()
+	a.processEvents()
 }
 
 func (a *memberAppender) processEvents() {
@@ -488,33 +463,34 @@ func (a *memberAppender) entriesAppendRequest() *AppendRequest {
 
 	// Build a list of entries starting at the nextIndex, using the cache if possible.
 	size := 0
-	for a.nextIndex < a.reader.LastIndex() {
+	nextIndex := a.nextIndex
+	for nextIndex < a.reader.LastIndex() {
 		// First, try to get the entry from the cache.
 		entry := a.queue.Front()
 		if entry != nil {
 			indexed := entry.Value.(*IndexedEntry)
-			if indexed.Index == a.nextIndex {
+			if indexed.Index == nextIndex {
 				entriesList.PushBack(indexed.Entry)
 				a.queue.Remove(entry)
 				size += indexed.Entry.XXX_Size()
-				a.nextIndex++
+				nextIndex++
 				if size >= maxBatchSize {
 					break
 				}
 				continue
-			} else if indexed.Index < a.nextIndex {
+			} else if indexed.Index < nextIndex {
 				a.queue.Remove(entry)
 				continue
 			}
 		}
 
 		// If the entry was not in the cache, read it from the log reader.
-		a.reader.Reset(a.nextIndex)
+		a.reader.Reset(nextIndex)
 		indexed := a.reader.NextEntry()
 		if indexed != nil {
 			entriesList.PushBack(indexed.Entry)
 			size += indexed.Entry.XXX_Size()
-			a.nextIndex++
+			nextIndex++
 			if size >= maxBatchSize {
 				break
 			}
@@ -582,6 +558,12 @@ func (a *memberAppender) handleAppendResponse(request *AppendRequest, response *
 		// If the replica returned a valid match index then update the existing match index.
 		a.matchIndex = response.LastLogIndex
 		a.nextIndex = a.matchIndex + 1
+
+		// If entries were sent to the follower, update the previous entry term to the term of the
+		// last entry in the follower's log.
+		if len(request.Entries) > 0 {
+			a.prevTerm = request.Entries[response.LastLogIndex-request.PrevLogIndex-1].Term
+		}
 
 		// Send a commit event to the parent appender.
 		a.commit(startTime)

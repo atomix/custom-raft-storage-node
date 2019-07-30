@@ -19,13 +19,13 @@ type Snapshot interface {
 
 func newMemorySnapshotStore() SnapshotStore {
 	return &memorySnapshotStore{
-		snapshots: make(map[int64]*memorySnapshot),
+		snapshots: make(map[int64]Snapshot),
 	}
 }
 
 type memorySnapshotStore struct {
-	snapshots       map[int64]*memorySnapshot
-	currentSnapshot *memorySnapshot
+	snapshots       map[int64]Snapshot
+	currentSnapshot Snapshot
 }
 
 func (s *memorySnapshotStore) newSnapshot(index int64, timestamp int64) Snapshot {

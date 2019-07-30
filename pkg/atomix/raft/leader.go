@@ -47,7 +47,7 @@ func (r *LeaderRole) setLeadership() {
 }
 
 func (r *LeaderRole) startAppender() {
-	r.appender.start()
+	go r.appender.start()
 }
 
 func (r *LeaderRole) commitInitializeEntry() {

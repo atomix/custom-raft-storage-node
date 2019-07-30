@@ -84,6 +84,7 @@ func newMemoryLog() RaftLog {
 	log := &memoryRaftLog{
 		entries:    make([]*IndexedEntry, 0, 1024),
 		firstIndex: 1,
+		readers:    make([]*memoryRaftLogReader, 0, 10),
 	}
 	log.writer = &memoryRaftLogWriter{
 		log: log,
@@ -96,6 +97,7 @@ type memoryRaftLog struct {
 	firstIndex int64
 	mu         sync.RWMutex
 	writer     *memoryRaftLogWriter
+	readers    []*memoryRaftLogReader
 }
 
 func (l *memoryRaftLog) Writer() RaftLogWriter {
@@ -105,17 +107,19 @@ func (l *memoryRaftLog) Writer() RaftLogWriter {
 func (l *memoryRaftLog) OpenReader(index int64) RaftLogReader {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	var readerIndex int
+	readerIndex := -1
 	for i := 0; i < len(l.entries); i++ {
 		if l.entries[i].Index == index {
 			readerIndex = i - 1
 			break
 		}
 	}
-	return &memoryRaftLogReader{
+	reader := &memoryRaftLogReader{
 		log:   l,
 		index: readerIndex,
 	}
+	l.readers = append(l.readers, reader)
+	return reader
 }
 
 func (l *memoryRaftLog) Close() error {
@@ -130,7 +134,7 @@ func (w *memoryRaftLogWriter) LastIndex() int64 {
 	if entry := w.LastEntry(); entry != nil {
 		return entry.Index
 	}
-	return 0
+	return w.log.firstIndex - 1
 }
 
 func (w *memoryRaftLogWriter) LastEntry() *IndexedEntry {
@@ -159,13 +163,20 @@ func (w *memoryRaftLogWriter) Append(entry *RaftLogEntry) *IndexedEntry {
 func (w *memoryRaftLogWriter) Reset(index int64) {
 	w.log.entries = w.log.entries[:0]
 	w.log.firstIndex = index
+	for _, reader := range w.log.readers {
+		reader.maybeReset()
+	}
 }
 
 func (w *memoryRaftLogWriter) Truncate(index int64) {
 	for i := 0; i < len(w.log.entries); i++ {
-		if w.log.entries[i].Index >= index {
+		if w.log.entries[i].Index > index {
 			w.log.entries = w.log.entries[:i]
+			break
 		}
+	}
+	for _, reader := range w.log.readers {
+		reader.maybeReset()
 	}
 }
 
@@ -187,10 +198,7 @@ type memoryRaftLogReader struct {
 }
 
 func (r *memoryRaftLogReader) FirstIndex() int64 {
-	if len(r.log.entries) == 0 {
-		return r.log.firstIndex - 1
-	}
-	return r.log.entries[0].Index
+	return r.log.firstIndex
 }
 
 func (r *memoryRaftLogReader) LastIndex() int64 {
@@ -201,28 +209,28 @@ func (r *memoryRaftLogReader) LastIndex() int64 {
 }
 
 func (r *memoryRaftLogReader) CurrentIndex() int64 {
-	if len(r.log.entries) == 0 {
+	if r.index == -1 || len(r.log.entries) == 0 {
 		return r.log.firstIndex - 1
 	}
 	return r.log.entries[r.index].Index
 }
 
 func (r *memoryRaftLogReader) CurrentEntry() *IndexedEntry {
-	if len(r.log.entries) == 0 {
+	if r.index == -1 || len(r.log.entries) == 0 {
 		return nil
 	}
 	return r.log.entries[r.index]
 }
 
 func (r *memoryRaftLogReader) NextIndex() int64 {
-	if len(r.log.entries) == 0 {
+	if r.index == -1 || len(r.log.entries) == 0 {
 		return r.log.firstIndex
 	}
 	return r.log.entries[r.index].Index + 1
 }
 
 func (r *memoryRaftLogReader) NextEntry() *IndexedEntry {
-	if len(r.log.entries) >= r.index {
+	if len(r.log.entries) > r.index+1 {
 		r.index++
 		return r.log.entries[r.index]
 	}
@@ -235,6 +243,12 @@ func (r *memoryRaftLogReader) Reset(index int64) {
 			r.index = i - 1
 			break
 		}
+	}
+}
+
+func (r *memoryRaftLogReader) maybeReset() {
+	if r.index >= 0 && len(r.log.entries) <= r.index {
+		r.index = len(r.log.entries)-1
 	}
 }
 
