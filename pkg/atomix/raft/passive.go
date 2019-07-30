@@ -203,9 +203,9 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 					Tracef("Appended %v", indexed)
 			}
 
-			// If the index is less than the commit index, apply the entry
+			// Commit the entry. If the index is less than the commit index, apply the entry.
+			r.raft.setCommitIndex(index)
 			if index <= commitIndex {
-				r.raft.setCommitIndex(index)
 				r.raft.state.applyEntry(&IndexedEntry{
 					Index: index,
 					Entry: entry,
