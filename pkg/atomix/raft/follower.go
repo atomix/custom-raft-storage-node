@@ -48,6 +48,9 @@ func (r *FollowerRole) stop() error {
 }
 
 func (r *FollowerRole) resetHeartbeatTimeout() {
+	r.server.writeLock()
+	defer r.server.writeUnlock()
+
 	// If a timer is already set, cancel the timer.
 	if r.heartbeatTimer != nil {
 		if !r.heartbeatTimer.Stop() {
@@ -60,10 +63,12 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 	// being election timeout and 2 * election timeout.
 	timeout := r.server.electionTimeout + time.Duration(rand.Int63n(int64(r.server.electionTimeout)))
 	r.heartbeatTimer = time.NewTimer(timeout)
-	r.heartbeatStop = make(chan bool, 1)
+	heartbeatStop := make(chan bool, 1)
+	r.heartbeatStop = heartbeatStop
+	heartbeatCh := r.heartbeatTimer.C
 	go func() {
 		select {
-		case <-r.heartbeatTimer.C:
+		case <-heartbeatCh:
 			r.server.writeLock()
 			if r.active {
 				r.server.setLeader("")
@@ -74,7 +79,7 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 			} else {
 				r.server.writeUnlock()
 			}
-		case <-r.heartbeatStop:
+		case <-heartbeatStop:
 			return
 		}
 	}()

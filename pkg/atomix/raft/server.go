@@ -266,28 +266,34 @@ func (s *RaftServer) setRole(role Role) error {
 	return role.start()
 }
 
+func (s *RaftServer) getRole() Role {
+	s.readLock()
+	defer s.readUnlock()
+	return s.role
+}
+
 func (s *RaftServer) Poll(ctx context.Context, request *PollRequest) (*PollResponse, error) {
-	return s.role.Poll(ctx, request)
+	return s.getRole().Poll(ctx, request)
 }
 
 func (s *RaftServer) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
-	return s.role.Vote(ctx, request)
+	return s.getRole().Vote(ctx, request)
 }
 
 func (s *RaftServer) Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
-	return s.role.Append(ctx, request)
+	return s.getRole().Append(ctx, request)
 }
 
 func (s *RaftServer) Install(server RaftService_InstallServer) error {
-	return s.role.Install(server)
+	return s.getRole().Install(server)
 }
 
 func (s *RaftServer) Command(request *CommandRequest, server RaftService_CommandServer) error {
-	return s.role.Command(request, server)
+	return s.getRole().Command(request, server)
 }
 
 func (s *RaftServer) Query(request *QueryRequest, server RaftService_QueryServer) error {
-	return s.role.Query(request, server)
+	return s.getRole().Query(request, server)
 }
 
 // Stop shuts down the Raft server
