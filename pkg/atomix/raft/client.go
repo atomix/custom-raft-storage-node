@@ -22,13 +22,13 @@ func newRaftClient(consistency ReadConsistency) *RaftClient {
 // RaftClient is a service Client implementation for the Raft consensus protocol
 type RaftClient struct {
 	service.Client
-	members      map[string]*atomix.Member
+	members      map[string]atomix.Member
 	membersList  *list.List
 	memberNode   *list.Element
-	member       *atomix.Member
+	member       atomix.Member
 	memberConn   *grpc.ClientConn
 	client       RaftServiceClient
-	leader       *atomix.Member
+	leader       atomix.Member
 	leaderConn   *grpc.ClientConn
 	leaderClient RaftServiceClient
 	consistency  ReadConsistency
@@ -37,11 +37,11 @@ type RaftClient struct {
 }
 
 func (c *RaftClient) Connect(cluster atomix.Cluster) error {
-	c.members = make(map[string]*atomix.Member)
+	c.members = make(map[string]atomix.Member)
 	c.membersList = list.New()
 	for name, member := range cluster.Members {
-		c.members[name] = &member
-		c.membersList.PushBack(&member)
+		c.members[name] = member
+		c.membersList.PushBack(member)
 	}
 	return nil
 }
@@ -69,12 +69,15 @@ func (c *RaftClient) resetLeaderConn() {
 	defer c.mu.Unlock()
 	if c.leaderConn != nil {
 		c.leaderConn.Close()
+		c.leaderConn = nil
 	}
+	c.leader = atomix.Member{}
+	c.leaderClient = nil
 }
 
 // getLeaderConn gets the gRPC client connection to the leader
 func (c *RaftClient) getLeaderConn() (*grpc.ClientConn, error) {
-	if c.leader == nil {
+	if c.leader.ID == "" {
 		return c.getConn()
 	}
 	if c.leaderConn != nil {
@@ -120,7 +123,7 @@ func (c *RaftClient) write(ctx context.Context, request *CommandRequest, ch chan
 			break
 		}
 		if err != nil {
-			c.resetConn()
+			c.resetLeaderConn()
 			return err
 		}
 
@@ -129,11 +132,11 @@ func (c *RaftClient) write(ctx context.Context, request *CommandRequest, ch chan
 				Value: response.Output,
 			}
 		} else if response.Error == RaftError_ILLEGAL_MEMBER_STATE {
-			if c.leader == nil || response.Leader != c.leader.ID {
+			if c.leader.ID == "" || response.Leader != c.leader.ID {
 				leader, ok := c.members[response.Leader]
 				if ok {
-					c.leader = leader
 					c.resetLeaderConn()
+					c.leader = leader
 					return c.write(ctx, request, ch)
 				} else {
 					ch <- service.Output{
@@ -162,14 +165,15 @@ func (c *RaftClient) resetConn() {
 	defer c.mu.Unlock()
 	if c.memberConn != nil {
 		c.memberConn.Close()
+		c.memberConn = nil
 	}
-	c.member = nil
+	c.member = atomix.Member{}
 	c.client = nil
 }
 
 // getConn gets the current gRPC client connection
 func (c *RaftClient) getConn() (*grpc.ClientConn, error) {
-	if c.member == nil {
+	if c.member.ID == "" {
 		if c.memberNode == nil {
 			c.memberNode = c.membersList.Front()
 		} else {
@@ -178,7 +182,7 @@ func (c *RaftClient) getConn() (*grpc.ClientConn, error) {
 				c.memberNode = c.membersList.Front()
 			}
 		}
-		c.member = c.memberNode.Value.(*atomix.Member)
+		c.member = c.memberNode.Value.(atomix.Member)
 	}
 
 	if c.memberConn == nil {

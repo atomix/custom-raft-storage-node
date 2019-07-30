@@ -2,7 +2,6 @@ package raft
 
 import (
 	"context"
-	"fmt"
 	"github.com/atomix/atomix-go-node/pkg/atomix"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	"github.com/golang/protobuf/proto"
@@ -151,7 +150,6 @@ func BenchmarkRaftCluster(b *testing.B) {
 	out := <-ch
 	assert.True(b, out.Succeeded())
 	openSessionResponse := getOpenSessionResponse(out.Value)
-	println(fmt.Sprintf("%v", openSessionResponse))
 	assert.NotEqual(b, 0, openSessionResponse.SessionId)
 	sessionID := openSessionResponse.SessionId
 
