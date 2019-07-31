@@ -1,11 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/atomix/atomix-go-node/pkg/atomix"
 	"github.com/atomix/atomix-go-node/proto/atomix/controller"
 	"github.com/atomix/atomix-go-raft/pkg/atomix/raft"
-	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/jsonpb"
 	"io/ioutil"
 	"os"
 )
@@ -30,7 +31,7 @@ func parsePartitionConfig() *controller.PartitionConfig {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	if err := proto.Unmarshal(nodeBytes, nodeConfig); err != nil {
+	if err := jsonpb.Unmarshal(bytes.NewReader(nodeBytes), nodeConfig); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
@@ -45,9 +46,9 @@ func parseProtocolConfig() *raft.RaftProtocolConfig {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	if err := proto.Unmarshal(protocolBytes, protocolConfig); err != nil {
+	if err := jsonpb.Unmarshal(bytes.NewReader(protocolBytes), protocolConfig); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	return  protocolConfig
+	return protocolConfig
 }

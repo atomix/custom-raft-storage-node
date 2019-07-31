@@ -26,16 +26,13 @@ func (p *RaftProtocol) Start(cluster atomix.Cluster, registry *service.ServiceRe
 		return err
 	}
 
-	p.server = NewRaftServer(cluster, registry, electionTimeout)
-	if err := p.server.Start(); err != nil {
-		return err
-	}
-
 	p.client = newRaftClient(ReadConsistency_SEQUENTIAL)
 	if err := p.client.Connect(cluster); err != nil {
 		return err
 	}
-	return nil
+
+	p.server = NewRaftServer(cluster, registry, electionTimeout)
+	return p.server.Start()
 }
 
 func (p *RaftProtocol) Client() service.Client {
