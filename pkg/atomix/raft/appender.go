@@ -314,6 +314,7 @@ type memberAppender struct {
 	stopped           chan bool
 	reader            RaftLogReader
 	queue             *list.List
+	mu                sync.Mutex
 }
 
 // start starts sending append requests to the member
@@ -327,7 +328,9 @@ func (a *memberAppender) processEvents() {
 		select {
 		case entry := <-a.entryCh:
 			if a.failureCount == 0 {
+				a.mu.Lock()
 				a.queue.PushBack(entry)
+				a.mu.Unlock()
 			}
 			if !a.appending {
 				a.appending = true
@@ -535,6 +538,7 @@ func (a *memberAppender) entriesAppendRequest() *AppendRequest {
 	nextIndex := a.nextIndex
 	for nextIndex <= a.reader.LastIndex() {
 		// First, try to get the entry from the cache.
+		a.mu.Lock()
 		entry := a.queue.Front()
 		if entry != nil {
 			indexed := entry.Value.(*IndexedEntry)
@@ -546,12 +550,15 @@ func (a *memberAppender) entriesAppendRequest() *AppendRequest {
 				if size >= maxBatchSize {
 					break
 				}
+				a.mu.Unlock()
 				continue
 			} else if indexed.Index < nextIndex {
 				a.queue.Remove(entry)
+				a.mu.Unlock()
 				continue
 			}
 		}
+		a.mu.Unlock()
 
 		// If the entry was not in the cache, read it from the log reader.
 		a.reader.Reset(nextIndex)

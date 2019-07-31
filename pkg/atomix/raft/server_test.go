@@ -155,21 +155,31 @@ func BenchmarkRaftCluster(b *testing.B) {
 
 	b.Run("write", func(b *testing.B) {
 		b.ResetTimer()
-		var commandID uint64
+
+		ch := make(chan uint64)
 		wg := &sync.WaitGroup{}
-		for n := 0; n < b.N; n++ {
+		for i := 0; i < 8; i++ {
 			wg.Add(1)
-			commandID++
-			go func(id uint64) {
-				ch := make(chan service.Output)
-				bytes, _ := proto.Marshal(&SetRequest{
-					Value: "Hello world!",
-				})
-				client.Write(context.Background(), newCommandRequest(sessionID, id, "set", bytes), ch)
-				out = <-ch
+			go func() {
+				for commandID := range ch {
+					ch := make(chan service.Output)
+					bytes, _ := proto.Marshal(&SetRequest{
+						Value: "Hello world!",
+					})
+					client.Write(context.Background(), newCommandRequest(sessionID, commandID, "set", bytes), ch)
+					out = <-ch
+				}
 				wg.Done()
-			}(commandID)
+			}()
 		}
+
+		var commandID uint64
+		for n := 0; n < b.N; n++ {
+			commandID++
+			ch <- commandID
+		}
+		close(ch)
+
 		wg.Wait()
 	})
 }
