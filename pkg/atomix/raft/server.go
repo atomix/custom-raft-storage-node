@@ -298,7 +298,6 @@ func (s *RaftServer) Query(request *QueryRequest, server RaftService_QueryServer
 
 // Stop shuts down the Raft server
 func (s *RaftServer) Stop() error {
-	s.state.stop()
 	s.server.Stop()
 	close(s.readyCh)
 	return nil

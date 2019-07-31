@@ -27,7 +27,8 @@ func newAppender(server *RaftServer) *raftAppender {
 		commitIndexes:    make(map[string]int64),
 		commitTimes:      make(map[string]time.Time),
 		heartbeatFutures: list.New(),
-		commitChannels:   make(map[int64]chan int64),
+		commitChannels:   make(map[int64]chan bool),
+		commitFutures:    make(map[int64]func()),
 		commitCh:         commitCh,
 		failCh:           failCh,
 		lastQuorumTime:   time.Now(),
@@ -43,7 +44,8 @@ type raftAppender struct {
 	commitIndexes    map[string]int64
 	commitTimes      map[string]time.Time
 	heartbeatFutures *list.List
-	commitChannels   map[int64]chan int64
+	commitChannels   map[int64]chan bool
+	commitFutures    map[int64]func()
 	commitCh         chan memberCommit
 	failCh           chan time.Time
 	stopped          chan bool
@@ -53,8 +55,6 @@ type raftAppender struct {
 
 // start starts the appender
 func (a *raftAppender) start() {
-	a.mu.Lock()
-	defer a.mu.Unlock()
 	for _, member := range a.members {
 		go member.start()
 	}
@@ -88,8 +88,8 @@ func (a *raftAppender) heartbeat() error {
 	}
 }
 
-// append replicates the given entry to all followers
-func (a *raftAppender) append(entry *IndexedEntry) error {
+// commit replicates the given entry to followers and returns once the entry is committed
+func (a *raftAppender) commit(entry *IndexedEntry, f func()) error {
 	// If there are no members to send the entry to, immediately commit it.
 	if len(a.members) == 0 {
 		a.server.writeLock()
@@ -98,14 +98,28 @@ func (a *raftAppender) append(entry *IndexedEntry) error {
 		return nil
 	}
 
-	ch := make(chan int64)
+	// Acquire a write lock on the appender and add the channel to commitFutures.
+	a.mu.Lock()
+	ch := make(chan bool)
 	a.commitChannels[entry.Index] = ch
+	if f != nil {
+		a.commitFutures[entry.Index] = f
+	}
+	a.mu.Unlock()
+
+	// Push the entry onto the channel for each member appender
 	for _, member := range a.members {
 		member.entryCh <- entry
 	}
-	_, ok := <-ch
+
+	// Wait for the commit channel.
+	succeeded, ok := <-ch
 	if ok {
-		return nil
+		if succeeded {
+			return nil
+		} else {
+			return errors.New("failed to commit entry")
+		}
 	} else {
 		return errors.New("failed to commit entry")
 	}
@@ -116,7 +130,7 @@ func (a *raftAppender) processCommits() {
 	for {
 		select {
 		case commit := <-a.commitCh:
-			a.commit(commit.member, commit.index, commit.time)
+			a.commitMember(commit.member, commit.index, commit.time)
 		case failTime := <-a.failCh:
 			a.failTime(failTime)
 		case <-a.stopped:
@@ -125,15 +139,15 @@ func (a *raftAppender) processCommits() {
 	}
 }
 
-func (a *raftAppender) commit(member *memberAppender, index int64, time time.Time) {
+func (a *raftAppender) commitMember(member *memberAppender, index int64, time time.Time) {
 	if !member.active {
 		return
 	}
-	a.commitIndex(member.member.MemberId, index)
-	a.commitTime(member.member.MemberId, time)
+	a.commitMemberIndex(member.member.MemberId, index)
+	a.commitMemberTime(member.member.MemberId, time)
 }
 
-func (a *raftAppender) commitIndex(member string, index int64) {
+func (a *raftAppender) commitMemberIndex(member string, index int64) {
 	prevIndex := a.commitIndexes[member]
 	if index > prevIndex {
 		a.commitIndexes[member] = index
@@ -148,22 +162,47 @@ func (a *raftAppender) commitIndex(member string, index int64) {
 			return indexes[i] < indexes[j]
 		})
 
-		// Acquire a write lock to increment the commitIndex.
-		a.server.writeLock()
-		defer a.server.writeUnlock()
-
 		commitIndex := indexes[len(a.members)/2]
-		for i := a.server.commitIndex + 1; i <= commitIndex; i++ {
-			a.server.setCommitIndex(i)
-			ch, ok := a.commitChannels[i]
-			if ok {
-				ch <- i
+		a.server.readLock()
+		if commitIndex > a.server.commitIndex {
+			a.server.readUnlock()
+			a.server.writeLock()
+			if commitIndex > a.server.commitIndex {
+				for i := a.server.commitIndex + 1; i <= commitIndex; i++ {
+					a.commitIndex(i)
+				}
+				a.server.writeUnlock()
+				log.WithField("memberID", a.server.cluster.member).
+					Tracef("Committed entries up to %d", commitIndex)
+			} else {
+				a.server.writeUnlock()
 			}
+		} else {
+			a.server.readUnlock()
 		}
 	}
 }
 
-func (a *raftAppender) commitTime(member string, time time.Time) {
+func (a *raftAppender) commitIndex(index int64) {
+	// Update the server commit index.
+	a.server.setCommitIndex(index)
+
+	// Acquire a lock on the appender and complete the commit channels and futures.
+	a.mu.Lock()
+	ch, ok := a.commitChannels[index]
+	if ok {
+		ch <- true
+		delete(a.commitChannels, index)
+	}
+	f, ok := a.commitFutures[index]
+	if ok {
+		f()
+		delete(a.commitFutures, index)
+	}
+	a.mu.Unlock()
+}
+
+func (a *raftAppender) commitMemberTime(member string, time time.Time) {
 	prevTime := a.commitTimes[member]
 	nextTime := time
 	if nextTime.UnixNano() > prevTime.UnixNano() {
@@ -199,7 +238,7 @@ func (a *raftAppender) failTime(failTime time.Time) {
 		log.WithField("memberID", a.server.cluster.member).
 			Warn("Suspected network partition; stepping down")
 		a.server.setLeader("")
-		a.server.becomeFollower()
+		go a.server.becomeFollower()
 	}
 }
 
@@ -239,7 +278,7 @@ func newMemberAppender(server *RaftServer, member *RaftMember, commitCh chan<- m
 		member:      member,
 		nextIndex:   reader.LastIndex() + 1,
 		entryCh:     make(chan *IndexedEntry),
-		appendCh:    make(chan int64),
+		appendCh:    make(chan bool),
 		commitCh:    commitCh,
 		failCh:      failCh,
 		heartbeatCh: make(chan time.Time),
@@ -266,7 +305,7 @@ type memberAppender struct {
 	failureCount      int
 	firstFailureTime  time.Time
 	entryCh           chan *IndexedEntry
-	appendCh          chan int64
+	appendCh          chan bool
 	commitCh          chan<- memberCommit
 	failCh            chan<- time.Time
 	heartbeatCh       chan time.Time
@@ -294,9 +333,9 @@ func (a *memberAppender) processEvents() {
 				a.appending = true
 				go a.append()
 			}
-		case nextIndex := <-a.appendCh:
+		case hasEntries := <-a.appendCh:
 			a.appending = false
-			if a.reader.LastIndex() >= nextIndex {
+			if hasEntries {
 				a.appending = true
 				go a.append()
 			}
@@ -336,9 +375,6 @@ func (a *memberAppender) append() {
 // stop stops sending append requests to the member
 func (a *memberAppender) stop() {
 	a.active = false
-	close(a.entryCh)
-	close(a.appendCh)
-	close(a.heartbeatCh)
 	a.tickTicker.Stop()
 	a.stopped <- true
 }
@@ -356,7 +392,10 @@ func (a *memberAppender) fail(time time.Time) {
 }
 
 func (a *memberAppender) requeue() {
-	a.appendCh <- a.nextIndex
+	a.server.readLock()
+	hasEntries := a.reader.LastIndex() >= a.nextIndex
+	a.server.readUnlock()
+	a.appendCh <- hasEntries
 }
 
 func (a *memberAppender) newInstallRequest(snapshot Snapshot, bytes []byte) *InstallRequest {
@@ -461,6 +500,11 @@ func (a *memberAppender) nextAppendRequest() *AppendRequest {
 }
 
 func (a *memberAppender) emptyAppendRequest() *AppendRequest {
+	prevIndex := a.nextIndex - 1
+	if a.prevTerm == 0 && prevIndex >= a.reader.FirstIndex() {
+		a.reader.Reset(prevIndex)
+		a.prevTerm = a.reader.NextEntry().Entry.Term
+	}
 	return &AppendRequest{
 		Term:         a.server.term,
 		Leader:       a.server.leader,
@@ -471,6 +515,11 @@ func (a *memberAppender) emptyAppendRequest() *AppendRequest {
 }
 
 func (a *memberAppender) entriesAppendRequest() *AppendRequest {
+	prevIndex := a.nextIndex - 1
+	if a.prevTerm == 0 && prevIndex >= a.reader.FirstIndex() {
+		a.reader.Reset(prevIndex)
+		a.prevTerm = a.reader.NextEntry().Entry.Term
+	}
 	request := &AppendRequest{
 		Term:         a.server.term,
 		Leader:       a.server.leader,
@@ -589,7 +638,7 @@ func (a *memberAppender) handleAppendResponse(request *AppendRequest, response *
 		a.commit(startTime)
 
 		// Notify the appender that the next index can be appended.
-		a.appendCh <- a.nextIndex
+		a.requeue()
 	} else {
 		// If the request was rejected, use a double checked lock to compare the response term to the
 		// server's term. If the term is greater than the local server's term, transition back to follower.
@@ -617,9 +666,12 @@ func (a *memberAppender) handleAppendResponse(request *AppendRequest, response *
 			a.matchIndex = response.LastLogIndex
 			log.WithField("memberID", a.server.cluster.member).
 				Tracef("Reset match index for %s to %d", a.member.MemberId, a.matchIndex)
-			a.nextIndex = a.matchIndex + 1
+		}
+		if response.LastLogIndex+1 != a.nextIndex {
+			a.nextIndex = response.LastLogIndex + 1
 			log.WithField("memberID", a.server.cluster.member).
 				Tracef("Reset next index for %s to %d", a.member.MemberId, a.nextIndex)
+			a.prevTerm = 0
 		}
 
 		// Notify the appender that the next index can be appended.

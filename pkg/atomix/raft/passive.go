@@ -149,7 +149,8 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 		// If the previous term is zero, that indicates the previous index represents the beginning of the log.
 		// Reset the log to the previous index plus one.
 		if request.PrevLogTerm == 0 {
-			log.Debugf("Reset first index to %d", request.PrevLogIndex+1)
+			log.WithField("memberID", r.server.cluster.member).
+				Debugf("Reset first index to %d", request.PrevLogIndex+1)
 			writer.Reset(request.PrevLogIndex + 1)
 		}
 
@@ -210,21 +211,28 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 				log.WithField("memberID", r.server.cluster.member).
 					Tracef("Appended %v", indexed)
 			}
-
-			// Commit the entry. If the index is less than the commit index, apply the entry.
-			r.server.setCommitIndex(index)
-			if index <= commitIndex {
-				r.server.state.applyEntry(&IndexedEntry{
-					Index: index,
-					Entry: entry,
-				}, nil)
-			}
 		}
 	}
 
 	// Update the context commit and global indices.
 	if commitIndex > prevCommitIndex {
-		log.Tracef("Committed entries up to index %d", commitIndex);
+		r.server.setCommitIndex(commitIndex)
+		log.WithField("memberID", r.server.cluster.member).
+			Tracef("Committed entries up to index %d", commitIndex)
+
+		// If the commitIndex was for entries that were replicated in a prior request, ensure they're applied
+		// to the state machine.
+		if commitIndex <= request.PrevLogIndex {
+			r.server.state.applyIndex(request.PrevLogIndex)
+		}
+
+		// Iterate through entries in the request and apply committed entries to the state machine.
+		for i := 0; request.PrevLogIndex+int64(i)+1 <= commitIndex && i < len(request.Entries); i++ {
+			r.server.state.applyEntry(&IndexedEntry{
+				Index: request.PrevLogIndex + int64(i) + 1,
+				Entry: request.Entries[i],
+			}, nil)
+		}
 	}
 
 	// Return a successful append response.

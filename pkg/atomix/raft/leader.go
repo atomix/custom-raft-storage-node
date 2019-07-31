@@ -64,7 +64,7 @@ func (r *LeaderRole) commitInitializeEntry() {
 	// at least one entry from their current term has been stored on a majority of servers. Thus,
 	// we force entries to be appended up to the leader's no-op entry. The LeaderAppender will ensure
 	// that the commitIndex is not increased until the no-op entry is committed.
-	err := r.appender.append(indexed)
+	err := r.appender.commit(indexed, nil)
 	if err != nil {
 		log.WithField("memberID", r.server.cluster.member).
 			Debugf("Failed to commit entry from leader's term; transitioning to follower")
@@ -162,17 +162,25 @@ func (r *LeaderRole) Command(request *CommandRequest, server RaftService_Command
 	// can acquire a read lock for the log.
 	r.server.writeUnlock()
 
-	if err := r.appender.append(indexed); err != nil {
+	// Create a function to apply the entry to the state machine once committed.
+	// This is done in a function to ensure entries are applied in the order in which they
+	// are committed by the appender.
+	ch := make(chan service.Output)
+	f := func() {
+		r.server.state.applyEntry(indexed, ch)
+	}
+
+	// Pass the apply function to the appender to be called when the change is committed.
+	if err := r.appender.commit(indexed, f); err != nil {
 		response := &CommandResponse{
 			Status: ResponseStatus_ERROR,
 			Error:  RaftError_PROTOCOL_ERROR,
 		}
 		return r.server.logResponse("CommandResponse", response, server.Send(response))
 	} else {
-		ch := make(chan service.Output)
-		r.server.state.applyEntry(indexed, ch)
 		for output := range ch {
 			if output.Succeeded() {
+				r.server.readLock()
 				response := &CommandResponse{
 					Status:  ResponseStatus_OK,
 					Leader:  r.server.leader,
@@ -180,11 +188,13 @@ func (r *LeaderRole) Command(request *CommandRequest, server RaftService_Command
 					Members: r.server.cluster.memberIDs,
 					Output:  output.Value,
 				}
+				r.server.readUnlock()
 				err := r.server.logResponse("CommandResponse", response, server.Send(response))
 				if err != nil {
 					return err
 				}
 			} else {
+				r.server.readLock()
 				response := &CommandResponse{
 					Status:  ResponseStatus_ERROR,
 					Error:   RaftError_APPLICATION_ERROR,
@@ -193,6 +203,7 @@ func (r *LeaderRole) Command(request *CommandRequest, server RaftService_Command
 					Term:    r.server.term,
 					Members: r.server.cluster.memberIDs,
 				}
+				r.server.readUnlock()
 				err := r.server.logResponse("CommandResponse", response, server.Send(response))
 				if err != nil {
 					return err

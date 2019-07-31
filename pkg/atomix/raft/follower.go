@@ -93,9 +93,11 @@ func (r *FollowerRole) sendPollRequests() {
 	go func() {
 		select {
 		case <-timeoutTimer.C:
-			log.WithField("memberID", r.server.cluster.member).
-				Debugf("Failed to poll a majority of the cluster in %d", r.server.electionTimeout)
-			r.resetHeartbeatTimeout()
+			if r.active {
+				log.WithField("memberID", r.server.cluster.member).
+					Debugf("Failed to poll a majority of the cluster in %d", r.server.electionTimeout)
+				r.resetHeartbeatTimeout()
+			}
 		case <-timeoutExpired:
 			return
 		}

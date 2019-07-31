@@ -95,10 +95,12 @@ func (r *CandidateRole) resetElectionTimeout() {
 	// being election timeout and 2 * election timeout.
 	timeout := r.server.electionTimeout + time.Duration(rand.Int63n(int64(r.server.electionTimeout)))
 	r.electionTimer = time.NewTimer(timeout)
+	electionCh := r.electionTimer.C
 	r.electionExpired = make(chan bool, 1)
+	expiredCh := r.electionExpired
 	go func() {
 		select {
-		case <-r.electionTimer.C:
+		case <-electionCh:
 			if r.active {
 				// When the election times out, clear the previous majority vote
 				// check and restart the election.
@@ -106,7 +108,7 @@ func (r *CandidateRole) resetElectionTimeout() {
 					Debugf("Election round for term %d expired: not enough votes received within the election timeout; restarting election", r.server.term)
 				r.sendVoteRequests()
 			}
-		case <-r.electionExpired:
+		case <-expiredCh:
 			return
 		}
 	}()

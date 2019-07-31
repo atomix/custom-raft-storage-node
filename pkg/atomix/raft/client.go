@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/atomix/atomix-go-node/pkg/atomix"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"io"
 	"sync"
@@ -127,6 +128,7 @@ func (c *RaftClient) write(ctx context.Context, request *CommandRequest, ch chan
 			return err
 		}
 
+		log.Tracef("Received CommandResponse %v", response)
 		if response.Status == ResponseStatus_OK {
 			ch <- service.Output{
 				Value: response.Output,

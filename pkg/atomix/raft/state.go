@@ -2,6 +2,7 @@ package raft
 
 import (
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
+	log "github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -10,9 +11,10 @@ const (
 )
 
 // newStateManager returns a new Raft state manager
-func newStateManager(raft *RaftServer, registry *service.ServiceRegistry) *stateManager {
+func newStateManager(server *RaftServer, registry *service.ServiceRegistry) *stateManager {
 	sm := &stateManager{
-		reader: raft.log.OpenReader(0),
+		server: server,
+		reader: server.log.OpenReader(0),
 		ch:     make(chan *change, stateBufferSize),
 	}
 	sm.state = service.NewPrimitiveStateMachine(registry, sm)
@@ -21,6 +23,7 @@ func newStateManager(raft *RaftServer, registry *service.ServiceRegistry) *state
 
 // stateManager manages the Raft state machine
 type stateManager struct {
+	server       *RaftServer
 	state        service.StateMachine
 	currentIndex int64
 	currentTime  time.Time
@@ -28,6 +31,15 @@ type stateManager struct {
 	reader       RaftLogReader
 	operation    service.OperationType
 	ch           chan *change
+}
+
+// applyIndex applies entries up to the given index
+func (m *stateManager) applyIndex(index int64) {
+	m.ch <- &change{
+		entry: &IndexedEntry{
+			Index: index,
+		},
+	}
 }
 
 // applyEntry enqueues the given entry to be applied to the state machine, returning output on the given channel
@@ -54,9 +66,11 @@ func (m *stateManager) start() {
 
 // execChange executes the given change on the state machine
 func (m *stateManager) execChange(change *change) {
-	m.execPendingChanges(change.entry.Index - 1)
-	m.execEntry(change.entry, change.result)
-	m.lastApplied = change.entry.Index
+	if change.entry.Index > m.lastApplied {
+		m.execPendingChanges(change.entry.Index - 1)
+		m.execEntry(change.entry, change.result)
+		m.lastApplied = change.entry.Index
+	}
 }
 
 // execPendingChanges reads and executes changes up to the given index
@@ -74,13 +88,14 @@ func (m *stateManager) execPendingChanges(index int64) {
 	}
 }
 
-// stop stops applying entries to the state machine
-func (m *stateManager) stop() {
-	close(m.ch)
-}
-
 // execEntry applies the given entry to the state machine and returns the result(s) on the given channel
 func (m *stateManager) execEntry(entry *IndexedEntry, ch chan service.Output) {
+	log.WithField("memberID", m.server.cluster.member).Tracef("Applying %d", entry.Index)
+	if entry.Entry == nil {
+		m.reader.Reset(entry.Index)
+		entry = m.reader.NextEntry()
+	}
+
 	switch e := entry.Entry.Entry.(type) {
 	case *RaftLogEntry_Query:
 		m.execQuery(entry.Index, entry.Entry.Timestamp, e.Query, ch)
