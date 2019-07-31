@@ -33,7 +33,8 @@ func (p *RaftProtocol) Start(cluster atomix.Cluster, registry *service.ServiceRe
 	}
 
 	p.server = NewRaftServer(cluster, registry, electionTimeout)
-	return p.server.Start()
+	go p.server.Start()
+	return p.server.waitForReady()
 }
 
 func (p *RaftProtocol) Client() service.Client {
