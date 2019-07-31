@@ -7,7 +7,7 @@ all: build
 
 build: # @HELP build the source code
 build:
-	go build -o build/_output/atomix-go-raft ./cmd/atomix-go-raft
+	GOOS=linux GOARCH=amd64 go build -o build/_output/atomix-go-raft ./cmd/atomix-go-raft
 
 proto: # @HELP build Protobuf/gRPC generated types
 proto:
@@ -46,8 +46,5 @@ gofmt: # @HELP run the Go format validation
 	bash -c "diff -u <(echo -n) <(gofmt -d pkg/)"
 
 image: # @HELP build atomix-go-raft Docker image
-	@go mod vendor
-	docker build . -f build/docker/Dockerfile \
-		--build-arg ONOS_BUILD_VERSION=${ONOS_BUILD_VERSION} \
-		-t atomix/atomix-go-raft:${ATOMIX_GO_RAFT_VERSION}
-	@rm -rf vendor
+image: build
+	docker build . -f build/docker/Dockerfile -t atomix/atomix-go-raft:${ATOMIX_GO_RAFT_VERSION}

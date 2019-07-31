@@ -7,11 +7,15 @@ import (
 	"github.com/atomix/atomix-go-node/proto/atomix/controller"
 	"github.com/atomix/atomix-go-raft/pkg/atomix/raft"
 	"github.com/golang/protobuf/jsonpb"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 )
 
 func main() {
+	log.SetLevel(log.InfoLevel)
+	log.SetOutput(os.Stdout)
+
 	nodeID := os.Args[1]
 	partitionConfig := parsePartitionConfig()
 	protocolConfig := parseProtocolConfig()

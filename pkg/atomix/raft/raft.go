@@ -4,6 +4,7 @@ import (
 	"github.com/atomix/atomix-go-node/pkg/atomix"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	"github.com/golang/protobuf/ptypes"
+	"time"
 )
 
 func NewRaftProtocol(config *RaftProtocolConfig) *RaftProtocol {
@@ -21,9 +22,9 @@ type RaftProtocol struct {
 }
 
 func (p *RaftProtocol) Start(cluster atomix.Cluster, registry *service.ServiceRegistry) error {
-	electionTimeout, err := ptypes.Duration(p.config.ElectionTimeout)
-	if err != nil {
-		return err
+	electionTimeout := 5 * time.Second
+	if p.config.ElectionTimeout != nil {
+		electionTimeout, _ = ptypes.Duration(p.config.ElectionTimeout)
 	}
 
 	p.client = newRaftClient(ReadConsistency_SEQUENTIAL)

@@ -1,0 +1,17 @@
+{
+  "partition": {
+    "partition": 1,
+    "group": {
+      "name": "raft",
+      "namespace": "default"
+    }
+  },
+  "controller": {},
+  "members": [
+    {
+      "id": "foo",
+      "host": "localhost",
+      "port": 5000
+    }
+  ]
+}
