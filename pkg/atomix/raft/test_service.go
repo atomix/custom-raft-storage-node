@@ -50,12 +50,14 @@ func (s *TestService) Restore(bytes []byte) error {
 }
 
 func (s *TestService) Get(value []byte, ch chan<- service.Result) {
+	defer close(ch)
 	ch <- s.NewResult(proto.Marshal(&GetResponse{
 		Value: s.value,
 	}))
 }
 
 func (s *TestService) Set(value []byte, ch chan<- service.Result) {
+	defer close(ch)
 	request := &SetRequest{}
 	if err := proto.Unmarshal(value, request); err != nil {
 		ch <- s.NewFailure(err)

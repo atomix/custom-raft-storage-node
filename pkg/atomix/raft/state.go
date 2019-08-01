@@ -70,6 +70,8 @@ func (m *stateManager) execChange(change *change) {
 		m.execPendingChanges(change.entry.Index - 1)
 		m.execEntry(change.entry, change.result)
 		m.lastApplied = change.entry.Index
+	} else if query, ok := change.entry.Entry.Entry.(*RaftLogEntry_Query); ok {
+		m.execQuery(change.entry.Index, change.entry.Entry.Timestamp, query.Query, change.result)
 	}
 }
 

@@ -68,7 +68,6 @@ func (a *raftAppender) heartbeat() error {
 		return nil
 	}
 
-	ch := make(chan int64)
 	future := heartbeatFuture{}
 
 	// Acquire a lock to add the future to the heartbeat futures.
@@ -80,7 +79,7 @@ func (a *raftAppender) heartbeat() error {
 	for _, member := range a.members {
 		member.heartbeatCh <- future.time
 	}
-	_, ok := <-ch
+	_, ok := <-future.ch
 	if ok {
 		return nil
 	} else {
@@ -94,6 +93,9 @@ func (a *raftAppender) commit(entry *IndexedEntry, f func()) error {
 	if len(a.members) == 0 {
 		a.server.writeLock()
 		a.server.setCommitIndex(entry.Index)
+		if f != nil {
+			f()
+		}
 		a.server.writeUnlock()
 		return nil
 	}
