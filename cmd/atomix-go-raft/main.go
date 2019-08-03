@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	log.SetLevel(log.InfoLevel)
+	log.SetLevel(log.TraceLevel)
 	log.SetOutput(os.Stdout)
 
 	nodeID := os.Args[1]

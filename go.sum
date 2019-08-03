@@ -40,6 +40,16 @@ github.com/atomix/atomix-go-node v0.0.0-20190731062159-115683b4384d h1:AWYcdxz8v
 github.com/atomix/atomix-go-node v0.0.0-20190731062159-115683b4384d/go.mod h1:HYViBuO8+UXs4lJI65kkze7dUp4fRixuBfaZJshre3w=
 github.com/atomix/atomix-go-node v0.0.0-20190801183050-91c1aad909a7 h1:wDUXszk9ACKr5lI93tahPhmYPzalbNcM4eVSxnHgWbk=
 github.com/atomix/atomix-go-node v0.0.0-20190801183050-91c1aad909a7/go.mod h1:HYViBuO8+UXs4lJI65kkze7dUp4fRixuBfaZJshre3w=
+github.com/atomix/atomix-go-node v0.0.0-20190802021335-b339ec39a7ad h1:cXV7bk/jeZu6Hwu38HIK5JU9nrEGmCyUUiIH44+/GYA=
+github.com/atomix/atomix-go-node v0.0.0-20190802021335-b339ec39a7ad/go.mod h1:HYViBuO8+UXs4lJI65kkze7dUp4fRixuBfaZJshre3w=
+github.com/atomix/atomix-go-node v0.0.0-20190802071230-d610bf18a93a h1:m0/C1BMd54eeZdr/i8bk9BHX+XaVM6fatjV+TPlbMlE=
+github.com/atomix/atomix-go-node v0.0.0-20190802071230-d610bf18a93a/go.mod h1:HYViBuO8+UXs4lJI65kkze7dUp4fRixuBfaZJshre3w=
+github.com/atomix/atomix-go-node v0.0.0-20190802080858-580a09b7b93d h1:aW3HO52/i7d6zbkLnbv7u2eDHs8xGgbpt2mOxLdzm2I=
+github.com/atomix/atomix-go-node v0.0.0-20190802080858-580a09b7b93d/go.mod h1:HYViBuO8+UXs4lJI65kkze7dUp4fRixuBfaZJshre3w=
+github.com/atomix/atomix-go-node v0.0.0-20190803002803-78d9673d9dbb h1:B5Q6DBme37Ksy8ZUTNy5u4OEVlM5gcT4uf65ao0orxE=
+github.com/atomix/atomix-go-node v0.0.0-20190803002803-78d9673d9dbb/go.mod h1:HYViBuO8+UXs4lJI65kkze7dUp4fRixuBfaZJshre3w=
+github.com/atomix/atomix-go-node v0.0.0-20190803002958-2cfb8ea83707 h1:WgSnOU2/e/VahswnutPKmt/tSeVkO9gc0VEITTr9D3E=
+github.com/atomix/atomix-go-node v0.0.0-20190803002958-2cfb8ea83707/go.mod h1:HYViBuO8+UXs4lJI65kkze7dUp4fRixuBfaZJshre3w=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/creack/pty v1.1.7/go.mod h1:lj5s0c3V2DBrqTV7llrYr5NG6My20zk30Fl46Y7DoTY=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
@@ -104,6 +114,7 @@ golang.org/x/exp v0.0.0-20190731235908-ec7cb31e5a56/go.mod h1:JhuoJpWY28nO4Vef9t
 golang.org/x/image v0.0.0-20190227222117-0694c2d4d067/go.mod h1:kZ7UVZpmo3dzQBMxlp+ypCbDeSB+sBbTgSJuh5dn5js=
 golang.org/x/image v0.0.0-20190703141733-d6a02ce849c9/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
 golang.org/x/image v0.0.0-20190729225735-1bd0cf576493/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
+golang.org/x/image v0.0.0-20190802002840-cff245a6509b/go.mod h1:FeLwcggjj3mMvU+oOTbSwawSJRM1uh48EjtB4UJZlP0=
 golang.org/x/lint v0.0.0-20181026193005-c67002cb31c3/go.mod h1:UVdnD1Gm6xHRNCYTkRU2/jEulfH38KcIWyp/GAMgvoE=
 golang.org/x/lint v0.0.0-20190227174305-5b3e6a55c961/go.mod h1:wehouNa3lNwaWXcvxsM5YxQ5yQlVC4a0KAMCusXpPoU=
 golang.org/x/lint v0.0.0-20190301231843-5614ed5bae6f/go.mod h1:UVdnD1Gm6xHRNCYTkRU2/jEulfH38KcIWyp/GAMgvoE=
@@ -177,6 +188,8 @@ golang.org/x/tools v0.0.0-20190723021737-8bb11ff117ca/go.mod h1:jcCCGcm9btYwXyDq
 golang.org/x/tools v0.0.0-20190729092621-ff9f1409240a/go.mod h1:jcCCGcm9btYwXyDqrUWc6MKQKKGJCWEQ3AfLSRIbEuI=
 golang.org/x/tools v0.0.0-20190730215328-ed3277de2799/go.mod h1:jcCCGcm9btYwXyDqrUWc6MKQKKGJCWEQ3AfLSRIbEuI=
 golang.org/x/tools v0.0.0-20190731214159-1e85ed8060aa/go.mod h1:jcCCGcm9btYwXyDqrUWc6MKQKKGJCWEQ3AfLSRIbEuI=
+golang.org/x/tools v0.0.0-20190802003818-e9bb7d36c060/go.mod h1:jcCCGcm9btYwXyDqrUWc6MKQKKGJCWEQ3AfLSRIbEuI=
+golang.org/x/tools v0.0.0-20190802220118-1d1727260058/go.mod h1:jcCCGcm9btYwXyDqrUWc6MKQKKGJCWEQ3AfLSRIbEuI=
 google.golang.org/api v0.4.0/go.mod h1:8k5glujaEP+g9n7WNsDg8QP6cUVNI86fCNMcbazEtwE=
 google.golang.org/api v0.7.0/go.mod h1:WtwebWUNSVBH/HAw79HIFXZNqEvBhG+Ra+ax0hx3E3M=
 google.golang.org/appengine v1.1.0/go.mod h1:EbEs0AVv82hx2wNQdGPgUI5lhzA/G0D9YwlJXL52JkM=

@@ -113,6 +113,7 @@ func (c *RaftClient) write(ctx context.Context, request *CommandRequest, ch chan
 		return err
 	}
 
+	log.Tracef("Sending CommandRequest %+v", request)
 	stream, err := client.Command(ctx, request)
 	if err != nil {
 		return err
@@ -128,7 +129,7 @@ func (c *RaftClient) write(ctx context.Context, request *CommandRequest, ch chan
 			return err
 		}
 
-		log.Tracef("Received CommandResponse %v", response)
+		log.Tracef("Received CommandResponse %+v", response)
 		if response.Status == ResponseStatus_OK {
 			ch <- service.Output{
 				Value: response.Output,
@@ -217,6 +218,7 @@ func (c *RaftClient) read(ctx context.Context, request *QueryRequest, ch chan<- 
 		return err
 	}
 
+	log.Tracef("Sending QueryRequest %+v", request)
 	stream, err := client.Query(ctx, request)
 	if err != nil {
 		return err
@@ -231,6 +233,7 @@ func (c *RaftClient) read(ctx context.Context, request *QueryRequest, ch chan<- 
 			return err
 		}
 
+		log.Tracef("Received QueryResponse %+v", response)
 		if response.Status == ResponseStatus_OK {
 			ch <- service.Output{
 				Value: response.Output,
