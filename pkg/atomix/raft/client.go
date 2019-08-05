@@ -108,6 +108,8 @@ func (c *RaftClient) getLeaderClient() (RaftServiceClient, error) {
 }
 
 func (c *RaftClient) write(ctx context.Context, request *CommandRequest, ch chan<- service.Output) error {
+	defer close(ch)
+
 	client, err := c.getLeaderClient()
 	if err != nil {
 		return err
@@ -213,6 +215,8 @@ func (c *RaftClient) getClient() (RaftServiceClient, error) {
 }
 
 func (c *RaftClient) read(ctx context.Context, request *QueryRequest, ch chan<- service.Output) error {
+	defer close(ch)
+
 	client, err := c.getClient()
 	if err != nil {
 		return err
