@@ -62,6 +62,8 @@ github.com/atomix/atomix-go-node v0.0.0-20190805082236-26688cdcb959 h1:b+sIvNSws
 github.com/atomix/atomix-go-node v0.0.0-20190805082236-26688cdcb959/go.mod h1:AX6dqVU12HBfSTPp0s7qqUjGD6fusaO1K0zkTukwH20=
 github.com/atomix/atomix-go-node v0.0.0-20190806194603-4dd1003cbfba h1:oDzAtOnHa1oJSaZunrSGgBuzfTq/8hC3xuBJefF7rRE=
 github.com/atomix/atomix-go-node v0.0.0-20190806194603-4dd1003cbfba/go.mod h1:AX6dqVU12HBfSTPp0s7qqUjGD6fusaO1K0zkTukwH20=
+github.com/atomix/atomix-go-node v0.0.0-20190806204203-361d1beb74f2 h1:zAXZ8HyWSH2ORKhJMzslKUlUyRmf8wPAQwc5hT6ndqk=
+github.com/atomix/atomix-go-node v0.0.0-20190806204203-361d1beb74f2/go.mod h1:AX6dqVU12HBfSTPp0s7qqUjGD6fusaO1K0zkTukwH20=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/creack/pty v1.1.7/go.mod h1:lj5s0c3V2DBrqTV7llrYr5NG6My20zk30Fl46Y7DoTY=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
@@ -206,6 +208,8 @@ golang.org/x/tools v0.0.0-20190731214159-1e85ed8060aa/go.mod h1:jcCCGcm9btYwXyDq
 golang.org/x/tools v0.0.0-20190802003818-e9bb7d36c060/go.mod h1:jcCCGcm9btYwXyDqrUWc6MKQKKGJCWEQ3AfLSRIbEuI=
 golang.org/x/tools v0.0.0-20190802220118-1d1727260058/go.mod h1:jcCCGcm9btYwXyDqrUWc6MKQKKGJCWEQ3AfLSRIbEuI=
 golang.org/x/tools v0.0.0-20190806193329-249e2b9b6d3c/go.mod h1:jcCCGcm9btYwXyDqrUWc6MKQKKGJCWEQ3AfLSRIbEuI=
+golang.org/x/tools v0.0.0-20190806194950-6743d4095d4b/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
+golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 google.golang.org/api v0.4.0/go.mod h1:8k5glujaEP+g9n7WNsDg8QP6cUVNI86fCNMcbazEtwE=
 google.golang.org/api v0.7.0/go.mod h1:WtwebWUNSVBH/HAw79HIFXZNqEvBhG+Ra+ax0hx3E3M=
 google.golang.org/appengine v1.1.0/go.mod h1:EbEs0AVv82hx2wNQdGPgUI5lhzA/G0D9YwlJXL52JkM=
