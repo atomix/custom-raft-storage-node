@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	cloud.google.com/go v0.43.0 // indirect
-	github.com/atomix/atomix-go-node v0.0.0-20190806204203-361d1beb74f2
+	github.com/atomix/atomix-go-node v0.0.0-20190806215754-29209110ddbb
 	github.com/golang/protobuf v1.3.2
 	github.com/google/pprof v0.0.0-20190723021845-34ac40c74b70 // indirect
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
@@ -17,7 +17,7 @@ require (
 	golang.org/x/mobile v0.0.0-20190806162312-597adff16ade // indirect
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80 // indirect
 	golang.org/x/sys v0.0.0-20190804053845-51ab0e2deafa // indirect
-	golang.org/x/tools v0.0.0-20190806194950-6743d4095d4b // indirect
+	golang.org/x/tools v0.0.0-20190806215303-88ddfcebc769 // indirect
 	google.golang.org/genproto v0.0.0-20190801165951-fa694d86fc64 // indirect
 	google.golang.org/grpc v1.22.1
 	honnef.co/go/tools v0.0.1-2019.2.2 // indirect
