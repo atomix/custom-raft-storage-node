@@ -11,39 +11,41 @@ import (
 
 // newRaftCluster returns a new RaftCluster with the given configuration
 func newRaftCluster(cluster atomix.Cluster) *RaftCluster {
-	members := make(map[string]*RaftMember)
-	memberIDs := make([]string, 0, len(cluster.Members))
+	members := make(map[MemberID]*RaftMember)
+	locations := make(map[MemberID]atomix.Member)
+	memberIDs := make([]MemberID, 0, len(cluster.Members))
 	for id, member := range cluster.Members {
-		members[id] = &RaftMember{
-			MemberId: member.ID,
+		members[MemberID(id)] = &RaftMember{
+			MemberID: MemberID(member.ID),
 			Type:     RaftMember_ACTIVE,
-			Updated:  time.Now().UnixNano(),
+			Updated:  time.Now(),
 		}
-		memberIDs = append(memberIDs, id)
+		locations[MemberID(id)] = member
+		memberIDs = append(memberIDs, MemberID(id))
 	}
 	return &RaftCluster{
-		member:    cluster.MemberID,
+		member:    MemberID(cluster.MemberID),
 		members:   members,
 		memberIDs: memberIDs,
-		locations: cluster.Members,
-		conns:     make(map[string]*grpc.ClientConn),
-		clients:   make(map[string]RaftServiceClient),
+		locations: locations,
+		conns:     make(map[MemberID]*grpc.ClientConn),
+		clients:   make(map[MemberID]RaftServiceClient),
 	}
 }
 
 // RaftCluster manages the Raft cluster configuration
 type RaftCluster struct {
-	member    string
-	members   map[string]*RaftMember
-	memberIDs []string
-	locations map[string]atomix.Member
-	conns     map[string]*grpc.ClientConn
-	clients   map[string]RaftServiceClient
+	member    MemberID
+	members   map[MemberID]*RaftMember
+	memberIDs []MemberID
+	locations map[MemberID]atomix.Member
+	conns     map[MemberID]*grpc.ClientConn
+	clients   map[MemberID]RaftServiceClient
 	mu        sync.RWMutex
 }
 
 // getClient returns a connection for the given member
-func (c *RaftCluster) getConn(member string) (*grpc.ClientConn, error) {
+func (c *RaftCluster) getConn(member MemberID) (*grpc.ClientConn, error) {
 	_, ok := c.members[member]
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("unknown member %s", member))
@@ -66,7 +68,7 @@ func (c *RaftCluster) getConn(member string) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-func (c *RaftCluster) getClient(member string) (RaftServiceClient, error) {
+func (c *RaftCluster) getClient(member MemberID) (RaftServiceClient, error) {
 	c.mu.RLock()
 	client, ok := c.clients[member]
 	c.mu.RUnlock()
@@ -87,7 +89,7 @@ func (c *RaftCluster) getClient(member string) (RaftServiceClient, error) {
 	return client, nil
 }
 
-func (c *RaftCluster) resetClient(member string) {
+func (c *RaftCluster) resetClient(member MemberID) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	conn, ok := c.conns[member]

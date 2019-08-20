@@ -3,8 +3,8 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/atomix/atomix-api/proto/atomix/controller"
 	"github.com/atomix/atomix-go-node/pkg/atomix"
-	"github.com/atomix/atomix-go-node/proto/atomix/controller"
 	"github.com/atomix/atomix-go-raft/pkg/atomix/raft"
 	"github.com/golang/protobuf/jsonpb"
 	log "github.com/sirupsen/logrus"

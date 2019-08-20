@@ -137,8 +137,9 @@ func (c *RaftClient) write(ctx context.Context, request *CommandRequest, ch chan
 				Value: response.Output,
 			}
 		} else if response.Error == RaftError_ILLEGAL_MEMBER_STATE {
-			if c.leader.ID == "" || response.Leader != c.leader.ID {
-				leader, ok := c.members[response.Leader]
+			leaderID := string(response.Leader)
+			if c.leader.ID == "" || leaderID != c.leader.ID {
+				leader, ok := c.members[leaderID]
 				if ok {
 					c.resetLeaderConn()
 					c.leader = leader

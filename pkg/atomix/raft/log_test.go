@@ -14,9 +14,9 @@ func TestMemoryLog(t *testing.T) {
 	assert.Equal(t, int64(0), writer.LastIndex())
 
 	entry := writer.Append(&RaftLogEntry{
-		Term: 1,
-		Timestamp: time.Now().UnixNano(),
-		Entry: &RaftLogEntry_Initialize{},
+		Term:      1,
+		Timestamp: time.Now(),
+		Entry:     &RaftLogEntry_Initialize{},
 	})
 	assert.Equal(t, int64(1), entry.Index)
 	assert.Equal(t, int64(1), entry.Entry.Term)
@@ -34,9 +34,9 @@ func TestMemoryLog(t *testing.T) {
 	assert.Nil(t, reader.NextEntry())
 
 	entry = writer.Append(&RaftLogEntry{
-		Term: 1,
-		Timestamp: time.Now().UnixNano(),
-		Entry: &RaftLogEntry_Initialize{},
+		Term:      1,
+		Timestamp: time.Now(),
+		Entry:     &RaftLogEntry_Initialize{},
 	})
 	assert.Equal(t, int64(2), entry.Index)
 	assert.Equal(t, int64(1), entry.Entry.Term)
@@ -52,19 +52,19 @@ func TestMemoryLog(t *testing.T) {
 	assert.Equal(t, int64(1), reader.FirstIndex())
 
 	writer.Append(&RaftLogEntry{
-		Term: 1,
-		Timestamp: time.Now().UnixNano(),
-		Entry: &RaftLogEntry_Initialize{},
+		Term:      1,
+		Timestamp: time.Now(),
+		Entry:     &RaftLogEntry_Initialize{},
 	})
 	writer.Append(&RaftLogEntry{
-		Term: 1,
-		Timestamp: time.Now().UnixNano(),
-		Entry: &RaftLogEntry_Initialize{},
+		Term:      1,
+		Timestamp: time.Now(),
+		Entry:     &RaftLogEntry_Initialize{},
 	})
 	writer.Append(&RaftLogEntry{
-		Term: 1,
-		Timestamp: time.Now().UnixNano(),
-		Entry: &RaftLogEntry_Initialize{},
+		Term:      1,
+		Timestamp: time.Now(),
+		Entry:     &RaftLogEntry_Initialize{},
 	})
 
 	assert.Equal(t, int64(5), writer.LastIndex())
@@ -89,9 +89,9 @@ func TestMemoryLog(t *testing.T) {
 	assert.Equal(t, int64(4), reader.NextIndex())
 	assert.Nil(t, reader.NextEntry())
 	entry = writer.Append(&RaftLogEntry{
-		Term: 2,
-		Timestamp: time.Now().UnixNano(),
-		Entry: &RaftLogEntry_Initialize{},
+		Term:      2,
+		Timestamp: time.Now(),
+		Entry:     &RaftLogEntry_Initialize{},
 	})
 	assert.Equal(t, int64(4), entry.Index)
 	assert.Equal(t, int64(4), reader.NextIndex())

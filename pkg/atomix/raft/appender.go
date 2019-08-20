@@ -15,20 +15,20 @@ import (
 func newAppender(server *RaftServer) *raftAppender {
 	commitCh := make(chan memberCommit)
 	failCh := make(chan time.Time)
-	members := make(map[string]*memberAppender)
+	members := make(map[MemberID]*memberAppender)
 	for _, member := range server.cluster.members {
-		if member.MemberId != server.cluster.member {
-			members[member.MemberId] = newMemberAppender(server, member, commitCh, failCh)
+		if member.MemberID != server.cluster.member {
+			members[member.MemberID] = newMemberAppender(server, member, commitCh, failCh)
 		}
 	}
 	appender := &raftAppender{
 		server:           server,
 		members:          members,
-		commitIndexes:    make(map[string]int64),
-		commitTimes:      make(map[string]time.Time),
+		commitIndexes:    make(map[MemberID]Index),
+		commitTimes:      make(map[MemberID]time.Time),
 		heartbeatFutures: list.New(),
-		commitChannels:   make(map[int64]chan bool),
-		commitFutures:    make(map[int64]func()),
+		commitChannels:   make(map[Index]chan bool),
+		commitFutures:    make(map[Index]func()),
 		commitCh:         commitCh,
 		failCh:           failCh,
 		lastQuorumTime:   time.Now(),
@@ -40,12 +40,12 @@ func newAppender(server *RaftServer) *raftAppender {
 // raftAppender handles replication on the leader
 type raftAppender struct {
 	server           *RaftServer
-	members          map[string]*memberAppender
-	commitIndexes    map[string]int64
-	commitTimes      map[string]time.Time
+	members          map[MemberID]*memberAppender
+	commitIndexes    map[MemberID]Index
+	commitTimes      map[MemberID]time.Time
 	heartbeatFutures *list.List
-	commitChannels   map[int64]chan bool
-	commitFutures    map[int64]func()
+	commitChannels   map[Index]chan bool
+	commitFutures    map[Index]func()
 	commitCh         chan memberCommit
 	failCh           chan time.Time
 	stopped          chan bool
@@ -141,20 +141,20 @@ func (a *raftAppender) processCommits() {
 	}
 }
 
-func (a *raftAppender) commitMember(member *memberAppender, index int64, time time.Time) {
+func (a *raftAppender) commitMember(member *memberAppender, index Index, time time.Time) {
 	if !member.active {
 		return
 	}
-	a.commitMemberIndex(member.member.MemberId, index)
-	a.commitMemberTime(member.member.MemberId, time)
+	a.commitMemberIndex(member.member.MemberID, index)
+	a.commitMemberTime(member.member.MemberID, time)
 }
 
-func (a *raftAppender) commitMemberIndex(member string, index int64) {
+func (a *raftAppender) commitMemberIndex(member MemberID, index Index) {
 	prevIndex := a.commitIndexes[member]
 	if index > prevIndex {
 		a.commitIndexes[member] = index
 
-		indexes := make([]int64, len(a.members))
+		indexes := make([]Index, len(a.members))
 		i := 0
 		for _, index := range a.commitIndexes {
 			indexes[i] = index
@@ -185,7 +185,7 @@ func (a *raftAppender) commitMemberIndex(member string, index int64) {
 	}
 }
 
-func (a *raftAppender) commitIndex(index int64) {
+func (a *raftAppender) commitIndex(index Index) {
 	// Update the server commit index.
 	a.server.setCommitIndex(index)
 
@@ -204,7 +204,7 @@ func (a *raftAppender) commitIndex(index int64) {
 	a.mu.Unlock()
 }
 
-func (a *raftAppender) commitMemberTime(member string, time time.Time) {
+func (a *raftAppender) commitMemberTime(member MemberID, time time.Time) {
 	prevTime := a.commitTimes[member]
 	nextTime := time
 	if nextTime.UnixNano() > prevTime.UnixNano() {
@@ -262,7 +262,7 @@ type heartbeatFuture struct {
 // memberCommit is an event carrying the match index for a member
 type memberCommit struct {
 	member *memberAppender
-	index  int64
+	index  Index
 	time   time.Time
 }
 
@@ -297,10 +297,10 @@ type memberAppender struct {
 	server            *RaftServer
 	member            *RaftMember
 	active            bool
-	snapshotIndex     int64
-	prevTerm          int64
-	nextIndex         int64
-	matchIndex        int64
+	snapshotIndex     Index
+	prevTerm          Term
+	nextIndex         Index
+	matchIndex        Index
 	lastHeartbeatTime time.Time
 	lastResponseTime  time.Time
 	appending         bool
@@ -369,7 +369,7 @@ func (a *memberAppender) append() {
 		snapshot := a.server.snapshot.CurrentSnapshot()
 		if snapshot != nil && a.snapshotIndex < snapshot.Index() && snapshot.Index() >= a.nextIndex {
 			log.WithField("memberID", a.server.cluster.member).
-				Debugf("Replicating snapshot %d to %s", snapshot.Index(), a.member.MemberId)
+				Debugf("Replicating snapshot %d to %s", snapshot.Index(), a.member.MemberID)
 			a.sendInstallRequests(snapshot)
 		} else {
 			a.sendAppendRequest(a.nextAppendRequest())
@@ -419,7 +419,7 @@ func (a *memberAppender) sendInstallRequests(snapshot Snapshot) {
 	// Start the append to the member.
 	startTime := time.Now()
 
-	client, err := a.server.cluster.getClient(a.member.MemberId)
+	client, err := a.server.cluster.getClient(a.member.MemberID)
 	if err != nil {
 		return
 	}
@@ -439,7 +439,7 @@ func (a *memberAppender) sendInstallRequests(snapshot Snapshot) {
 	n, err := reader.Read(bytes)
 	for n > 0 && err == nil {
 		request := a.newInstallRequest(snapshot, bytes[:n])
-		a.server.logSendTo("InstallRequest", request, a.member.MemberId)
+		a.server.logSendTo("InstallRequest", request, a.member.MemberID)
 		stream.Send(request)
 		n, err = reader.Read(bytes)
 	}
@@ -450,14 +450,14 @@ func (a *memberAppender) sendInstallRequests(snapshot Snapshot) {
 
 	response, err := stream.CloseAndRecv()
 	if err == nil {
-		a.server.logReceiveFrom("InstallResponse", response, a.member.MemberId)
+		a.server.logReceiveFrom("InstallResponse", response, a.member.MemberID)
 		if response.Status == ResponseStatus_OK {
 			a.handleInstallResponse(snapshot, response, startTime)
 		} else {
 			a.handleInstallFailure(snapshot, response, startTime)
 		}
 	} else {
-		a.server.logErrorFrom("InstallRequest", err, a.member.MemberId)
+		a.server.logErrorFrom("InstallRequest", err, a.member.MemberID)
 		a.handleInstallError(snapshot, err, startTime)
 	}
 }
@@ -483,8 +483,8 @@ func (a *memberAppender) handleInstallFailure(snapshot Snapshot, response *Insta
 
 func (a *memberAppender) handleInstallError(snapshot Snapshot, err error, startTime time.Time) {
 	log.WithField("memberID", a.server.cluster.member).
-		Debugf("Failed to install %s: %s", a.member.MemberId, err)
-	a.server.cluster.resetClient(a.member.MemberId)
+		Debugf("Failed to install %s: %s", a.member.MemberID, err)
+	a.server.cluster.resetClient(a.member.MemberID)
 	a.fail(startTime)
 	a.requeue()
 }
@@ -594,7 +594,7 @@ func (a *memberAppender) sendAppendRequest(request *AppendRequest) {
 	// Start the append to the member.
 	startTime := time.Now()
 
-	client, err := a.server.cluster.getClient(a.member.MemberId)
+	client, err := a.server.cluster.getClient(a.member.MemberID)
 	if err != nil {
 		return
 	}
@@ -602,18 +602,18 @@ func (a *memberAppender) sendAppendRequest(request *AppendRequest) {
 	ctx, cancel := context.WithTimeout(context.Background(), a.server.electionTimeout)
 	defer cancel()
 
-	a.server.logSendTo("AppendRequest", request, a.member.MemberId)
+	a.server.logSendTo("AppendRequest", request, a.member.MemberID)
 	response, err := client.Append(ctx, request)
 
 	if err == nil {
-		a.server.logReceiveFrom("AppendResponse", response, a.member.MemberId)
+		a.server.logReceiveFrom("AppendResponse", response, a.member.MemberID)
 		if response.Status == ResponseStatus_OK {
 			a.handleAppendResponse(request, response, startTime)
 		} else {
 			a.handleAppendFailure(request, response, startTime)
 		}
 	} else {
-		a.server.logErrorFrom("AppendRequest", err, a.member.MemberId)
+		a.server.logErrorFrom("AppendRequest", err, a.member.MemberID)
 		a.handleAppendError(request, err, startTime)
 	}
 }
@@ -674,12 +674,12 @@ func (a *memberAppender) handleAppendResponse(request *AppendRequest, response *
 		if response.LastLogIndex < a.matchIndex {
 			a.matchIndex = response.LastLogIndex
 			log.WithField("memberID", a.server.cluster.member).
-				Tracef("Reset match index for %s to %d", a.member.MemberId, a.matchIndex)
+				Tracef("Reset match index for %s to %d", a.member.MemberID, a.matchIndex)
 		}
 		if response.LastLogIndex+1 != a.nextIndex {
 			a.nextIndex = response.LastLogIndex + 1
 			log.WithField("memberID", a.server.cluster.member).
-				Tracef("Reset next index for %s to %d", a.member.MemberId, a.nextIndex)
+				Tracef("Reset next index for %s to %d", a.member.MemberID, a.nextIndex)
 			a.prevTerm = 0
 		}
 
@@ -694,7 +694,7 @@ func (a *memberAppender) handleAppendFailure(request *AppendRequest, response *A
 }
 
 func (a *memberAppender) handleAppendError(request *AppendRequest, err error, startTime time.Time) {
-	a.server.cluster.resetClient(a.member.MemberId)
+	a.server.cluster.resetClient(a.member.MemberID)
 	a.fail(startTime)
 	a.requeue()
 }

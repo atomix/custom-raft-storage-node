@@ -149,12 +149,12 @@ func (r *FollowerRole) sendPollRequests() {
 	r.server.readLock()
 	lastEntry := r.server.writer.LastEntry()
 	r.server.readUnlock()
-	var lastIndex int64
+	var lastIndex Index
 	if lastEntry != nil {
 		lastIndex = lastEntry.Index
 	}
 
-	var lastTerm int64
+	var lastTerm Term
 	if lastEntry != nil {
 		lastTerm = lastEntry.Entry.Term
 	}
@@ -171,7 +171,7 @@ func (r *FollowerRole) sendPollRequests() {
 			continue
 		}
 
-		go func(member string) {
+		go func(member MemberID) {
 			r.server.readLock()
 			term := r.server.term
 			r.server.readUnlock()

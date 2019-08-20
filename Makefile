@@ -11,8 +11,10 @@ build:
 
 proto: # @HELP build Protobuf/gRPC generated types
 proto:
-	docker build -t atomix/atomix-go-build:0.2 build/proto
-	docker run -it -v `pwd`:/go/src/github.com/atomix/atomix-go-raft atomix/atomix-go-build:0.2 build/proto
+	docker run -it -v `pwd`:/go/src/github.com/atomix/atomix-go-raft \
+		-w /go/src/github.com/atomix/atomix-go-raft \
+		--entrypoint build/bin/compile_protos.sh \
+		onosproject/protoc-go:stable
 
 test: # @HELP run the unit tests and source code validation
 test: build deps lint vet gofmt cyclo misspell ineffassign

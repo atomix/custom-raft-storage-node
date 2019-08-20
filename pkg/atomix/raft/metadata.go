@@ -2,10 +2,10 @@ package raft
 
 // MetadataStore stores metadata for a Raft server
 type MetadataStore interface {
-	StoreTerm(term int64)
-	LoadTerm() *int64
-	StoreVote(vote string)
-	LoadVote() *string
+	StoreTerm(term Term)
+	LoadTerm() *Term
+	StoreVote(vote *MemberID)
+	LoadVote() *MemberID
 }
 
 func newMemoryMetadataStore() MetadataStore {
@@ -14,22 +14,22 @@ func newMemoryMetadataStore() MetadataStore {
 
 // memoryMetadataStore implements MetadataStore in memory
 type memoryMetadataStore struct {
-	term *int64
-	vote *string
+	term *Term
+	vote *MemberID
 }
 
-func (s *memoryMetadataStore) StoreTerm(term int64) {
+func (s *memoryMetadataStore) StoreTerm(term Term) {
 	s.term = &term
 }
 
-func (s *memoryMetadataStore) LoadTerm() *int64 {
+func (s *memoryMetadataStore) LoadTerm() *Term {
 	return s.term
 }
 
-func (s *memoryMetadataStore) StoreVote(vote string) {
-	s.vote = &vote
+func (s *memoryMetadataStore) StoreVote(vote *MemberID) {
+	s.vote = vote
 }
 
-func (s *memoryMetadataStore) LoadVote() *string {
+func (s *memoryMetadataStore) LoadVote() *MemberID {
 	return s.vote
 }

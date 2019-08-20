@@ -16,11 +16,13 @@ syntax = "proto3";
 package atomix.raft;
 
 import "atomix/raft/raft.proto";
+import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
 
 // Raft log entry
 message RaftLogEntry {
-    int64 term = 1;
-    int64 timestamp = 2;
+    int64 term = 1 [(gogoproto.casttype) = "Term"];
+    google.protobuf.Timestamp timestamp = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
     oneof entry {
         InitializeEntry initialize = 3;

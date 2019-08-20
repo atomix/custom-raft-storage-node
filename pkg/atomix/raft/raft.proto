@@ -16,11 +16,13 @@ syntax = "proto3";
 package atomix.raft;
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
 
 message RaftMember {
-    string member_id = 1;
+    string member_id = 1 [(gogoproto.casttype) = "MemberID", (gogoproto.customname) = "MemberID"];
     Type type = 2;
-    int64 updated = 3;
+    google.protobuf.Timestamp updated = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
     enum Type {
         INACTIVE = 0;
@@ -30,12 +32,6 @@ message RaftMember {
     }
 }
 
-message SessionMetadata {
-    int64 session_id = 1;
-    string service_name = 2;
-    string service_type = 3;
-}
-
 enum ReadConsistency {
     SEQUENTIAL = 0;
     LINEARIZABLE_LEASE = 1;
@@ -43,8 +39,8 @@ enum ReadConsistency {
 }
 
 message RaftProtocolConfig {
-    google.protobuf.Duration election_timeout = 1;
-    google.protobuf.Duration heartbeat_interval = 2;
+    google.protobuf.Duration election_timeout = 1 [(gogoproto.stdduration) = true];
+    google.protobuf.Duration heartbeat_interval = 2 [(gogoproto.stdduration) = true];
     RaftStorageConfig storage = 3;
     RaftCompactionConfig compaction = 4;
 }

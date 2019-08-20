@@ -51,11 +51,11 @@ type RaftServer struct {
 	readyCh          chan struct{}
 	role             Role
 	state            *stateManager
-	term             int64
-	leader           string
-	lastVotedFor     string
-	firstCommitIndex *int64
-	commitIndex      int64
+	term             Term
+	leader           MemberID
+	lastVotedFor     *MemberID
+	firstCommitIndex *Index
+	commitIndex      Index
 	cluster          *RaftCluster
 	metadata         MetadataStore
 	snapshot         SnapshotStore
@@ -82,17 +82,17 @@ func (s *RaftServer) writeUnlock() {
 	s.mu.Unlock()
 }
 
-func (s *RaftServer) setTerm(term int64) {
+func (s *RaftServer) setTerm(term Term) {
 	if term > s.term {
 		s.term = term
 		s.leader = ""
-		s.lastVotedFor = ""
+		s.lastVotedFor = nil
 		s.metadata.StoreTerm(term)
 		s.metadata.StoreVote(s.lastVotedFor)
 	}
 }
 
-func (s *RaftServer) setLeader(leader string) {
+func (s *RaftServer) setLeader(leader MemberID) {
 	if s.leader != leader {
 		if leader == "" {
 			s.leader = ""
@@ -103,26 +103,28 @@ func (s *RaftServer) setLeader(leader string) {
 			}
 		}
 
-		s.lastVotedFor = ""
+		s.lastVotedFor = nil
 		s.metadata.StoreVote(s.lastVotedFor)
 	}
 }
 
-func (s *RaftServer) setLastVotedFor(candidate string) {
+func (s *RaftServer) setLastVotedFor(candidate *MemberID) {
 	// If we've already voted for another candidate in this term then the last voted for candidate cannot be overridden.
-	if s.lastVotedFor != "" && candidate != "" {
+	if s.lastVotedFor != nil && candidate != nil {
 		log.WithField("memberID", s.cluster.member).Error("Already voted for another candidate")
 	}
 
 	// Verify the candidate is a member of the cluster.
-	if _, ok := s.cluster.members[candidate]; !ok {
-		log.WithField("memberID", s.cluster.member).Errorf("Unknown candidate: %s", candidate)
+	if candidate != nil {
+		if _, ok := s.cluster.members[*candidate]; !ok {
+			log.WithField("memberID", s.cluster.member).Errorf("Unknown candidate: %s", candidate)
+		}
 	}
 
 	s.lastVotedFor = candidate
 	s.metadata.StoreVote(candidate)
 
-	if candidate != "" {
+	if candidate != nil {
 		log.WithField("memberID", s.cluster.member).Debugf("Voted for %s", candidate)
 	} else {
 		log.WithField("memberID", s.cluster.member).Trace("Reset last voted for")
@@ -139,13 +141,13 @@ func (s *RaftServer) setStatus(status RaftStatus) {
 	}
 }
 
-func (s *RaftServer) setFirstCommitIndex(commitIndex int64) {
+func (s *RaftServer) setFirstCommitIndex(commitIndex Index) {
 	if s.firstCommitIndex == nil {
 		s.firstCommitIndex = &commitIndex
 	}
 }
 
-func (s *RaftServer) setCommitIndex(commitIndex int64) int64 {
+func (s *RaftServer) setCommitIndex(commitIndex Index) Index {
 	previousCommitIndex := s.commitIndex
 	if commitIndex > previousCommitIndex {
 		s.commitIndex = commitIndex
@@ -164,10 +166,7 @@ func (s *RaftServer) Start() error {
 	if term != nil {
 		s.term = *term
 	}
-	vote := s.metadata.LoadVote()
-	if vote != nil {
-		s.lastVotedFor = *vote
-	}
+	s.lastVotedFor = s.metadata.LoadVote()
 	s.setStatus(RaftStatusRunning)
 
 	// Start applying changes to the state machine
@@ -211,17 +210,17 @@ func (s *RaftServer) logError(name string, err error) {
 		Tracef("Error %s [%v]", name, err)
 }
 
-func (s *RaftServer) logSendTo(name string, message interface{}, member string) {
+func (s *RaftServer) logSendTo(name string, message interface{}, member MemberID) {
 	log.WithField("memberID", s.cluster.member).
 		Tracef("Sending %s [%v] to %s", name, message, member)
 }
 
-func (s *RaftServer) logReceiveFrom(name string, message interface{}, member string) {
+func (s *RaftServer) logReceiveFrom(name string, message interface{}, member MemberID) {
 	log.WithField("memberID", s.cluster.member).
 		Tracef("Received %s [%v] from %s", name, message, member)
 }
 
-func (s *RaftServer) logErrorFrom(name string, err error, member string) {
+func (s *RaftServer) logErrorFrom(name string, err error, member MemberID) {
 	log.WithField("memberID", s.cluster.member).
 		Warnf("Error %s [%v] from %s", name, err, member)
 }

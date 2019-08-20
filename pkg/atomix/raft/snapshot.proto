@@ -15,8 +15,10 @@ syntax = "proto3";
 
 package atomix.raft;
 
+import "gogoproto/gogo.proto";
+
 // Snapshot descriptor
 message SnapshotDescriptor {
-    int64 index = 1;
-    int64 timestamp = 2;
+    int64 index = 1 [(gogoproto.casttype) = "Index"];
+    int64 timestamp = 2 [(gogoproto.casttype) = "Term"];
 }

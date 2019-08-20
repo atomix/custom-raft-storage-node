@@ -76,7 +76,7 @@ func (r *ActiveRole) handlePoll(ctx context.Context, request *PollRequest) (*Pol
 	}
 }
 
-func (r *ActiveRole) isLogUpToDate(lastIndex int64, lastTerm int64, request interface{}) bool {
+func (r *ActiveRole) isLogUpToDate(lastIndex Index, lastTerm Term, request interface{}) bool {
 	// Read the last entry from the log.
 	lastEntry := r.server.writer.LastEntry()
 
@@ -161,10 +161,10 @@ func (r *ActiveRole) handleVote(ctx context.Context, request *VoteRequest) (*Vot
 			Term:   r.server.term,
 			Voted:  false,
 		}, nil
-	} else if r.server.lastVotedFor == "" {
+	} else if r.server.lastVotedFor == nil {
 		// If no vote has been cast, check the log and cast a vote if necessary.
 		if r.isLogUpToDate(request.LastLogIndex, request.LastLogTerm, request) {
-			r.server.setLastVotedFor(request.Candidate)
+			r.server.setLastVotedFor(&request.Candidate)
 			return &VoteResponse{
 				Status: ResponseStatus_OK,
 				Term:   r.server.term,
@@ -177,7 +177,7 @@ func (r *ActiveRole) handleVote(ctx context.Context, request *VoteRequest) (*Vot
 				Voted:  false,
 			}, nil
 		}
-	} else if r.server.lastVotedFor == request.Candidate {
+	} else if *r.server.lastVotedFor == request.Candidate {
 		// If we already voted for the requesting server, respond successfully.
 		log.WithField("memberID", r.server.cluster.member).
 			Debugf("Accepted %v: already voted for %s", request, request.Candidate)

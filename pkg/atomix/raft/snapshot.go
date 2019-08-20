@@ -3,32 +3,33 @@ package raft
 import (
 	"bytes"
 	"io"
+	"time"
 )
 
 type SnapshotStore interface {
-	newSnapshot(index int64, timestamp int64) Snapshot
+	newSnapshot(index Index, timestamp time.Time) Snapshot
 	CurrentSnapshot() Snapshot
 }
 
 type Snapshot interface {
-	Index() int64
-	Timestamp() int64
+	Index() Index
+	Timestamp() time.Time
 	Reader() io.ReadCloser
 	Writer() io.WriteCloser
 }
 
 func newMemorySnapshotStore() SnapshotStore {
 	return &memorySnapshotStore{
-		snapshots: make(map[int64]Snapshot),
+		snapshots: make(map[Index]Snapshot),
 	}
 }
 
 type memorySnapshotStore struct {
-	snapshots       map[int64]Snapshot
+	snapshots       map[Index]Snapshot
 	currentSnapshot Snapshot
 }
 
-func (s *memorySnapshotStore) newSnapshot(index int64, timestamp int64) Snapshot {
+func (s *memorySnapshotStore) newSnapshot(index Index, timestamp time.Time) Snapshot {
 	snapshot := &memorySnapshot{
 		index:     index,
 		timestamp: timestamp,
@@ -44,16 +45,16 @@ func (s *memorySnapshotStore) CurrentSnapshot() Snapshot {
 }
 
 type memorySnapshot struct {
-	index     int64
-	timestamp int64
+	index     Index
+	timestamp time.Time
 	bytes     []byte
 }
 
-func (s *memorySnapshot) Index() int64 {
+func (s *memorySnapshot) Index() Index {
 	return s.index
 }
 
-func (s *memorySnapshot) Timestamp() int64 {
+func (s *memorySnapshot) Timestamp() time.Time {
 	return s.timestamp
 }
 

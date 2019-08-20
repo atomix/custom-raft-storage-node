@@ -27,7 +27,7 @@ func (r *PassiveRole) Name() string {
 	return "Passive"
 }
 
-func (r *PassiveRole) updateTermAndLeader(term int64, leader string) bool {
+func (r *PassiveRole) updateTermAndLeader(term Term, leader MemberID) bool {
 	// If the request indicates a term that is greater than the current term or no leader has been
 	// set for the current term, update leader and term.
 	if term > r.server.term || (term == r.server.term && r.server.leader == "" && leader != "") {
@@ -130,10 +130,10 @@ func (r *PassiveRole) checkPreviousEntry(request *AppendRequest) *AppendResponse
 
 func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, error) {
 	// Compute the last entry index from the previous log index and request entry count.
-	lastEntryIndex := request.PrevLogIndex + int64(len(request.Entries))
+	lastEntryIndex := request.PrevLogIndex + Index(len(request.Entries))
 
 	// Ensure the commitIndex is not increased beyond the index of the last entry in the request.
-	commitIndex := int64(math.Max(float64(r.server.commitIndex), math.Min(float64(request.CommitIndex), float64(lastEntryIndex))))
+	commitIndex := Index(math.Max(float64(r.server.commitIndex), math.Min(float64(request.CommitIndex), float64(lastEntryIndex))))
 
 	// Track the last log index while entries are appended.
 	index := request.PrevLogIndex
@@ -227,9 +227,9 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 		}
 
 		// Iterate through entries in the request and apply committed entries to the state machine.
-		for i := 0; request.PrevLogIndex+int64(i)+1 <= commitIndex && i < len(request.Entries); i++ {
+		for i := 0; request.PrevLogIndex+Index(i)+1 <= commitIndex && i < len(request.Entries); i++ {
 			r.server.state.applyEntry(&IndexedEntry{
-				Index: request.PrevLogIndex + int64(i) + 1,
+				Index: request.PrevLogIndex + Index(i) + 1,
 				Entry: request.Entries[i],
 			}, nil)
 		}
@@ -239,15 +239,15 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 	return r.succeedAppend(index), nil
 }
 
-func (r *PassiveRole) failAppend(lastIndex int64) *AppendResponse {
+func (r *PassiveRole) failAppend(lastIndex Index) *AppendResponse {
 	return r.completeAppend(false, lastIndex)
 }
 
-func (r *PassiveRole) succeedAppend(lastIndex int64) *AppendResponse {
+func (r *PassiveRole) succeedAppend(lastIndex Index) *AppendResponse {
 	return r.completeAppend(true, lastIndex)
 }
 
-func (r *PassiveRole) completeAppend(succeeded bool, lastIndex int64) *AppendResponse {
+func (r *PassiveRole) completeAppend(succeeded bool, lastIndex Index) *AppendResponse {
 	return &AppendResponse{
 		Status:       ResponseStatus_OK,
 		Term:         r.server.term,
@@ -351,7 +351,7 @@ func (r *PassiveRole) Query(request *QueryRequest, server RaftService_QueryServe
 			Index: r.server.writer.LastIndex(),
 			Entry: &RaftLogEntry{
 				Term:      r.server.term,
-				Timestamp: time.Now().UnixNano(),
+				Timestamp: time.Now(),
 				Entry: &RaftLogEntry_Query{
 					Query: &QueryEntry{
 						Value: request.Value,
@@ -403,7 +403,7 @@ func (r *PassiveRole) applyQuery(entry *IndexedEntry, server RaftService_QuerySe
 }
 
 // forwardQuery forwards a query request to the leader
-func (r *PassiveRole) forwardQuery(request *QueryRequest, leader string, server RaftService_QueryServer) error {
+func (r *PassiveRole) forwardQuery(request *QueryRequest, leader MemberID, server RaftService_QueryServer) error {
 	if leader == "" {
 		response := &QueryResponse{
 			Status: ResponseStatus_ERROR,

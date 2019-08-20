@@ -128,7 +128,7 @@ func (r *CandidateRole) sendVoteRequests() {
 	// restart the election.
 	r.server.writeLock()
 	r.server.setTerm(r.server.term + 1)
-	r.server.setLastVotedFor(r.server.cluster.member)
+	r.server.setLastVotedFor(&r.server.cluster.member)
 	term := r.server.term
 	r.server.writeUnlock()
 
@@ -183,12 +183,12 @@ func (r *CandidateRole) sendVoteRequests() {
 	r.server.readLock()
 	lastEntry := r.server.writer.LastEntry()
 	r.server.readUnlock()
-	var lastIndex int64
+	var lastIndex Index
 	if lastEntry != nil {
 		lastIndex = lastEntry.Index
 	}
 
-	var lastTerm int64
+	var lastTerm Term
 	if lastEntry != nil {
 		lastTerm = lastEntry.Entry.Term
 	}
@@ -205,7 +205,7 @@ func (r *CandidateRole) sendVoteRequests() {
 			continue
 		}
 
-		go func(member string) {
+		go func(member MemberID) {
 			log.WithField("memberID", r.server.cluster.member).
 				Debugf("Requesting vote from %s for term %d", member, term)
 			request := &VoteRequest{

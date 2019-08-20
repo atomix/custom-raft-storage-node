@@ -3,9 +3,17 @@ package raft
 import (
 	"github.com/atomix/atomix-go-node/pkg/atomix"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
-	"github.com/golang/protobuf/ptypes"
 	"time"
 )
+
+// MemberID is the ID of a Raft cluster member
+type MemberID string
+
+// Index is a Raft log index
+type Index uint64
+
+// Term is a Raft term
+type Term uint64
 
 func NewRaftProtocol(config *RaftProtocolConfig) *RaftProtocol {
 	return &RaftProtocol{
@@ -24,7 +32,7 @@ type RaftProtocol struct {
 func (p *RaftProtocol) Start(cluster atomix.Cluster, registry *service.ServiceRegistry) error {
 	electionTimeout := 5 * time.Second
 	if p.config.ElectionTimeout != nil {
-		electionTimeout, _ = ptypes.Duration(p.config.ElectionTimeout)
+		electionTimeout = *p.config.ElectionTimeout
 	}
 
 	p.client = newRaftClient(ReadConsistency_SEQUENTIAL)

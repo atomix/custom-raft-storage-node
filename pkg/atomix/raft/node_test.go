@@ -2,12 +2,11 @@ package raft
 
 import (
 	"context"
+	"github.com/atomix/atomix-api/proto/atomix/controller"
+	"github.com/atomix/atomix-api/proto/atomix/headers"
+	"github.com/atomix/atomix-api/proto/atomix/map"
+	"github.com/atomix/atomix-api/proto/atomix/primitive"
 	"github.com/atomix/atomix-go-node/pkg/atomix"
-	"github.com/atomix/atomix-go-node/proto/atomix/controller"
-	"github.com/atomix/atomix-go-node/proto/atomix/headers"
-	"github.com/atomix/atomix-go-node/proto/atomix/map"
-	"github.com/atomix/atomix-go-node/proto/atomix/primitive"
-	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"testing"
@@ -25,7 +24,7 @@ func TestNode(t *testing.T) {
 		},
 		Members: []*controller.NodeConfig{
 			{
-				Id:   "foo",
+				ID:   "foo",
 				Host: "localhost",
 				Port: 5679,
 			},
@@ -42,6 +41,7 @@ func TestNode(t *testing.T) {
 
 	client := _map.NewMapServiceClient(conn)
 
+	timeout := 5 * time.Second
 	createResponse, err := client.Create(context.TODO(), &_map.CreateRequest{
 		Header: &headers.RequestHeader{
 			Name: &primitive.Name{
@@ -49,13 +49,11 @@ func TestNode(t *testing.T) {
 				Namespace: "test",
 			},
 		},
-		Timeout: &duration.Duration{
-			Seconds: 5,
-		},
+		Timeout: &timeout,
 	})
 	assert.NoError(t, err)
 
-	sessionID := createResponse.Header.SessionId
+	sessionID := createResponse.Header.SessionID
 	index := createResponse.Header.Index
 
 	sizeResponse, err := client.Size(context.TODO(), &_map.SizeRequest{
@@ -64,9 +62,9 @@ func TestNode(t *testing.T) {
 				Name:      "test",
 				Namespace: "test",
 			},
-			SessionId: sessionID,
+			SessionID: sessionID,
 			Index:     index,
-			RequestId: 0,
+			RequestID: 0,
 		},
 	})
 	assert.NoError(t, err)
@@ -79,9 +77,9 @@ func TestNode(t *testing.T) {
 				Name:      "test",
 				Namespace: "test",
 			},
-			SessionId: sessionID,
+			SessionID: sessionID,
 			Index:     index,
-			RequestId: 1,
+			RequestID: 1,
 		},
 		Key:   "foo",
 		Value: []byte("Hello world!"),
@@ -96,9 +94,9 @@ func TestNode(t *testing.T) {
 				Name:      "test",
 				Namespace: "test",
 			},
-			SessionId: sessionID,
+			SessionID: sessionID,
 			Index:     index,
-			RequestId: 1,
+			RequestID: 1,
 		},
 		Key: "foo",
 	})

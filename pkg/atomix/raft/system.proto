@@ -16,17 +16,19 @@ syntax = "proto3";
 package atomix.raft;
 
 import "atomix/raft/raft.proto";
+import "google/protobuf/timestamp.proto";
+import "gogoproto/gogo.proto";
 
 // Raft system metadata
 message RaftMetadata {
-    int64 term = 1;
-    string vote = 2;
+    int64 term = 1 [(gogoproto.casttype) = "Term"];
+    string vote = 2 [(gogoproto.casttype) = "MemberID"];
 }
 
 // Raft system configuration
 message RaftConfiguration {
-    int64 index = 1;
-    int64 term = 2;
-    int64 timestamp = 3;
+    int64 index = 1 [(gogoproto.casttype) = "Index"];
+    int64 term = 2 [(gogoproto.casttype) = "Term"];
+    google.protobuf.Timestamp timestamp = 3 [(gogoproto.stdtime) = true];
     repeated RaftMember members = 4;
 }

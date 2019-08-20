@@ -25,16 +25,16 @@ func newStateManager(server *RaftServer, registry *service.ServiceRegistry) *sta
 type stateManager struct {
 	server       *RaftServer
 	state        service.StateMachine
-	currentIndex int64
+	currentIndex Index
 	currentTime  time.Time
-	lastApplied  int64
+	lastApplied  Index
 	reader       RaftLogReader
 	operation    service.OperationType
 	ch           chan *change
 }
 
 // applyIndex applies entries up to the given index
-func (m *stateManager) applyIndex(index int64) {
+func (m *stateManager) applyIndex(index Index) {
 	m.ch <- &change{
 		entry: &IndexedEntry{
 			Index: index,
@@ -50,10 +50,10 @@ func (m *stateManager) applyEntry(entry *IndexedEntry, ch chan service.Output) {
 	}
 }
 
-func (m *stateManager) updateClock(index int64, timestamp int64) {
+func (m *stateManager) updateClock(index Index, timestamp time.Time) {
 	m.currentIndex = index
-	if timestamp > m.currentTime.UnixNano() {
-		m.currentTime = time.Unix(0, timestamp)
+	if timestamp.UnixNano() > m.currentTime.UnixNano() {
+		m.currentTime = timestamp
 	}
 }
 
@@ -76,7 +76,7 @@ func (m *stateManager) execChange(change *change) {
 }
 
 // execPendingChanges reads and executes changes up to the given index
-func (m *stateManager) execPendingChanges(index int64) {
+func (m *stateManager) execPendingChanges(index Index) {
 	if m.lastApplied < index {
 		for m.lastApplied < index {
 			entry := m.reader.NextEntry()
@@ -110,7 +110,7 @@ func (m *stateManager) execEntry(entry *IndexedEntry, ch chan service.Output) {
 	}
 }
 
-func (m *stateManager) execInit(index int64, timestamp int64, init *InitializeEntry, ch chan service.Output) {
+func (m *stateManager) execInit(index Index, timestamp time.Time, init *InitializeEntry, ch chan service.Output) {
 	m.updateClock(index, timestamp)
 	if ch != nil {
 		ch <- service.Output{}
@@ -118,7 +118,7 @@ func (m *stateManager) execInit(index int64, timestamp int64, init *InitializeEn
 	}
 }
 
-func (m *stateManager) execConfig(index int64, timestamp int64, config *ConfigurationEntry, ch chan service.Output) {
+func (m *stateManager) execConfig(index Index, timestamp time.Time, config *ConfigurationEntry, ch chan service.Output) {
 	m.updateClock(index, timestamp)
 	if ch != nil {
 		ch <- service.Output{}
@@ -126,12 +126,12 @@ func (m *stateManager) execConfig(index int64, timestamp int64, config *Configur
 	}
 }
 
-func (m *stateManager) execQuery(index int64, timestamp int64, query *QueryEntry, ch chan service.Output) {
+func (m *stateManager) execQuery(index Index, timestamp time.Time, query *QueryEntry, ch chan service.Output) {
 	m.operation = service.OpTypeQuery
 	m.state.Query(query.Value, ch)
 }
 
-func (m *stateManager) execCommand(index int64, timestamp int64, command *CommandEntry, ch chan service.Output) {
+func (m *stateManager) execCommand(index Index, timestamp time.Time, command *CommandEntry, ch chan service.Output) {
 	m.updateClock(index, timestamp)
 	m.operation = service.OpTypeCommand
 	m.state.Command(command.Value, ch)

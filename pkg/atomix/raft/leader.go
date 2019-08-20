@@ -19,9 +19,9 @@ func newLeaderRole(server *RaftServer) Role {
 type LeaderRole struct {
 	*ActiveRole
 	appender      *raftAppender
-	initIndex     int64
-	configIndex   int64
-	transferIndex int64
+	initIndex     Index
+	configIndex   Index
+	transferIndex Index
 }
 
 // Name is the name of the role
@@ -50,7 +50,7 @@ func (r *LeaderRole) commitInitializeEntry() {
 	// Create and append an InitializeEntry.
 	entry := &RaftLogEntry{
 		Term:      r.server.term,
-		Timestamp: time.Now().UnixNano(),
+		Timestamp: time.Now(),
 		Entry: &RaftLogEntry_Initialize{
 			Initialize: &InitializeEntry{},
 		},
@@ -149,7 +149,7 @@ func (r *LeaderRole) Command(request *CommandRequest, server RaftService_Command
 
 	entry := &RaftLogEntry{
 		Term:      r.server.term,
-		Timestamp: time.Now().UnixNano(),
+		Timestamp: time.Now(),
 		Entry: &RaftLogEntry_Command{
 			Command: &CommandEntry{
 				Value: request.Value,
@@ -225,7 +225,7 @@ func (r *LeaderRole) Query(request *QueryRequest, server RaftService_QueryServer
 		Index: r.server.writer.LastIndex(),
 		Entry: &RaftLogEntry{
 			Term:      r.server.term,
-			Timestamp: time.Now().UnixNano(),
+			Timestamp: time.Now(),
 			Entry: &RaftLogEntry_Query{
 				Query: &QueryEntry{
 					Value: request.Value,

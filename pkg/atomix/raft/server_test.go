@@ -38,8 +38,8 @@ func TestRaftNode(t *testing.T) {
 	out := <-ch
 	assert.True(t, out.Succeeded())
 	openSessionResponse := getOpenSessionResponse(out.Value)
-	assert.NotEqual(t, 0, openSessionResponse.SessionId)
-	sessionID := openSessionResponse.SessionId
+	assert.NotEqual(t, 0, openSessionResponse.SessionID)
+	sessionID := openSessionResponse.SessionID
 
 	ch = make(chan service.Output)
 	bytes, err := proto.Marshal(&SetRequest{
@@ -150,8 +150,8 @@ func BenchmarkRaftCluster(b *testing.B) {
 	out := <-ch
 	assert.True(b, out.Succeeded())
 	openSessionResponse := getOpenSessionResponse(out.Value)
-	assert.NotEqual(b, 0, openSessionResponse.SessionId)
-	sessionID := openSessionResponse.SessionId
+	assert.NotEqual(b, 0, openSessionResponse.SessionID)
+	sessionID := openSessionResponse.SessionID
 
 	b.Run("write", func(b *testing.B) {
 		b.ResetTimer()
@@ -200,10 +200,11 @@ func startServer(server *RaftServer, wg *sync.WaitGroup) {
 }
 
 func newOpenSessionRequest() []byte {
+	timeout := 30 * time.Second
 	bytes, _ := proto.Marshal(&service.SessionRequest{
 		Request: &service.SessionRequest_OpenSession{
 			OpenSession: &service.OpenSessionRequest{
-				Timeout: int64(30 * time.Second),
+				Timeout: &timeout,
 			},
 		},
 	})
@@ -222,7 +223,7 @@ func newKeepAliveRequest(sessionID uint64, commandID uint64, streams map[uint64]
 	bytes, _ := proto.Marshal(&service.SessionRequest{
 		Request: &service.SessionRequest_KeepAlive{
 			KeepAlive: &service.KeepAliveRequest{
-				SessionId:       sessionID,
+				SessionID:       sessionID,
 				CommandSequence: commandID,
 				Streams:         streams,
 			},
@@ -235,7 +236,7 @@ func newCloseSessionRequest(sessionID uint64) []byte {
 	bytes, _ := proto.Marshal(&service.SessionRequest{
 		Request: &service.SessionRequest_CloseSession{
 			CloseSession: &service.CloseSessionRequest{
-				SessionId: sessionID,
+				SessionID: sessionID,
 			},
 		},
 	})
@@ -247,7 +248,7 @@ func newCommandRequest(sessionID uint64, commandID uint64, name string, bytes []
 		Request: &service.SessionRequest_Command{
 			Command: &service.SessionCommandRequest{
 				Context: &service.SessionCommandContext{
-					SessionId:      sessionID,
+					SessionID:      sessionID,
 					SequenceNumber: commandID,
 				},
 				Name:  name,
@@ -271,7 +272,7 @@ func newQueryRequest(t *testing.T, sessionID uint64, lastIndex uint64, lastComma
 		Request: &service.SessionRequest_Query{
 			Query: &service.SessionQueryRequest{
 				Context: &service.SessionQueryContext{
-					SessionId:          sessionID,
+					SessionID:          sessionID,
 					LastIndex:          lastIndex,
 					LastSequenceNumber: lastCommandID,
 				},
