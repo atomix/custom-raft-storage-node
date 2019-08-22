@@ -6,6 +6,7 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/atomix/atomix-api v0.0.0-20190819230829-366ccc994adb h1:5BfPSZekPTwr8SoHWZVYEj8bHtZJavTXWGRbsEs/t/4=
 github.com/atomix/atomix-api v0.0.0-20190819230829-366ccc994adb/go.mod h1:joWKUd0zIeYbAQ0vmYHGsnV03ZgRalhceHgnJ3EN0mI=
+github.com/atomix/atomix-api v0.0.0-20190821212433-320dd0dbb83e h1:gsIp6ruL8Jm5OwLwnEgmadt/ZDcoa1aeRSEIXzGW6IM=
 github.com/atomix/atomix-api v0.0.0-20190821212433-320dd0dbb83e/go.mod h1:joWKUd0zIeYbAQ0vmYHGsnV03ZgRalhceHgnJ3EN0mI=
 github.com/atomix/atomix-go-node v0.0.0-20190719005747-0f8c60e0a3b2 h1:vVBNZD73tjpwkTFsis7NFpPRbJfbISlkQqUiaoKwliU=
 github.com/atomix/atomix-go-node v0.0.0-20190719005747-0f8c60e0a3b2/go.mod h1:Ok8qa4Dhjvzc6c9lNV1r9aboClq/5lQUyMoi51LWA6E=
