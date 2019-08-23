@@ -47,7 +47,6 @@ type RaftClient struct {
 	leaderConn   *grpc.ClientConn
 	leaderClient RaftServiceClient
 	consistency  ReadConsistency
-	requestID    int64
 	mu           sync.Mutex
 }
 
@@ -65,8 +64,15 @@ func (c *RaftClient) Write(ctx context.Context, in []byte, ch chan<- service.Out
 	request := &CommandRequest{
 		Value: in,
 	}
-	go c.write(ctx, request, ch)
-	return nil
+
+	errCh := make(chan error)
+	go func() {
+		if err := c.write(ctx, request, ch); err != nil {
+			errCh <- err
+		}
+		close(errCh)
+	}()
+	return <-errCh
 }
 
 func (c *RaftClient) Read(ctx context.Context, in []byte, ch chan<- service.Output) error {
@@ -74,8 +80,15 @@ func (c *RaftClient) Read(ctx context.Context, in []byte, ch chan<- service.Outp
 		Value:           in,
 		ReadConsistency: c.consistency,
 	}
-	go c.read(ctx, request, ch)
-	return nil
+
+	errCh := make(chan error)
+	go func() {
+		if err := c.read(ctx, request, ch); err != nil {
+			errCh <- err
+		}
+		close(errCh)
+	}()
+	return <-errCh
 }
 
 // resetLeaderConn resets the client's connection to the leader
@@ -83,7 +96,7 @@ func (c *RaftClient) resetLeaderConn() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.leaderConn != nil {
-		c.leaderConn.Close()
+		_ = c.leaderConn.Close()
 		c.leaderConn = nil
 	}
 	c.leader = atomix.Member{}
@@ -184,7 +197,7 @@ func (c *RaftClient) resetConn() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.memberConn != nil {
-		c.memberConn.Close()
+		_ = c.memberConn.Close()
 		c.memberConn = nil
 	}
 	c.member = atomix.Member{}
@@ -271,10 +284,10 @@ func (c *RaftClient) read(ctx context.Context, request *QueryRequest, ch chan<- 
 
 func (c *RaftClient) Close() error {
 	if c.memberConn != nil {
-		c.memberConn.Close()
+		_ = c.memberConn.Close()
 	}
 	if c.leaderConn != nil {
-		c.leaderConn.Close()
+		_ = c.leaderConn.Close()
 	}
 	return nil
 }

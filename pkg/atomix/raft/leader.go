@@ -25,17 +25,15 @@ import (
 func newLeaderRole(server *RaftServer) Role {
 	return &LeaderRole{
 		ActiveRole: newActiveRole(server),
-		appender: newAppender(server),
+		appender:   newAppender(server),
 	}
 }
 
 // LeaderRole implements a Raft leader
 type LeaderRole struct {
 	*ActiveRole
-	appender      *raftAppender
-	initIndex     Index
-	configIndex   Index
-	transferIndex Index
+	appender  *raftAppender
+	initIndex Index
 }
 
 // Name is the name of the role
@@ -100,7 +98,7 @@ func (r *LeaderRole) Poll(ctx context.Context, request *PollRequest) (*PollRespo
 		Term:     r.server.term,
 		Accepted: false,
 	}
-	r.server.logResponse("PollResponse", response, nil)
+	_ = r.server.logResponse("PollResponse", response, nil)
 	return response, nil
 }
 
@@ -113,7 +111,7 @@ func (r *LeaderRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRespo
 			Debug("Received greater term")
 		defer r.server.becomeFollower()
 		response, err := r.ActiveRole.Vote(ctx, request)
-		r.server.logResponse("VoteResponse", response, err)
+		_ = r.server.logResponse("VoteResponse", response, err)
 		return response, err
 	} else {
 		response := &VoteResponse{
@@ -121,7 +119,7 @@ func (r *LeaderRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRespo
 			Term:   r.server.term,
 			Voted:  false,
 		}
-		r.server.logResponse("VoteResponse", response, nil)
+		_ = r.server.logResponse("VoteResponse", response, nil)
 		return response, nil
 	}
 }
@@ -135,7 +133,7 @@ func (r *LeaderRole) Append(ctx context.Context, request *AppendRequest) (*Appen
 			Debug("Received greater term")
 		defer r.server.becomeFollower()
 		response, err := r.ActiveRole.Append(ctx, request)
-		r.server.logResponse("AppendResponse", response, err)
+		_ = r.server.logResponse("AppendResponse", response, err)
 		return response, err
 	} else if request.Term < r.server.term {
 		response := &AppendResponse{
@@ -144,13 +142,13 @@ func (r *LeaderRole) Append(ctx context.Context, request *AppendRequest) (*Appen
 			Succeeded:    false,
 			LastLogIndex: r.server.writer.LastIndex(),
 		}
-		r.server.logResponse("AppendResponse", response, nil)
+		_ = r.server.logResponse("AppendResponse", response, nil)
 		return response, nil
 	} else {
 		r.server.setLeader(request.Leader)
 		defer r.server.becomeFollower()
 		response, err := r.ActiveRole.Append(ctx, request);
-		r.server.logResponse("AppendResponse", response, err)
+		_ = r.server.logResponse("AppendResponse", response, err)
 		return response, err
 	}
 }

@@ -40,9 +40,13 @@ func TestRaftNode(t *testing.T) {
 	}
 
 	server := newServer("foo", cluster)
-	go server.Start()
-	defer server.Stop()
-	server.waitForReady()
+	go func() {
+		_ = server.Start()
+	}()
+	defer func() {
+		_ = server.Stop()
+	}()
+	_ = server.waitForReady()
 
 	client := newRaftClient(ReadConsistency_SEQUENTIAL)
 	assert.NoError(t, client.Connect(cluster))
@@ -231,30 +235,6 @@ func getOpenSessionResponse(bytes []byte) *service.OpenSessionResponse {
 	sessionResponse := &service.SessionResponse{}
 	_ = proto.Unmarshal(serviceResponse.GetCommand(), sessionResponse)
 	return sessionResponse.GetOpenSession()
-}
-
-func newKeepAliveRequest(sessionID uint64, commandID uint64, streams map[uint64]uint64) []byte {
-	bytes, _ := proto.Marshal(&service.SessionRequest{
-		Request: &service.SessionRequest_KeepAlive{
-			KeepAlive: &service.KeepAliveRequest{
-				SessionID:       sessionID,
-				CommandSequence: commandID,
-				Streams:         streams,
-			},
-		},
-	})
-	return newTestCommandRequest(bytes)
-}
-
-func newCloseSessionRequest(sessionID uint64) []byte {
-	bytes, _ := proto.Marshal(&service.SessionRequest{
-		Request: &service.SessionRequest_CloseSession{
-			CloseSession: &service.CloseSessionRequest{
-				SessionID: sessionID,
-			},
-		},
-	})
-	return newTestCommandRequest(bytes)
 }
 
 func newCommandRequest(sessionID uint64, commandID uint64, name string, bytes []byte) []byte {

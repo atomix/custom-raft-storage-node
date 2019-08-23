@@ -49,7 +49,7 @@ func (r *FollowerRole) start() error {
 		go r.server.becomeCandidate()
 		return nil
 	}
-	r.ActiveRole.start()
+	_ = r.ActiveRole.start()
 	r.resetHeartbeatTimeout()
 	return nil
 }
@@ -255,6 +255,24 @@ func (r *FollowerRole) Install(stream RaftService_InstallServer) error {
 func (r *FollowerRole) Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
 	response, err := r.PassiveRole.Append(ctx, request)
 	r.resetHeartbeatTimeout()
+	return response, err
+}
+
+func (r *FollowerRole) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
+	r.server.logRequest("VoteRequest", request)
+
+	// Vote requests can modify the server's vote record, so we need to hold a write lock while handling the request.
+	r.server.writeLock()
+	defer r.server.writeUnlock()
+
+	// If the request indicates a term that is greater than the current term then
+	// assign that term and leader to the current context.
+	if r.updateTermAndLeader(request.Term, "") {
+		go r.server.becomeFollower()
+	}
+
+	response, err := r.handleVote(ctx, request)
+	_ = r.server.logResponse("VoteResponse", response, err)
 	return response, err
 }
 

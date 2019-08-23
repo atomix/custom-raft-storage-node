@@ -58,7 +58,7 @@ func (r *PassiveRole) Append(ctx context.Context, request *AppendRequest) (*Appe
 	defer r.server.writeUnlock()
 	r.updateTermAndLeader(request.Term, request.Leader)
 	response, err := r.handleAppend(ctx, request)
-	r.server.logResponse("AppendResponse", response, err)
+	_ = r.server.logResponse("AppendResponse", response, err)
 	return response, err
 }
 
@@ -211,7 +211,7 @@ func (r *PassiveRole) appendEntries(request *AppendRequest) (*AppendResponse, er
 				} else {
 					// If the last entry index isn't the previous index, throw an exception because something crazy happened!
 					if lastEntry.Index != index-1 {
-						return nil, errors.New(fmt.Sprintf("log writer inconsistent with next append entry index %d", index))
+						return nil, fmt.Errorf("log writer inconsistent with next append entry index %d", index)
 					}
 
 					// Append the entry and log a message.
@@ -278,7 +278,7 @@ func (r *PassiveRole) Install(stream RaftService_InstallServer) error {
 
 		// If the stream has ended, close the writer and respond successfully.
 		if err == io.EOF {
-			writer.Close()
+			_ = writer.Close()
 			response := &InstallResponse{
 				Status: ResponseStatus_OK,
 			}
@@ -446,7 +446,7 @@ func (r *PassiveRole) forwardQuery(request *QueryRequest, leader MemberID, serve
 				return r.server.logResponse("QueryResponse", nil, err)
 			}
 			r.server.logRequest("QueryResponse", response)
-			r.server.logResponse("QueryResponse", response, server.Send(response))
+			_ = r.server.logResponse("QueryResponse", response, server.Send(response))
 		}
 		return nil
 	}

@@ -43,7 +43,7 @@ func (r *ActiveRole) Append(ctx context.Context, request *AppendRequest) (*Appen
 		go r.server.becomeFollower()
 	}
 	response, err := r.handleAppend(ctx, request)
-	r.server.logResponse("AppendResponse", response, err)
+	_ = r.server.logResponse("AppendResponse", response, err)
 	return response, err
 }
 
@@ -59,7 +59,7 @@ func (r *ActiveRole) Poll(ctx context.Context, request *PollRequest) (*PollRespo
 	r.server.readLock()
 	response, err := r.handlePoll(ctx, request)
 	r.server.readUnlock()
-	r.server.logResponse("PollResponse", response, err)
+	_ = r.server.logResponse("PollResponse", response, err)
 	return response, err
 }
 
@@ -140,7 +140,7 @@ func (r *ActiveRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRespo
 	}
 
 	response, err := r.handleVote(ctx, request)
-	r.server.logResponse("VoteResponse", response, err)
+	_ = r.server.logResponse("VoteResponse", response, err)
 	return response, err
 }
 
@@ -150,7 +150,7 @@ func (r *ActiveRole) handleVote(ctx context.Context, request *VoteRequest) (*Vot
 		// vote for the candidate. We want to vote for candidates that are at least
 		// as up to date as us.
 		log.WithField("memberID", r.server.cluster.member).
-			Debugf("Rejected %v: candidate's term is less than the current term", request)
+			Debugf("Rejected %+v: candidate's term is less than the current term", request)
 		return &VoteResponse{
 			Status: ResponseStatus_OK,
 			Term:   r.server.term,
@@ -159,7 +159,7 @@ func (r *ActiveRole) handleVote(ctx context.Context, request *VoteRequest) (*Vot
 	} else if r.server.leader != "" {
 		// If a leader was already determined for this term then reject the request.
 		log.WithField("memberID", r.server.cluster.member).
-			Debugf("Rejected %v: leader already exists", request)
+			Debugf("Rejected %+v: leader already exists", request)
 		return &VoteResponse{
 			Status: ResponseStatus_OK,
 			Term:   r.server.term,
@@ -169,7 +169,7 @@ func (r *ActiveRole) handleVote(ctx context.Context, request *VoteRequest) (*Vot
 		// If the requesting candidate is not a known member of the cluster (to this
 		// node) then don't vote for it. Only vote for candidates that we know about.
 		log.WithField("memberID", r.server.cluster.member).
-			Debugf("Rejected %v: candidate is not known to the local member", request)
+			Debugf("Rejected %+v: candidate is not known to the local member", request)
 		return &VoteResponse{
 			Status: ResponseStatus_OK,
 			Term:   r.server.term,
@@ -194,7 +194,7 @@ func (r *ActiveRole) handleVote(ctx context.Context, request *VoteRequest) (*Vot
 	} else if *r.server.lastVotedFor == request.Candidate {
 		// If we already voted for the requesting server, respond successfully.
 		log.WithField("memberID", r.server.cluster.member).
-			Debugf("Accepted %v: already voted for %s", request, request.Candidate)
+			Debugf("Accepted %+v: already voted for %+v", request, request.Candidate)
 		return &VoteResponse{
 			Status: ResponseStatus_OK,
 			Term:   r.server.term,
@@ -203,7 +203,7 @@ func (r *ActiveRole) handleVote(ctx context.Context, request *VoteRequest) (*Vot
 	} else {
 		// In this case, we've already voted for someone else.
 		log.WithField("memberID", r.server.cluster.member).
-			Debugf("Rejected %v: already voted for %s", request, r.server.lastVotedFor)
+			Debugf("Rejected %+v: already voted for %+v", request, r.server.lastVotedFor)
 		return &VoteResponse{
 			Status: ResponseStatus_OK,
 			Term:   r.server.term,

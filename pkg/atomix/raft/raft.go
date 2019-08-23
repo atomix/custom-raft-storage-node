@@ -55,7 +55,9 @@ func (p *RaftProtocol) Start(cluster atomix.Cluster, registry *service.ServiceRe
 	}
 
 	p.server = NewRaftServer(cluster, registry, electionTimeout)
-	go p.server.Start()
+	go func() {
+		_ = p.server.Start()
+	}()
 	return p.server.waitForReady()
 }
 
@@ -64,6 +66,6 @@ func (p *RaftProtocol) Client() service.Client {
 }
 
 func (p *RaftProtocol) Stop() error {
-	p.client.Close()
+	_ = p.client.Close()
 	return p.server.Stop()
 }

@@ -226,8 +226,8 @@ func (a *raftAppender) commitMemberTime(member MemberID, time time.Time) {
 
 		times := make([]int64, len(a.members))
 		i := 0
-		for _, time := range a.commitTimes {
-			times[i] = time.UnixNano()
+		for _, t := range a.commitTimes {
+			times[i] = t.UnixNano()
 			i++
 		}
 		sort.Slice(times, func(i, j int) bool {
@@ -315,8 +315,6 @@ type memberAppender struct {
 	prevTerm          Term
 	nextIndex         Index
 	matchIndex        Index
-	lastHeartbeatTime time.Time
-	lastResponseTime  time.Time
 	appending         bool
 	failureCount      int
 	firstFailureTime  time.Time
@@ -373,7 +371,7 @@ func (a *memberAppender) processEvents() {
 
 func (a *memberAppender) append() {
 	if a.failureCount >= minBackoffFailureCount {
-		timeSinceFailure := float64(time.Now().Sub(a.firstFailureTime))
+		timeSinceFailure := float64(time.Since(a.firstFailureTime))
 		heartbeatWaitTime := math.Min(float64(a.failureCount)*float64(a.failureCount)*float64(a.server.electionTimeout), float64(maxHeartbeatWait))
 		if timeSinceFailure > heartbeatWaitTime {
 			a.sendAppendRequest(a.nextAppendRequest())
@@ -448,13 +446,15 @@ func (a *memberAppender) sendInstallRequests(snapshot Snapshot) {
 	}
 
 	reader := snapshot.Reader()
-	defer reader.Close()
+	defer func() {
+		_ = reader.Close()
+	}()
 	bytes := make([]byte, maxBatchSize)
 	n, err := reader.Read(bytes)
 	for n > 0 && err == nil {
 		request := a.newInstallRequest(snapshot, bytes[:n])
 		a.server.logSendTo("InstallRequest", request, a.member.MemberID)
-		stream.Send(request)
+		_ = stream.Send(request)
 		n, err = reader.Read(bytes)
 	}
 	if err != nil {

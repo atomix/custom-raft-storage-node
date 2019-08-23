@@ -46,9 +46,13 @@ func TestNode(t *testing.T) {
 	}
 	protocol := NewRaftProtocol(&RaftProtocolConfig{})
 	node := atomix.NewNode("foo", config, protocol)
-	go node.Start()
+	go func() {
+		_ = node.Start()
+	}()
 	time.Sleep(1 * time.Second)
-	defer node.Stop()
+	defer func() {
+		_ = node.Stop()
+	}()
 
 	conn, err := grpc.Dial("localhost:5678", grpc.WithInsecure())
 	assert.NoError(t, err)
@@ -116,5 +120,4 @@ func TestNode(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, "Hello world!", string(getResponse.Value))
-	index = putResponse.Header.Index
 }

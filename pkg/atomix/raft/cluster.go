@@ -15,7 +15,6 @@
 package raft
 
 import (
-	"errors"
 	"fmt"
 	"github.com/atomix/atomix-go-node/pkg/atomix"
 	"google.golang.org/grpc"
@@ -62,14 +61,14 @@ type RaftCluster struct {
 func (c *RaftCluster) getConn(member MemberID) (*grpc.ClientConn, error) {
 	_, ok := c.members[member]
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("unknown member %s", member))
+		return nil, fmt.Errorf("unknown member %s", member)
 	}
 
 	conn, ok := c.conns[member]
 	if !ok {
 		location, ok := c.locations[member]
 		if !ok {
-			return nil, errors.New(fmt.Sprintf("unknown member %s", member))
+			return nil, fmt.Errorf("unknown member %s", member)
 		}
 
 		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", location.Host, location.Port), grpc.WithInsecure())
@@ -108,7 +107,7 @@ func (c *RaftCluster) resetClient(member MemberID) {
 	defer c.mu.Unlock()
 	conn, ok := c.conns[member]
 	if ok {
-		conn.Close()
+		_ = conn.Close()
 		delete(c.conns, member)
 		delete(c.clients, member)
 	}

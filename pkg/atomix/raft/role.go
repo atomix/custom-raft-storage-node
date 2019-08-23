@@ -62,7 +62,7 @@ func (r *raftRole) Join(ctx context.Context, request *JoinRequest) (*JoinRespons
 		Status: ResponseStatus_ERROR,
 		Error:  RaftError_ILLEGAL_MEMBER_STATE,
 	}
-	r.server.logResponse("JoinResponse", response, nil)
+	_ = r.server.logResponse("JoinResponse", response, nil)
 	return response, nil
 }
 
@@ -72,7 +72,7 @@ func (r *raftRole) Leave(ctx context.Context, request *LeaveRequest) (*LeaveResp
 		Status: ResponseStatus_ERROR,
 		Error:  RaftError_ILLEGAL_MEMBER_STATE,
 	}
-	r.server.logResponse("LeaveResponse", response, nil)
+	_ = r.server.logResponse("LeaveResponse", response, nil)
 	return response, nil
 }
 
@@ -82,7 +82,7 @@ func (r *raftRole) Configure(ctx context.Context, request *ConfigureRequest) (*C
 		Status: ResponseStatus_ERROR,
 		Error:  RaftError_ILLEGAL_MEMBER_STATE,
 	}
-	r.server.logResponse("", response, nil)
+	_ = r.server.logResponse("", response, nil)
 	return response, nil
 }
 
@@ -92,7 +92,7 @@ func (r *raftRole) Reconfigure(ctx context.Context, request *ReconfigureRequest)
 		Status: ResponseStatus_ERROR,
 		Error:  RaftError_ILLEGAL_MEMBER_STATE,
 	}
-	r.server.logResponse("ReconfigureResponse", response, nil)
+	_ = r.server.logResponse("ReconfigureResponse", response, nil)
 	return response, nil
 }
 
@@ -102,7 +102,7 @@ func (r *raftRole) Poll(ctx context.Context, request *PollRequest) (*PollRespons
 		Status: ResponseStatus_ERROR,
 		Error:  RaftError_ILLEGAL_MEMBER_STATE,
 	}
-	r.server.logResponse("PollResponse", response, nil)
+	_ = r.server.logResponse("PollResponse", response, nil)
 	return response, nil
 }
 
@@ -112,7 +112,7 @@ func (r *raftRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRespons
 		Status: ResponseStatus_ERROR,
 		Error:  RaftError_ILLEGAL_MEMBER_STATE,
 	}
-	r.server.logResponse("VoteResponse", response, nil)
+	_ = r.server.logResponse("VoteResponse", response, nil)
 	return response, nil
 }
 
@@ -122,7 +122,7 @@ func (r *raftRole) Transfer(ctx context.Context, request *TransferRequest) (*Tra
 		Status: ResponseStatus_ERROR,
 		Error:  RaftError_ILLEGAL_MEMBER_STATE,
 	}
-	r.server.logResponse("TransferResponse", response, nil)
+	_ = r.server.logResponse("TransferResponse", response, nil)
 	return response, nil
 }
 
@@ -132,7 +132,7 @@ func (r *raftRole) Append(ctx context.Context, request *AppendRequest) (*AppendR
 		Status: ResponseStatus_ERROR,
 		Error:  RaftError_ILLEGAL_MEMBER_STATE,
 	}
-	r.server.logResponse("AppendResponse", response, nil)
+	_ = r.server.logResponse("AppendResponse", response, nil)
 	return response, nil
 }
 

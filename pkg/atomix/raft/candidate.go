@@ -49,7 +49,7 @@ func (r *CandidateRole) start() error {
 		go r.server.becomeLeader()
 		return nil
 	}
-	r.ActiveRole.start()
+	_ = r.ActiveRole.start()
 	r.sendVoteRequests()
 	return nil
 }
@@ -71,7 +71,7 @@ func (r *CandidateRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRe
 	if r.updateTermAndLeader(request.Term, "") {
 		go r.server.becomeFollower()
 		response, err := r.handleVote(ctx, request)
-		r.server.logResponse("VoteResponse", response, err)
+		_ = r.server.logResponse("VoteResponse", response, err)
 		return response, err
 	}
 
@@ -83,7 +83,7 @@ func (r *CandidateRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRe
 			Term:   r.server.term,
 			Voted:  true,
 		}
-		r.server.logResponse("VoteResponse", response, nil)
+		_ = r.server.logResponse("VoteResponse", response, nil)
 		return response, nil
 	} else {
 		response := &VoteResponse{
@@ -91,7 +91,7 @@ func (r *CandidateRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRe
 			Term:   r.server.term,
 			Voted:  false,
 		}
-		r.server.logResponse("VoteResponse", response, nil)
+		_ = r.server.logResponse("VoteResponse", response, nil)
 		return response, nil
 	}
 }

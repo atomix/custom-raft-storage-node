@@ -131,7 +131,7 @@ func (s *RaftServer) setLastVotedFor(candidate *MemberID) {
 	// Verify the candidate is a member of the cluster.
 	if candidate != nil {
 		if _, ok := s.cluster.members[*candidate]; !ok {
-			log.WithField("memberID", s.cluster.member).Errorf("Unknown candidate: %s", candidate)
+			log.WithField("memberID", s.cluster.member).Errorf("Unknown candidate: %+v", candidate)
 		}
 	}
 
@@ -139,7 +139,7 @@ func (s *RaftServer) setLastVotedFor(candidate *MemberID) {
 	s.metadata.StoreVote(candidate)
 
 	if candidate != nil {
-		log.WithField("memberID", s.cluster.member).Debugf("Voted for %s", candidate)
+		log.WithField("memberID", s.cluster.member).Debugf("Voted for %+v", candidate)
 	} else {
 		log.WithField("memberID", s.cluster.member).Trace("Reset last voted for")
 	}
@@ -254,29 +254,33 @@ func (s *RaftServer) logResponse(name string, response interface{}, err error) e
 }
 
 // becomeFollower transitions the server's role to follower
-func (s *RaftServer) becomeFollower() error {
-	return s.setRole(newFollowerRole(s))
+func (s *RaftServer) becomeFollower() {
+	s.setRole(newFollowerRole(s))
 }
 
 // becomeCandidate transitions the server's role to candidate
-func (s *RaftServer) becomeCandidate() error {
-	return s.setRole(newCandidateRole(s))
+func (s *RaftServer) becomeCandidate() {
+	s.setRole(newCandidateRole(s))
 }
 
 // becomeLeader transitions the server's role to candidate
-func (s *RaftServer) becomeLeader() error {
-	return s.setRole(newLeaderRole(s))
+func (s *RaftServer) becomeLeader() {
+	s.setRole(newLeaderRole(s))
 }
 
-func (s *RaftServer) setRole(role Role) error {
+func (s *RaftServer) setRole(role Role) {
 	s.writeLock()
 	log.WithField("memberID", s.cluster.member).Infof("Transitioning to %s", role.Name())
 	if s.role != nil {
-		s.role.stop()
+		if err := s.role.stop(); err != nil {
+			log.Error(err)
+		}
 	}
 	s.role = role
 	s.writeUnlock()
-	return role.start()
+	if err := role.start(); err != nil {
+		log.Error(err)
+	}
 }
 
 func (s *RaftServer) getRole() Role {
