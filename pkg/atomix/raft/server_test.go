@@ -1,3 +1,17 @@
+// Copyright 2019-present Open Networking Foundation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package raft
 
 import (
@@ -98,9 +112,9 @@ func TestRaftCluster(t *testing.T) {
 	go startServer(serverBaz, wg)
 	wg.Wait()
 
-	defer serverFoo.Stop()
-	defer serverBar.Stop()
-	defer serverBaz.Stop()
+	defer stopServer(serverFoo)
+	defer stopServer(serverBar)
+	defer stopServer(serverBaz)
 }
 
 func BenchmarkRaftCluster(b *testing.B) {
@@ -138,9 +152,9 @@ func BenchmarkRaftCluster(b *testing.B) {
 	go startServer(serverBaz, wg)
 	wg.Wait()
 
-	defer serverFoo.Stop()
-	defer serverBar.Stop()
-	defer serverBaz.Stop()
+	defer stopServer(serverFoo)
+	defer stopServer(serverBar)
+	defer stopServer(serverBaz)
 
 	client := newRaftClient(ReadConsistency_SEQUENTIAL)
 	assert.NoError(b, client.Connect(cluster))
@@ -166,7 +180,7 @@ func BenchmarkRaftCluster(b *testing.B) {
 					bytes, _ := proto.Marshal(&SetRequest{
 						Value: "Hello world!",
 					})
-					client.Write(context.Background(), newCommandRequest(sessionID, commandID, "set", bytes), ch)
+					_ = client.Write(context.Background(), newCommandRequest(sessionID, commandID, "set", bytes), ch)
 					out = <-ch
 				}
 				wg.Done()
@@ -196,7 +210,7 @@ func startServer(server *RaftServer, wg *sync.WaitGroup) {
 			wg.Done()
 		}
 	}()
-	server.waitForReady()
+	_ = server.waitForReady()
 }
 
 func newOpenSessionRequest() []byte {
@@ -213,9 +227,9 @@ func newOpenSessionRequest() []byte {
 
 func getOpenSessionResponse(bytes []byte) *service.OpenSessionResponse {
 	serviceResponse := &service.ServiceResponse{}
-	proto.Unmarshal(bytes, serviceResponse)
+	_ = proto.Unmarshal(bytes, serviceResponse)
 	sessionResponse := &service.SessionResponse{}
-	proto.Unmarshal(serviceResponse.GetCommand(), sessionResponse)
+	_ = proto.Unmarshal(serviceResponse.GetCommand(), sessionResponse)
 	return sessionResponse.GetOpenSession()
 }
 
@@ -261,9 +275,9 @@ func newCommandRequest(sessionID uint64, commandID uint64, name string, bytes []
 
 func getCommandResponse(bytes []byte) *service.SessionCommandResponse {
 	serviceResponse := &service.ServiceResponse{}
-	proto.Unmarshal(bytes, serviceResponse)
+	_ = proto.Unmarshal(bytes, serviceResponse)
 	sessionResponse := &service.SessionResponse{}
-	proto.Unmarshal(serviceResponse.GetCommand(), sessionResponse)
+	_ = proto.Unmarshal(serviceResponse.GetCommand(), sessionResponse)
 	return sessionResponse.GetCommand()
 }
 
@@ -287,9 +301,9 @@ func newQueryRequest(t *testing.T, sessionID uint64, lastIndex uint64, lastComma
 
 func getQueryResponse(bytes []byte) *service.SessionQueryResponse {
 	serviceResponse := &service.ServiceResponse{}
-	proto.Unmarshal(bytes, serviceResponse)
+	_ = proto.Unmarshal(bytes, serviceResponse)
 	sessionResponse := &service.SessionResponse{}
-	proto.Unmarshal(serviceResponse.GetQuery(), sessionResponse)
+	_ = proto.Unmarshal(serviceResponse.GetQuery(), sessionResponse)
 	return sessionResponse.GetQuery()
 }
 
@@ -326,6 +340,10 @@ func getServiceRegistry() *service.ServiceRegistry {
 	registry := service.NewServiceRegistry()
 	registerTestService(registry)
 	return registry
+}
+
+func stopServer(server *RaftServer) {
+	_ = server.Stop()
 }
 
 func init() {
