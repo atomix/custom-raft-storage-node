@@ -25,7 +25,7 @@ const (
 )
 
 // newStateManager returns a new Raft state manager
-func newStateManager(server *RaftServer, registry *service.ServiceRegistry) *stateManager {
+func newStateManager(server *Server, registry *service.ServiceRegistry) *stateManager {
 	sm := &stateManager{
 		server: server,
 		reader: server.log.OpenReader(0),
@@ -37,12 +37,12 @@ func newStateManager(server *RaftServer, registry *service.ServiceRegistry) *sta
 
 // stateManager manages the Raft state machine
 type stateManager struct {
-	server       *RaftServer
+	server       *Server
 	state        service.StateMachine
 	currentIndex Index
 	currentTime  time.Time
 	lastApplied  Index
-	reader       RaftLogReader
+	reader       LogReader
 	operation    service.OperationType
 	ch           chan *change
 }
@@ -50,14 +50,14 @@ type stateManager struct {
 // applyIndex applies entries up to the given index
 func (m *stateManager) applyIndex(index Index) {
 	m.ch <- &change{
-		entry: &IndexedEntry{
+		entry: &LogEntry{
 			Index: index,
 		},
 	}
 }
 
 // applyEntry enqueues the given entry to be applied to the state machine, returning output on the given channel
-func (m *stateManager) applyEntry(entry *IndexedEntry, ch chan service.Output) {
+func (m *stateManager) applyEntry(entry *LogEntry, ch chan service.Output) {
 	m.ch <- &change{
 		entry:  entry,
 		result: ch,
@@ -105,7 +105,7 @@ func (m *stateManager) execPendingChanges(index Index) {
 }
 
 // execEntry applies the given entry to the state machine and returns the result(s) on the given channel
-func (m *stateManager) execEntry(entry *IndexedEntry, ch chan service.Output) {
+func (m *stateManager) execEntry(entry *LogEntry, ch chan service.Output) {
 	log.WithField("memberID", m.server.cluster.member).Tracef("Applying %d", entry.Index)
 	if entry.Entry == nil {
 		m.reader.Reset(entry.Index)
@@ -152,7 +152,7 @@ func (m *stateManager) execCommand(index Index, timestamp time.Time, command *Co
 }
 
 type change struct {
-	entry  *IndexedEntry
+	entry  *LogEntry
 	result chan service.Output
 }
 

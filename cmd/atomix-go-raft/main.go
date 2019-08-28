@@ -34,7 +34,7 @@ func main() {
 	partitionConfig := parsePartitionConfig()
 	protocolConfig := parseProtocolConfig()
 
-	node := atomix.NewNode(nodeID, partitionConfig, raft.NewRaftProtocol(protocolConfig))
+	node := atomix.NewNode(nodeID, partitionConfig, raft.NewProtocol(protocolConfig))
 	if err := node.Start(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

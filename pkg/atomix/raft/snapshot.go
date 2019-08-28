@@ -20,24 +20,38 @@ import (
 	"time"
 )
 
+// SnapshotStore is an interface for managing snapshots
 type SnapshotStore interface {
+	// newSnapshot creates a new snapshot
 	newSnapshot(index Index, timestamp time.Time) Snapshot
+
+	// CurrentSnapshot returns the current snapshot
 	CurrentSnapshot() Snapshot
 }
 
+// Snapshot is a single state machine snapshot
 type Snapshot interface {
+	// Index is the index at which the snapshot was taken
 	Index() Index
+
+	// Timestamp is the time at which the snapshot was taken
 	Timestamp() time.Time
+
+	// Reader returns a new snapshot reader
 	Reader() io.ReadCloser
+
+	// Writer returns a new snapshot writer
 	Writer() io.WriteCloser
 }
 
+// newMemorySnapshotStore creates a new in-memory snapshot store
 func newMemorySnapshotStore() SnapshotStore {
 	return &memorySnapshotStore{
 		snapshots: make(map[Index]Snapshot),
 	}
 }
 
+// memorySnapshotStore is an in-memory SnapshotStore
 type memorySnapshotStore struct {
 	snapshots       map[Index]Snapshot
 	currentSnapshot Snapshot

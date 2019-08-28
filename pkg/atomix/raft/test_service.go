@@ -63,6 +63,7 @@ func (s *TestService) Restore(bytes []byte) error {
 	return nil
 }
 
+// Get gets the test value
 func (s *TestService) Get(value []byte, ch chan<- service.Result) {
 	defer close(ch)
 	ch <- s.NewResult(proto.Marshal(&GetResponse{
@@ -70,6 +71,7 @@ func (s *TestService) Get(value []byte, ch chan<- service.Result) {
 	}))
 }
 
+// Set sets the test value
 func (s *TestService) Set(value []byte, ch chan<- service.Result) {
 	defer close(ch)
 	request := &SetRequest{}

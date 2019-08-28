@@ -44,7 +44,7 @@ func TestNode(t *testing.T) {
 			},
 		},
 	}
-	protocol := NewRaftProtocol(&RaftProtocolConfig{})
+	protocol := NewProtocol(&RaftProtocolConfig{})
 	node := atomix.NewNode("foo", config, protocol)
 	go func() {
 		_ = node.Start()

@@ -18,29 +18,29 @@ import (
 	"io"
 )
 
-// RaftLog provides for reading and writing entries in the Raft log
-type RaftLog interface {
+// Log provides for reading and writing entries in the Raft log
+type Log interface {
 	io.Closer
 
 	// Writer returns the Raft log writer
-	Writer() RaftLogWriter
+	Writer() LogWriter
 
 	// OpenReader opens a Raft log reader
-	OpenReader(index Index) RaftLogReader
+	OpenReader(index Index) LogReader
 }
 
-// RaftLogWriter supports writing entries to the Raft log
-type RaftLogWriter interface {
+// LogWriter supports writing entries to the Raft log
+type LogWriter interface {
 	io.Closer
 
 	// LastIndex returns the last index written to the log
 	LastIndex() Index
 
 	// LastEntry returns the last entry written to the log
-	LastEntry() *IndexedEntry
+	LastEntry() *LogEntry
 
 	// Append appends the given entry to the log
-	Append(entry *RaftLogEntry) *IndexedEntry
+	Append(entry *RaftLogEntry) *LogEntry
 
 	// Reset resets the log writer to the given index
 	Reset(index Index)
@@ -49,8 +49,8 @@ type RaftLogWriter interface {
 	Truncate(index Index)
 }
 
-// RaftLogReader supports reading of entries from the Raft log
-type RaftLogReader interface {
+// LogReader supports reading of entries from the Raft log
+type LogReader interface {
 	io.Closer
 
 	// FirstIndex returns the first index in the log
@@ -62,28 +62,28 @@ type RaftLogReader interface {
 	// CurrentIndex returns the current index of the reader
 	CurrentIndex() Index
 
-	// CurrentEntry returns the current IndexedEntry
-	CurrentEntry() *IndexedEntry
+	// CurrentEntry returns the current LogEntry
+	CurrentEntry() *LogEntry
 
 	// NextIndex returns the next index in the log
 	NextIndex() Index
 
 	// NextEntry advances the log index and returns the next entry in the log
-	NextEntry() *IndexedEntry
+	NextEntry() *LogEntry
 
 	// Reset resets the log reader to the given index
 	Reset(index Index)
 }
 
-// IndexedEntry is an indexed Raft log entry
-type IndexedEntry struct {
+// LogEntry is an indexed Raft log entry
+type LogEntry struct {
 	Index Index
 	Entry *RaftLogEntry
 }
 
-func newMemoryLog() RaftLog {
+func newMemoryLog() Log {
 	log := &memoryRaftLog{
-		entries:    make([]*IndexedEntry, 0, 1024),
+		entries:    make([]*LogEntry, 0, 1024),
 		firstIndex: 1,
 		readers:    make([]*memoryRaftLogReader, 0, 10),
 	}
@@ -94,17 +94,17 @@ func newMemoryLog() RaftLog {
 }
 
 type memoryRaftLog struct {
-	entries    []*IndexedEntry
+	entries    []*LogEntry
 	firstIndex Index
 	writer     *memoryRaftLogWriter
 	readers    []*memoryRaftLogReader
 }
 
-func (l *memoryRaftLog) Writer() RaftLogWriter {
+func (l *memoryRaftLog) Writer() LogWriter {
 	return l.writer
 }
 
-func (l *memoryRaftLog) OpenReader(index Index) RaftLogReader {
+func (l *memoryRaftLog) OpenReader(index Index) LogReader {
 	readerIndex := -1
 	for i := 0; i < len(l.entries); i++ {
 		if l.entries[i].Index == index {
@@ -135,7 +135,7 @@ func (w *memoryRaftLogWriter) LastIndex() Index {
 	return w.log.firstIndex - 1
 }
 
-func (w *memoryRaftLogWriter) LastEntry() *IndexedEntry {
+func (w *memoryRaftLogWriter) LastEntry() *LogEntry {
 	if len(w.log.entries) == 0 {
 		return nil
 	}
@@ -149,8 +149,8 @@ func (w *memoryRaftLogWriter) nextIndex() Index {
 	return w.log.entries[len(w.log.entries)-1].Index + 1
 }
 
-func (w *memoryRaftLogWriter) Append(entry *RaftLogEntry) *IndexedEntry {
-	indexed := &IndexedEntry{
+func (w *memoryRaftLogWriter) Append(entry *RaftLogEntry) *LogEntry {
+	indexed := &LogEntry{
 		Index: w.nextIndex(),
 		Entry: entry,
 	}
@@ -205,7 +205,7 @@ func (r *memoryRaftLogReader) CurrentIndex() Index {
 	return r.log.entries[r.index].Index
 }
 
-func (r *memoryRaftLogReader) CurrentEntry() *IndexedEntry {
+func (r *memoryRaftLogReader) CurrentEntry() *LogEntry {
 	if r.index == -1 || len(r.log.entries) == 0 {
 		return nil
 	}
@@ -219,7 +219,7 @@ func (r *memoryRaftLogReader) NextIndex() Index {
 	return r.log.entries[r.index].Index + 1
 }
 
-func (r *memoryRaftLogReader) NextEntry() *IndexedEntry {
+func (r *memoryRaftLogReader) NextEntry() *LogEntry {
 	if len(r.log.entries) > r.index+1 {
 		r.index++
 		return r.log.entries[r.index]

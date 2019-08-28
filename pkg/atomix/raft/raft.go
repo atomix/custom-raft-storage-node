@@ -29,43 +29,47 @@ type Index uint64
 // Term is a Raft term
 type Term uint64
 
-func NewRaftProtocol(config *RaftProtocolConfig) *RaftProtocol {
-	return &RaftProtocol{
+// NewProtocol returns a new Raft Protocol instance
+func NewProtocol(config *RaftProtocolConfig) *Protocol {
+	return &Protocol{
 		config: config,
 	}
 }
 
-// RaftProtocol is an implementation of the Protocol interface providing the Raft consensus protocol
-type RaftProtocol struct {
+// Protocol is an implementation of the Protocol interface providing the Raft consensus protocol
+type Protocol struct {
 	atomix.Protocol
 	config *RaftProtocolConfig
-	client *RaftClient
-	server *RaftServer
+	client *Client
+	server *Server
 }
 
-func (p *RaftProtocol) Start(cluster atomix.Cluster, registry *service.ServiceRegistry) error {
+// Start starts the Raft protocol
+func (p *Protocol) Start(cluster atomix.Cluster, registry *service.ServiceRegistry) error {
 	electionTimeout := 5 * time.Second
 	if p.config.ElectionTimeout != nil {
 		electionTimeout = *p.config.ElectionTimeout
 	}
 
-	p.client = newRaftClient(ReadConsistency_SEQUENTIAL)
+	p.client = newClient(ReadConsistency_SEQUENTIAL)
 	if err := p.client.Connect(cluster); err != nil {
 		return err
 	}
 
-	p.server = NewRaftServer(cluster, registry, electionTimeout)
+	p.server = NewServer(cluster, registry, electionTimeout)
 	go func() {
 		_ = p.server.Start()
 	}()
 	return p.server.waitForReady()
 }
 
-func (p *RaftProtocol) Client() service.Client {
+// Client returns the Raft protocol client
+func (p *Protocol) Client() service.Client {
 	return p.client
 }
 
-func (p *RaftProtocol) Stop() error {
+// Stop stops the Raft protocol
+func (p *Protocol) Stop() error {
 	_ = p.client.Close()
 	return p.server.Stop()
 }

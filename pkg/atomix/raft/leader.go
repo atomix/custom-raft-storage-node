@@ -22,7 +22,7 @@ import (
 )
 
 // newLeaderRole returns a new leader role
-func newLeaderRole(server *RaftServer) Role {
+func newLeaderRole(server *Server) Role {
 	return &LeaderRole{
 		ActiveRole: newActiveRole(server),
 		appender:   newAppender(server),
@@ -41,6 +41,7 @@ func (r *LeaderRole) Name() string {
 	return "Leader"
 }
 
+// start starts the leader
 func (r *LeaderRole) start() error {
 	r.setLeadership()
 	go r.startAppender()
@@ -48,14 +49,17 @@ func (r *LeaderRole) start() error {
 	return r.ActiveRole.start()
 }
 
+// setLeadership sets the leader as the current leader
 func (r *LeaderRole) setLeadership() {
 	r.server.setLeader(r.server.cluster.member)
 }
 
+// startAppender starts the appender goroutines
 func (r *LeaderRole) startAppender() {
 	r.appender.start()
 }
 
+// commitInitializeEntry commits a no-op entry for the leader
 func (r *LeaderRole) commitInitializeEntry() {
 	r.server.writeLock()
 
@@ -89,6 +93,7 @@ func (r *LeaderRole) commitInitializeEntry() {
 	}
 }
 
+// Poll handles a poll request
 func (r *LeaderRole) Poll(ctx context.Context, request *PollRequest) (*PollResponse, error) {
 	r.server.logRequest("PollRequest", request)
 	r.server.readLock()
@@ -102,6 +107,7 @@ func (r *LeaderRole) Poll(ctx context.Context, request *PollRequest) (*PollRespo
 	return response, nil
 }
 
+// Vote handles a vote request
 func (r *LeaderRole) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
 	r.server.logRequest("VoteRequest", request)
 	r.server.writeLock()
@@ -113,17 +119,18 @@ func (r *LeaderRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRespo
 		response, err := r.ActiveRole.Vote(ctx, request)
 		_ = r.server.logResponse("VoteResponse", response, err)
 		return response, err
-	} else {
-		response := &VoteResponse{
-			Status: ResponseStatus_OK,
-			Term:   r.server.term,
-			Voted:  false,
-		}
-		_ = r.server.logResponse("VoteResponse", response, nil)
-		return response, nil
 	}
+
+	response := &VoteResponse{
+		Status: ResponseStatus_OK,
+		Term:   r.server.term,
+		Voted:  false,
+	}
+	_ = r.server.logResponse("VoteResponse", response, nil)
+	return response, nil
 }
 
+// Append handles an append request
 func (r *LeaderRole) Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
 	r.server.logRequest("AppendRequest", request)
 	r.server.writeLock()
@@ -144,15 +151,16 @@ func (r *LeaderRole) Append(ctx context.Context, request *AppendRequest) (*Appen
 		}
 		_ = r.server.logResponse("AppendResponse", response, nil)
 		return response, nil
-	} else {
-		r.server.setLeader(request.Leader)
-		defer r.server.becomeFollower()
-		response, err := r.ActiveRole.Append(ctx, request);
-		_ = r.server.logResponse("AppendResponse", response, err)
-		return response, err
 	}
+
+	r.server.setLeader(request.Leader)
+	defer r.server.becomeFollower()
+	response, err := r.ActiveRole.Append(ctx, request)
+	_ = r.server.logResponse("AppendResponse", response, err)
+	return response, err
 }
 
+// Command handles a command request
 func (r *LeaderRole) Command(request *CommandRequest, server RaftService_CommandServer) error {
 	r.server.logRequest("CommandRequest", request)
 
@@ -189,43 +197,44 @@ func (r *LeaderRole) Command(request *CommandRequest, server RaftService_Command
 			Error:  RaftError_PROTOCOL_ERROR,
 		}
 		return r.server.logResponse("CommandResponse", response, server.Send(response))
-	} else {
-		for output := range ch {
-			if output.Succeeded() {
-				r.server.readLock()
-				response := &CommandResponse{
-					Status:  ResponseStatus_OK,
-					Leader:  r.server.leader,
-					Term:    r.server.term,
-					Members: r.server.cluster.memberIDs,
-					Output:  output.Value,
-				}
-				r.server.readUnlock()
-				err := r.server.logResponse("CommandResponse", response, server.Send(response))
-				if err != nil {
-					return err
-				}
-			} else {
-				r.server.readLock()
-				response := &CommandResponse{
-					Status:  ResponseStatus_ERROR,
-					Error:   RaftError_APPLICATION_ERROR,
-					Message: output.Error.Error(),
-					Leader:  r.server.leader,
-					Term:    r.server.term,
-					Members: r.server.cluster.memberIDs,
-				}
-				r.server.readUnlock()
-				err := r.server.logResponse("CommandResponse", response, server.Send(response))
-				if err != nil {
-					return err
-				}
+	}
+
+	for output := range ch {
+		if output.Succeeded() {
+			r.server.readLock()
+			response := &CommandResponse{
+				Status:  ResponseStatus_OK,
+				Leader:  r.server.leader,
+				Term:    r.server.term,
+				Members: r.server.cluster.memberIDs,
+				Output:  output.Value,
+			}
+			r.server.readUnlock()
+			err := r.server.logResponse("CommandResponse", response, server.Send(response))
+			if err != nil {
+				return err
+			}
+		} else {
+			r.server.readLock()
+			response := &CommandResponse{
+				Status:  ResponseStatus_ERROR,
+				Error:   RaftError_APPLICATION_ERROR,
+				Message: output.Error.Error(),
+				Leader:  r.server.leader,
+				Term:    r.server.term,
+				Members: r.server.cluster.memberIDs,
+			}
+			r.server.readUnlock()
+			err := r.server.logResponse("CommandResponse", response, server.Send(response))
+			if err != nil {
+				return err
 			}
 		}
 	}
 	return nil
 }
 
+// Query handles a query request
 func (r *LeaderRole) Query(request *QueryRequest, server RaftService_QueryServer) error {
 	r.server.logRequest("QueryRequest", request)
 
@@ -233,7 +242,7 @@ func (r *LeaderRole) Query(request *QueryRequest, server RaftService_QueryServer
 	r.server.readLock()
 
 	// Create the entry to apply to the state machine.
-	entry := &IndexedEntry{
+	entry := &LogEntry{
 		Index: r.server.writer.LastIndex(),
 		Entry: &RaftLogEntry{
 			Term:      r.server.term,
@@ -261,7 +270,8 @@ func (r *LeaderRole) Query(request *QueryRequest, server RaftService_QueryServer
 	}
 }
 
-func (r *LeaderRole) queryLinearizable(entry *IndexedEntry, server RaftService_QueryServer) error {
+// queryLinearizable performs a linearizable query
+func (r *LeaderRole) queryLinearizable(entry *LogEntry, server RaftService_QueryServer) error {
 	// Create a result channel
 	ch := make(chan service.Output)
 
@@ -297,20 +307,24 @@ func (r *LeaderRole) queryLinearizable(entry *IndexedEntry, server RaftService_Q
 	return nil
 }
 
-func (r *LeaderRole) queryLinearizableLease(entry *IndexedEntry, server RaftService_QueryServer) error {
+// queryLinearizableLease performs a lease query
+func (r *LeaderRole) queryLinearizableLease(entry *LogEntry, server RaftService_QueryServer) error {
 	return r.applyQuery(entry, server)
 }
 
-func (r *LeaderRole) querySequential(entry *IndexedEntry, server RaftService_QueryServer) error {
+// querySequential performs a sequential query
+func (r *LeaderRole) querySequential(entry *LogEntry, server RaftService_QueryServer) error {
 	return r.applyQuery(entry, server)
 }
 
+// stepDown unsets the leader
 func (r *LeaderRole) stepDown() {
 	if r.server.leader != "" && r.server.leader == r.server.cluster.member {
 		r.server.setLeader("")
 	}
 }
 
+// stop stops the leader
 func (r *LeaderRole) stop() error {
 	r.appender.stop()
 	r.stepDown()

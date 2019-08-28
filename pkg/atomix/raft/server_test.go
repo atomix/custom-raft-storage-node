@@ -48,7 +48,7 @@ func TestRaftNode(t *testing.T) {
 	}()
 	_ = server.waitForReady()
 
-	client := newRaftClient(ReadConsistency_SEQUENTIAL)
+	client := newClient(ReadConsistency_SEQUENTIAL)
 	assert.NoError(t, client.Connect(cluster))
 
 	ch := make(chan service.Output)
@@ -160,7 +160,7 @@ func BenchmarkRaftCluster(b *testing.B) {
 	defer stopServer(serverBar)
 	defer stopServer(serverBaz)
 
-	client := newRaftClient(ReadConsistency_SEQUENTIAL)
+	client := newClient(ReadConsistency_SEQUENTIAL)
 	assert.NoError(b, client.Connect(cluster))
 
 	ch := make(chan service.Output)
@@ -202,12 +202,12 @@ func BenchmarkRaftCluster(b *testing.B) {
 	})
 }
 
-func newServer(memberID string, cluster atomix.Cluster) *RaftServer {
+func newServer(memberID string, cluster atomix.Cluster) *Server {
 	cluster.MemberID = memberID
-	return NewRaftServer(cluster, getServiceRegistry(), 5*time.Second)
+	return NewServer(cluster, getServiceRegistry(), 5*time.Second)
 }
 
-func startServer(server *RaftServer, wg *sync.WaitGroup) {
+func startServer(server *Server, wg *sync.WaitGroup) {
 	defer wg.Done()
 	go func() {
 		if err := server.Start(); err != nil {
@@ -322,7 +322,7 @@ func getServiceRegistry() *service.ServiceRegistry {
 	return registry
 }
 
-func stopServer(server *RaftServer) {
+func stopServer(server *Server) {
 	_ = server.Stop()
 }
 

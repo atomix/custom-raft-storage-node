@@ -1,3 +1,6 @@
+export CGO_ENABLED=0
+export GO111MODULE=on
+
 .PHONY: build
 
 ATOMIX_GO_RAFT_VERSION := latest
@@ -9,17 +12,13 @@ build:
 	GOOS=linux GOARCH=amd64 go build -o build/_output/atomix-go-raft ./cmd/atomix-go-raft
 
 test: # @HELP run the unit tests and source code validation
-test: build deps license_check linters
+test: build license_check linters
 	go test github.com/atomix/atomix-go-raft/pkg/...
 
 coverage: # @HELP generate unit test coverage data
-coverage: build deps linters license_check
-	./build/bin/coveralls-coverage
-
-deps: # @HELP ensure that the required dependencies are in place
-	go build -v ./...
-	bash -c "diff -u <(echo -n) <(git diff go.mod)"
-	bash -c "diff -u <(echo -n) <(git diff go.sum)"
+coverage: build linters license_check
+	#go test github.com/atomix/atomix-go-raft/... -coverprofile=coverage.out -covermode=count -coverpkg=`go list github.com/atomix/atomix-go-raft/...`
+	go test github.com/atomix/atomix-go-raft/... -coverprofile=coverage.out -covermode=count -coverpkg=./...
 
 linters: # @HELP examines Go source code and reports coding problems
 	golangci-lint run

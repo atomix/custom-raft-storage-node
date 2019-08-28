@@ -18,7 +18,7 @@ import (
 	"context"
 )
 
-func newRaftRole(server *RaftServer) *raftRole {
+func newRaftRole(server *Server) *raftRole {
 	return &raftRole{
 		server: server,
 		active: true,
@@ -41,7 +41,7 @@ type Role interface {
 
 // raftRole is the base role for all Raft Role implementations
 type raftRole struct {
-	server *RaftServer
+	server *Server
 	active bool
 }
 
@@ -56,6 +56,7 @@ func (r *raftRole) stop() error {
 	return nil
 }
 
+// Join handles a join request
 func (r *raftRole) Join(ctx context.Context, request *JoinRequest) (*JoinResponse, error) {
 	r.server.logRequest("JoinRequest", request)
 	response := &JoinResponse{
@@ -66,6 +67,7 @@ func (r *raftRole) Join(ctx context.Context, request *JoinRequest) (*JoinRespons
 	return response, nil
 }
 
+// Leave handles a leave request
 func (r *raftRole) Leave(ctx context.Context, request *LeaveRequest) (*LeaveResponse, error) {
 	r.server.logRequest("LeaveRequest", request)
 	response := &LeaveResponse{
@@ -76,6 +78,7 @@ func (r *raftRole) Leave(ctx context.Context, request *LeaveRequest) (*LeaveResp
 	return response, nil
 }
 
+// Configure handles a configure request
 func (r *raftRole) Configure(ctx context.Context, request *ConfigureRequest) (*ConfigureResponse, error) {
 	r.server.logRequest("ConfigureRequest", request)
 	response := &ConfigureResponse{
@@ -86,6 +89,7 @@ func (r *raftRole) Configure(ctx context.Context, request *ConfigureRequest) (*C
 	return response, nil
 }
 
+// Reconfigure handles a reconfigure request
 func (r *raftRole) Reconfigure(ctx context.Context, request *ReconfigureRequest) (*ReconfigureResponse, error) {
 	r.server.logRequest("ReconfigureRequest", request)
 	response := &ReconfigureResponse{
@@ -96,6 +100,7 @@ func (r *raftRole) Reconfigure(ctx context.Context, request *ReconfigureRequest)
 	return response, nil
 }
 
+// Poll handles a poll request
 func (r *raftRole) Poll(ctx context.Context, request *PollRequest) (*PollResponse, error) {
 	r.server.logRequest("PollRequest", request)
 	response := &PollResponse{
@@ -106,6 +111,7 @@ func (r *raftRole) Poll(ctx context.Context, request *PollRequest) (*PollRespons
 	return response, nil
 }
 
+// Vote handles a vote request
 func (r *raftRole) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
 	r.server.logRequest("VoteRequest", request)
 	response := &VoteResponse{
@@ -116,6 +122,7 @@ func (r *raftRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRespons
 	return response, nil
 }
 
+// Transfer handles a transfer request
 func (r *raftRole) Transfer(ctx context.Context, request *TransferRequest) (*TransferResponse, error) {
 	r.server.logRequest("TransferRequest", request)
 	response := &TransferResponse{
@@ -126,6 +133,7 @@ func (r *raftRole) Transfer(ctx context.Context, request *TransferRequest) (*Tra
 	return response, nil
 }
 
+// Append handles a append request
 func (r *raftRole) Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
 	r.server.logRequest("AppendRequest", request)
 	response := &AppendResponse{
@@ -136,6 +144,7 @@ func (r *raftRole) Append(ctx context.Context, request *AppendRequest) (*AppendR
 	return response, nil
 }
 
+// Install handles an install request
 func (r *raftRole) Install(server RaftService_InstallServer) error {
 	response := &InstallResponse{
 		Status: ResponseStatus_ERROR,
@@ -144,6 +153,7 @@ func (r *raftRole) Install(server RaftService_InstallServer) error {
 	return r.server.logResponse("InstallResponse", response, server.SendAndClose(response))
 }
 
+// Command handles a command request
 func (r *raftRole) Command(request *CommandRequest, server RaftService_CommandServer) error {
 	r.server.logRequest("CommandRequest", request)
 	response := &CommandResponse{
@@ -153,6 +163,7 @@ func (r *raftRole) Command(request *CommandRequest, server RaftService_CommandSe
 	return r.server.logResponse("CommandResponse", response, server.Send(response))
 }
 
+// Query handles a query request
 func (r *raftRole) Query(request *QueryRequest, server RaftService_QueryServer) error {
 	r.server.logRequest("QueryRequest", request)
 	response := &QueryResponse{

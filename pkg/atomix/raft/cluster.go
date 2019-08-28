@@ -22,8 +22,8 @@ import (
 	"time"
 )
 
-// newRaftCluster returns a new RaftCluster with the given configuration
-func newRaftCluster(cluster atomix.Cluster) *RaftCluster {
+// newCluster returns a new Cluster with the given configuration
+func newCluster(cluster atomix.Cluster) *Cluster {
 	members := make(map[MemberID]*RaftMember)
 	locations := make(map[MemberID]atomix.Member)
 	memberIDs := make([]MemberID, 0, len(cluster.Members))
@@ -36,7 +36,7 @@ func newRaftCluster(cluster atomix.Cluster) *RaftCluster {
 		locations[MemberID(id)] = member
 		memberIDs = append(memberIDs, MemberID(id))
 	}
-	return &RaftCluster{
+	return &Cluster{
 		member:    MemberID(cluster.MemberID),
 		members:   members,
 		memberIDs: memberIDs,
@@ -46,8 +46,8 @@ func newRaftCluster(cluster atomix.Cluster) *RaftCluster {
 	}
 }
 
-// RaftCluster manages the Raft cluster configuration
-type RaftCluster struct {
+// Cluster manages the Raft cluster configuration
+type Cluster struct {
 	member    MemberID
 	members   map[MemberID]*RaftMember
 	memberIDs []MemberID
@@ -57,8 +57,8 @@ type RaftCluster struct {
 	mu        sync.RWMutex
 }
 
-// getClient returns a connection for the given member
-func (c *RaftCluster) getConn(member MemberID) (*grpc.ClientConn, error) {
+// getConn returns a connection for the given member
+func (c *Cluster) getConn(member MemberID) (*grpc.ClientConn, error) {
 	_, ok := c.members[member]
 	if !ok {
 		return nil, fmt.Errorf("unknown member %s", member)
@@ -81,7 +81,8 @@ func (c *RaftCluster) getConn(member MemberID) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-func (c *RaftCluster) getClient(member MemberID) (RaftServiceClient, error) {
+// getClient gets the RaftServiceClient for the given member
+func (c *Cluster) getClient(member MemberID) (RaftServiceClient, error) {
 	c.mu.RLock()
 	client, ok := c.clients[member]
 	c.mu.RUnlock()
@@ -102,7 +103,8 @@ func (c *RaftCluster) getClient(member MemberID) (RaftServiceClient, error) {
 	return client, nil
 }
 
-func (c *RaftCluster) resetClient(member MemberID) {
+// resetClient resets the client/connection to the given member
+func (c *Cluster) resetClient(member MemberID) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	conn, ok := c.conns[member]

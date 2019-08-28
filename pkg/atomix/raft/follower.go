@@ -23,7 +23,7 @@ import (
 )
 
 // newFollowerRole returns a new follower role
-func newFollowerRole(server *RaftServer) Role {
+func newFollowerRole(server *Server) Role {
 	return &FollowerRole{
 		ActiveRole: newActiveRole(server),
 	}
@@ -41,6 +41,7 @@ func (r *FollowerRole) Name() string {
 	return "Follower"
 }
 
+// start starts the follower
 func (r *FollowerRole) start() error {
 	// If there are no other members in the cluster, immediately transition to candidate to increment the term.
 	if len(r.server.cluster.members) == 1 {
@@ -54,6 +55,7 @@ func (r *FollowerRole) start() error {
 	return nil
 }
 
+// stop stops the follower
 func (r *FollowerRole) stop() error {
 	if r.heartbeatTimer != nil && r.heartbeatTimer.Stop() {
 		r.heartbeatStop <- true
@@ -61,6 +63,7 @@ func (r *FollowerRole) stop() error {
 	return r.ActiveRole.stop()
 }
 
+// resetHeartbeatTimeout resets the follower's heartbeat timeout
 func (r *FollowerRole) resetHeartbeatTimeout() {
 	r.server.writeLock()
 	defer r.server.writeUnlock()
@@ -139,9 +142,8 @@ func (r *FollowerRole) sendPollRequests() {
 						Debugf("Received %d/%d pre-votes; transitioning to candidate", acceptCount, len(votingMembers))
 					go r.server.becomeCandidate()
 					return
-				} else {
-					r.server.readUnlock()
 				}
+				r.server.readUnlock()
 			} else {
 				rejectCount++
 				if rejectCount == quorum {
@@ -240,24 +242,28 @@ func (r *FollowerRole) sendPollRequests() {
 	}
 }
 
+// Configure handles a configure request
 func (r *FollowerRole) Configure(ctx context.Context, request *ConfigureRequest) (*ConfigureResponse, error) {
 	response, err := r.PassiveRole.Configure(ctx, request)
 	r.resetHeartbeatTimeout()
 	return response, err
 }
 
+// Install handles an install request
 func (r *FollowerRole) Install(stream RaftService_InstallServer) error {
 	err := r.PassiveRole.Install(stream)
 	r.resetHeartbeatTimeout()
 	return err
 }
 
+// Append handles an append request
 func (r *FollowerRole) Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
 	response, err := r.PassiveRole.Append(ctx, request)
 	r.resetHeartbeatTimeout()
 	return response, err
 }
 
+// Vote handles a vote request
 func (r *FollowerRole) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
 	r.server.logRequest("VoteRequest", request)
 
@@ -276,6 +282,7 @@ func (r *FollowerRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRes
 	return response, err
 }
 
+// handleVote handles a vote request and sets the heartbeat timeout
 func (r *FollowerRole) handleVote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
 	r.server.writeLock()
 	response, err := r.ActiveRole.handleVote(ctx, request)

@@ -27,15 +27,15 @@ import (
 	"sync"
 )
 
-// newRaftClient returns a new Raft client
-func newRaftClient(consistency ReadConsistency) *RaftClient {
-	return &RaftClient{
+// newClient returns a new Raft client
+func newClient(consistency ReadConsistency) *Client {
+	return &Client{
 		consistency: consistency,
 	}
 }
 
-// RaftClient is a service Client implementation for the Raft consensus protocol
-type RaftClient struct {
+// Client is a service Client implementation for the Raft consensus protocol
+type Client struct {
 	service.Client
 	members      map[string]atomix.Member
 	membersList  *list.List
@@ -50,7 +50,8 @@ type RaftClient struct {
 	mu           sync.Mutex
 }
 
-func (c *RaftClient) Connect(cluster atomix.Cluster) error {
+// Connect connects the client to the given cluster
+func (c *Client) Connect(cluster atomix.Cluster) error {
 	c.members = make(map[string]atomix.Member)
 	c.membersList = list.New()
 	for name, member := range cluster.Members {
@@ -60,7 +61,8 @@ func (c *RaftClient) Connect(cluster atomix.Cluster) error {
 	return nil
 }
 
-func (c *RaftClient) Write(ctx context.Context, in []byte, ch chan<- service.Output) error {
+// Write sends a write operation to the cluster
+func (c *Client) Write(ctx context.Context, in []byte, ch chan<- service.Output) error {
 	request := &CommandRequest{
 		Value: in,
 	}
@@ -75,7 +77,8 @@ func (c *RaftClient) Write(ctx context.Context, in []byte, ch chan<- service.Out
 	return <-errCh
 }
 
-func (c *RaftClient) Read(ctx context.Context, in []byte, ch chan<- service.Output) error {
+// Read sends a read operation to the cluster
+func (c *Client) Read(ctx context.Context, in []byte, ch chan<- service.Output) error {
 	request := &QueryRequest{
 		Value:           in,
 		ReadConsistency: c.consistency,
@@ -92,7 +95,7 @@ func (c *RaftClient) Read(ctx context.Context, in []byte, ch chan<- service.Outp
 }
 
 // resetLeaderConn resets the client's connection to the leader
-func (c *RaftClient) resetLeaderConn() {
+func (c *Client) resetLeaderConn() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.leaderConn != nil {
@@ -104,7 +107,7 @@ func (c *RaftClient) resetLeaderConn() {
 }
 
 // getLeaderConn gets the gRPC client connection to the leader
-func (c *RaftClient) getLeaderConn() (*grpc.ClientConn, error) {
+func (c *Client) getLeaderConn() (*grpc.ClientConn, error) {
 	if c.leader.ID == "" {
 		return c.getConn()
 	}
@@ -121,7 +124,7 @@ func (c *RaftClient) getLeaderConn() (*grpc.ClientConn, error) {
 }
 
 // getClient gets the current Raft client connection for the leader
-func (c *RaftClient) getLeaderClient() (RaftServiceClient, error) {
+func (c *Client) getLeaderClient() (RaftServiceClient, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.leaderClient == nil {
@@ -134,7 +137,8 @@ func (c *RaftClient) getLeaderClient() (RaftServiceClient, error) {
 	return c.leaderClient, nil
 }
 
-func (c *RaftClient) write(ctx context.Context, request *CommandRequest, ch chan<- service.Output) error {
+// write sends the given write request to the cluster
+func (c *Client) write(ctx context.Context, request *CommandRequest, ch chan<- service.Output) error {
 	defer close(ch)
 
 	client, err := c.getLeaderClient()
@@ -171,18 +175,16 @@ func (c *RaftClient) write(ctx context.Context, request *CommandRequest, ch chan
 					c.resetLeaderConn()
 					c.leader = leader
 					return c.write(ctx, request, ch)
-				} else {
-					ch <- service.Output{
-						Error: errors.New(response.Message),
-					}
-					return nil
 				}
-			} else {
 				ch <- service.Output{
 					Error: errors.New(response.Message),
 				}
 				return nil
 			}
+			ch <- service.Output{
+				Error: errors.New(response.Message),
+			}
+			return nil
 		} else {
 			ch <- service.Output{
 				Error: errors.New(response.Message),
@@ -193,7 +195,7 @@ func (c *RaftClient) write(ctx context.Context, request *CommandRequest, ch chan
 }
 
 // resetConn resets the client connection to reconnect to a new member
-func (c *RaftClient) resetConn() {
+func (c *Client) resetConn() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.memberConn != nil {
@@ -205,7 +207,7 @@ func (c *RaftClient) resetConn() {
 }
 
 // getConn gets the current gRPC client connection
-func (c *RaftClient) getConn() (*grpc.ClientConn, error) {
+func (c *Client) getConn() (*grpc.ClientConn, error) {
 	if c.member.ID == "" {
 		if c.memberNode == nil {
 			c.memberNode = c.membersList.Front()
@@ -229,7 +231,7 @@ func (c *RaftClient) getConn() (*grpc.ClientConn, error) {
 }
 
 // getClient gets the current Raft client connection
-func (c *RaftClient) getClient() (RaftServiceClient, error) {
+func (c *Client) getClient() (RaftServiceClient, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.client == nil {
@@ -242,7 +244,8 @@ func (c *RaftClient) getClient() (RaftServiceClient, error) {
 	return c.client, nil
 }
 
-func (c *RaftClient) read(ctx context.Context, request *QueryRequest, ch chan<- service.Output) error {
+// read sends the given read request to the cluster
+func (c *Client) read(ctx context.Context, request *QueryRequest, ch chan<- service.Output) error {
 	defer close(ch)
 
 	client, err := c.getClient()
@@ -282,7 +285,8 @@ func (c *RaftClient) read(ctx context.Context, request *QueryRequest, ch chan<- 
 	return nil
 }
 
-func (c *RaftClient) Close() error {
+// Close closes the client
+func (c *Client) Close() error {
 	if c.memberConn != nil {
 		_ = c.memberConn.Close()
 	}

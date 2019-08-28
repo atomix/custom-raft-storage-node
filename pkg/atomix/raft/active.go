@@ -19,7 +19,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func newActiveRole(server *RaftServer) *ActiveRole {
+func newActiveRole(server *Server) *ActiveRole {
 	return &ActiveRole{
 		PassiveRole: newPassiveRole(server),
 	}
@@ -30,6 +30,7 @@ type ActiveRole struct {
 	*PassiveRole
 }
 
+// Append handles an append request
 func (r *ActiveRole) Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
 	r.server.logRequest("AppendRequest", request)
 
@@ -47,6 +48,7 @@ func (r *ActiveRole) Append(ctx context.Context, request *AppendRequest) (*Appen
 	return response, err
 }
 
+// Poll handles a poll request
 func (r *ActiveRole) Poll(ctx context.Context, request *PollRequest) (*PollResponse, error) {
 	r.server.logRequest("PollRequest", request)
 
@@ -63,6 +65,7 @@ func (r *ActiveRole) Poll(ctx context.Context, request *PollRequest) (*PollRespo
 	return response, err
 }
 
+// handlePoll handles a poll request
 func (r *ActiveRole) handlePoll(ctx context.Context, request *PollRequest) (*PollResponse, error) {
 	// If the request term is not as great as the current context term then don't
 	// vote for the candidate. We want to vote for candidates that are at least
@@ -90,6 +93,7 @@ func (r *ActiveRole) handlePoll(ctx context.Context, request *PollRequest) (*Pol
 	}
 }
 
+// isLogUpToDate returns a boolean indicating whether the log is up to date with the given index and term
 func (r *ActiveRole) isLogUpToDate(lastIndex Index, lastTerm Term, request interface{}) bool {
 	// Read the last entry from the log.
 	lastEntry := r.server.writer.LastEntry()
@@ -126,6 +130,7 @@ func (r *ActiveRole) isLogUpToDate(lastIndex Index, lastTerm Term, request inter
 	return true
 }
 
+// Vote handles a vote request
 func (r *ActiveRole) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
 	r.server.logRequest("VoteRequest", request)
 
@@ -144,6 +149,7 @@ func (r *ActiveRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRespo
 	return response, err
 }
 
+// handleVote handles a vote request
 func (r *ActiveRole) handleVote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
 	if request.Term < r.server.term {
 		// If the request term is not as great as the current context term then don't
@@ -184,13 +190,12 @@ func (r *ActiveRole) handleVote(ctx context.Context, request *VoteRequest) (*Vot
 				Term:   r.server.term,
 				Voted:  true,
 			}, nil
-		} else {
-			return &VoteResponse{
-				Status: ResponseStatus_OK,
-				Term:   r.server.term,
-				Voted:  false,
-			}, nil
 		}
+		return &VoteResponse{
+			Status: ResponseStatus_OK,
+			Term:   r.server.term,
+			Voted:  false,
+		}, nil
 	} else if *r.server.lastVotedFor == request.Candidate {
 		// If we already voted for the requesting server, respond successfully.
 		log.WithField("memberID", r.server.cluster.member).

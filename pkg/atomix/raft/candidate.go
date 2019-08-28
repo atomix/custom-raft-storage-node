@@ -23,7 +23,7 @@ import (
 )
 
 // newCandidateRole returns a new candidate role
-func newCandidateRole(server *RaftServer) Role {
+func newCandidateRole(server *Server) Role {
 	return &CandidateRole{
 		ActiveRole: newActiveRole(server),
 	}
@@ -41,6 +41,7 @@ func (r *CandidateRole) Name() string {
 	return "Candidate"
 }
 
+// start starts the candidate
 func (r *CandidateRole) start() error {
 	// If there are no other members in the cluster, immediately transition to leader.
 	if len(r.server.cluster.members) == 1 {
@@ -54,6 +55,7 @@ func (r *CandidateRole) start() error {
 	return nil
 }
 
+// stop stops the cancidate
 func (r *CandidateRole) stop() error {
 	if r.electionTimer != nil && r.electionTimer.Stop() {
 		r.electionExpired <- true
@@ -61,6 +63,7 @@ func (r *CandidateRole) stop() error {
 	return r.ActiveRole.stop()
 }
 
+// Vote handles a vote request
 func (r *CandidateRole) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
 	r.server.logRequest("VoteRequest", request)
 	r.server.writeLock()
@@ -76,7 +79,6 @@ func (r *CandidateRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRe
 	}
 
 	// Candidates will always vote for themselves, so if the vote request is for this node then accept the request.
-	// Otherwise, reject it.
 	if request.Candidate == r.server.cluster.member {
 		response := &VoteResponse{
 			Status: ResponseStatus_OK,
@@ -85,17 +87,19 @@ func (r *CandidateRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRe
 		}
 		_ = r.server.logResponse("VoteResponse", response, nil)
 		return response, nil
-	} else {
-		response := &VoteResponse{
-			Status: ResponseStatus_OK,
-			Term:   r.server.term,
-			Voted:  false,
-		}
-		_ = r.server.logResponse("VoteResponse", response, nil)
-		return response, nil
 	}
+
+	// Otherwise, reject it.
+	response := &VoteResponse{
+		Status: ResponseStatus_OK,
+		Term:   r.server.term,
+		Voted:  false,
+	}
+	_ = r.server.logResponse("VoteResponse", response, nil)
+	return response, nil
 }
 
+// resetElectionTimeout resets the candidate's election timer
 func (r *CandidateRole) resetElectionTimeout() {
 	// If a timer is already set, cancel the timer.
 	if r.electionTimer != nil {
@@ -128,6 +132,7 @@ func (r *CandidateRole) resetElectionTimeout() {
 	}()
 }
 
+// sendVoteRequests sends vote requests to peers
 func (r *CandidateRole) sendVoteRequests() {
 	// Because of asynchronous execution, the candidate state could have already been closed. In that case,
 	// simply skip the election.
@@ -170,9 +175,8 @@ func (r *CandidateRole) sendVoteRequests() {
 					go r.server.becomeLeader()
 					r.server.writeUnlock()
 					return
-				} else {
-					r.server.writeUnlock()
 				}
+				r.server.writeUnlock()
 			} else {
 				// If a quorum of vote requests were rejected, transition back to follower.
 				rejectCount++
@@ -182,9 +186,8 @@ func (r *CandidateRole) sendVoteRequests() {
 					go r.server.becomeFollower()
 					r.server.writeUnlock()
 					return
-				} else {
-					r.server.writeUnlock()
 				}
+				r.server.writeUnlock()
 			}
 		}
 
