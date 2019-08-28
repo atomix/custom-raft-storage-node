@@ -16,7 +16,7 @@ package raft
 
 import (
 	"context"
-	"github.com/atomix/atomix-go-node/pkg/atomix"
+	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
@@ -28,9 +28,9 @@ import (
 )
 
 func TestRaftNode(t *testing.T) {
-	cluster := atomix.Cluster{
+	cluster := cluster.Cluster{
 		MemberID: "foo",
-		Members: map[string]atomix.Member{
+		Members: map[string]cluster.Member{
 			"foo": {
 				ID:   "foo",
 				Host: "localhost",
@@ -84,9 +84,9 @@ func TestRaftNode(t *testing.T) {
 }
 
 func TestRaftCluster(t *testing.T) {
-	cluster := atomix.Cluster{
+	cluster := cluster.Cluster{
 		MemberID: "foo",
-		Members: map[string]atomix.Member{
+		Members: map[string]cluster.Member{
 			"foo": {
 				ID:   "foo",
 				Host: "localhost",
@@ -124,9 +124,9 @@ func TestRaftCluster(t *testing.T) {
 func BenchmarkRaftCluster(b *testing.B) {
 	log.SetLevel(log.InfoLevel)
 
-	cluster := atomix.Cluster{
+	cluster := cluster.Cluster{
 		MemberID: "foo",
-		Members: map[string]atomix.Member{
+		Members: map[string]cluster.Member{
 			"foo": {
 				ID:   "foo",
 				Host: "localhost",
@@ -202,9 +202,9 @@ func BenchmarkRaftCluster(b *testing.B) {
 	})
 }
 
-func newServer(memberID string, cluster atomix.Cluster) *Server {
+func newServer(memberID string, cluster cluster.Cluster) *Server {
 	cluster.MemberID = memberID
-	return NewServer(cluster, getServiceRegistry(), 5*time.Second)
+	return NewServer(cluster, service.GetRegistry(), 5*time.Second)
 }
 
 func startServer(server *Server, wg *sync.WaitGroup) {
@@ -314,12 +314,6 @@ func newTestQueryRequest(t *testing.T, bytes []byte) []byte {
 	})
 	assert.NoError(t, err)
 	return bytes
-}
-
-func getServiceRegistry() *service.ServiceRegistry {
-	registry := service.NewServiceRegistry()
-	registerTestService(registry)
-	return registry
 }
 
 func stopServer(server *Server) {
