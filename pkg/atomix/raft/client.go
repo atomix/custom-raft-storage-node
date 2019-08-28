@@ -19,7 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/atomix/atomix-go-node/pkg/atomix"
+	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -37,13 +37,13 @@ func newClient(consistency ReadConsistency) *Client {
 // Client is a service Client implementation for the Raft consensus protocol
 type Client struct {
 	service.Client
-	members      map[string]atomix.Member
+	members      map[string]cluster.Member
 	membersList  *list.List
 	memberNode   *list.Element
-	member       atomix.Member
+	member       cluster.Member
 	memberConn   *grpc.ClientConn
 	client       RaftServiceClient
-	leader       atomix.Member
+	leader       cluster.Member
 	leaderConn   *grpc.ClientConn
 	leaderClient RaftServiceClient
 	consistency  ReadConsistency
@@ -51,10 +51,10 @@ type Client struct {
 }
 
 // Connect connects the client to the given cluster
-func (c *Client) Connect(cluster atomix.Cluster) error {
-	c.members = make(map[string]atomix.Member)
+func (c *Client) Connect(config cluster.Cluster) error {
+	c.members = make(map[string]cluster.Member)
 	c.membersList = list.New()
-	for name, member := range cluster.Members {
+	for name, member := range config.Members {
 		c.members[name] = member
 		c.membersList.PushBack(member)
 	}
@@ -102,7 +102,7 @@ func (c *Client) resetLeaderConn() {
 		_ = c.leaderConn.Close()
 		c.leaderConn = nil
 	}
-	c.leader = atomix.Member{}
+	c.leader = cluster.Member{}
 	c.leaderClient = nil
 }
 
@@ -202,7 +202,7 @@ func (c *Client) resetConn() {
 		_ = c.memberConn.Close()
 		c.memberConn = nil
 	}
-	c.member = atomix.Member{}
+	c.member = cluster.Member{}
 	c.client = nil
 }
 
@@ -217,7 +217,7 @@ func (c *Client) getConn() (*grpc.ClientConn, error) {
 				c.memberNode = c.membersList.Front()
 			}
 		}
-		c.member = c.memberNode.Value.(atomix.Member)
+		c.member = c.memberNode.Value.(cluster.Member)
 	}
 
 	if c.memberConn == nil {

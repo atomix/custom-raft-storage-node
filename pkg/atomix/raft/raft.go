@@ -15,7 +15,7 @@
 package raft
 
 import (
-	"github.com/atomix/atomix-go-node/pkg/atomix"
+	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	"time"
 )
@@ -38,14 +38,14 @@ func NewProtocol(config *RaftProtocolConfig) *Protocol {
 
 // Protocol is an implementation of the Protocol interface providing the Raft consensus protocol
 type Protocol struct {
-	atomix.Protocol
+	service.Protocol
 	config *RaftProtocolConfig
 	client *Client
 	server *Server
 }
 
 // Start starts the Raft protocol
-func (p *Protocol) Start(cluster atomix.Cluster, registry *service.ServiceRegistry) error {
+func (p *Protocol) Start(cluster cluster.Cluster, registry *service.Registry) error {
 	electionTimeout := 5 * time.Second
 	if p.config.ElectionTimeout != nil {
 		electionTimeout = *p.config.ElectionTimeout

@@ -19,7 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/atomix/atomix-go-node/pkg/atomix"
+	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -44,7 +44,7 @@ const (
 )
 
 // NewServer returns a new Raft consensus protocol server
-func NewServer(cluster atomix.Cluster, registry *service.ServiceRegistry, electionTimeout time.Duration) *Server {
+func NewServer(cluster cluster.Cluster, registry *service.Registry, electionTimeout time.Duration) *Server {
 	log := newMemoryLog()
 	reader := log.OpenReader(0)
 	writer := log.Writer()

@@ -25,7 +25,7 @@ const (
 )
 
 // newStateManager returns a new Raft state manager
-func newStateManager(server *Server, registry *service.ServiceRegistry) *stateManager {
+func newStateManager(server *Server, registry *service.Registry) *stateManager {
 	sm := &stateManager{
 		server: server,
 		reader: server.log.OpenReader(0),

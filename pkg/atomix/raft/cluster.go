@@ -16,18 +16,18 @@ package raft
 
 import (
 	"fmt"
-	"github.com/atomix/atomix-go-node/pkg/atomix"
+	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"google.golang.org/grpc"
 	"sync"
 	"time"
 )
 
 // newCluster returns a new Cluster with the given configuration
-func newCluster(cluster atomix.Cluster) *Cluster {
+func newCluster(config cluster.Cluster) *Cluster {
 	members := make(map[MemberID]*RaftMember)
-	locations := make(map[MemberID]atomix.Member)
-	memberIDs := make([]MemberID, 0, len(cluster.Members))
-	for id, member := range cluster.Members {
+	locations := make(map[MemberID]cluster.Member)
+	memberIDs := make([]MemberID, 0, len(config.Members))
+	for id, member := range config.Members {
 		members[MemberID(id)] = &RaftMember{
 			MemberID: MemberID(member.ID),
 			Type:     RaftMember_ACTIVE,
@@ -37,7 +37,7 @@ func newCluster(cluster atomix.Cluster) *Cluster {
 		memberIDs = append(memberIDs, MemberID(id))
 	}
 	return &Cluster{
-		member:    MemberID(cluster.MemberID),
+		member:    MemberID(config.MemberID),
 		members:   members,
 		memberIDs: memberIDs,
 		locations: locations,
@@ -51,7 +51,7 @@ type Cluster struct {
 	member    MemberID
 	members   map[MemberID]*RaftMember
 	memberIDs []MemberID
-	locations map[MemberID]atomix.Member
+	locations map[MemberID]cluster.Member
 	conns     map[MemberID]*grpc.ClientConn
 	clients   map[MemberID]RaftServiceClient
 	mu        sync.RWMutex
