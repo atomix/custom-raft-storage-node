@@ -40,12 +40,8 @@ func TestRaftNode(t *testing.T) {
 	}
 
 	server := newServer("foo", cluster)
-	go func() {
-		_ = server.Start()
-	}()
-	defer func() {
-		_ = server.Stop()
-	}()
+	go server.Start()
+	defer server.Stop()
 	_ = server.waitForReady()
 
 	client := newClient(ReadConsistency_SEQUENTIAL)

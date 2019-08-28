@@ -139,8 +139,6 @@ func (c *Client) getLeaderClient() (RaftServiceClient, error) {
 
 // write sends the given write request to the cluster
 func (c *Client) write(ctx context.Context, request *CommandRequest, ch chan<- service.Output) error {
-	defer close(ch)
-
 	client, err := c.getLeaderClient()
 	if err != nil {
 		return err
@@ -151,15 +149,22 @@ func (c *Client) write(ctx context.Context, request *CommandRequest, ch chan<- s
 	if err != nil {
 		return err
 	}
+	go c.receiveWrite(ctx, request, ch, stream)
+	return nil
+}
 
+func (c *Client) receiveWrite(ctx context.Context, request *CommandRequest, ch chan<- service.Output, stream RaftService_CommandClient) {
 	for {
 		response, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
 		if err != nil {
-			c.resetLeaderConn()
-			return err
+			if err != io.EOF {
+				c.resetLeaderConn()
+				ch <- service.Output{
+					Error: err,
+				}
+			}
+			close(ch)
+			return
 		}
 
 		log.Tracef("Received CommandResponse %+v", response)
@@ -174,24 +179,28 @@ func (c *Client) write(ctx context.Context, request *CommandRequest, ch chan<- s
 				if ok {
 					c.resetLeaderConn()
 					c.leader = leader
-					return c.write(ctx, request, ch)
+					if err := c.write(ctx, request, ch); err != nil {
+						ch <- service.Output{
+							Error: err,
+						}
+					}
+					return
 				}
 				ch <- service.Output{
 					Error: errors.New(response.Message),
 				}
-				return nil
+				return
 			}
 			ch <- service.Output{
 				Error: errors.New(response.Message),
 			}
-			return nil
+			return
 		} else {
 			ch <- service.Output{
 				Error: errors.New(response.Message),
 			}
 		}
 	}
-	return nil
 }
 
 // resetConn resets the client connection to reconnect to a new member
@@ -246,26 +255,33 @@ func (c *Client) getClient() (RaftServiceClient, error) {
 
 // read sends the given read request to the cluster
 func (c *Client) read(ctx context.Context, request *QueryRequest, ch chan<- service.Output) error {
-	defer close(ch)
-
 	client, err := c.getClient()
 	if err != nil {
+		close(ch)
 		return err
 	}
 
 	log.Tracef("Sending QueryRequest %+v", request)
 	stream, err := client.Query(ctx, request)
 	if err != nil {
+		close(ch)
 		return err
 	}
+	go c.receiveRead(ctx, request, ch, stream)
+	return nil
+}
 
+func (c *Client) receiveRead(ctx context.Context, request *QueryRequest, ch chan<- service.Output, stream RaftService_QueryClient) {
 	for {
 		response, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
 		if err != nil {
-			return err
+			if err != io.EOF {
+				ch <- service.Output{
+					Error: err,
+				}
+			}
+			close(ch)
+			return
 		}
 
 		log.Tracef("Received QueryResponse %+v", response)
@@ -275,14 +291,18 @@ func (c *Client) read(ctx context.Context, request *QueryRequest, ch chan<- serv
 			}
 		} else if response.Error == RaftError_ILLEGAL_MEMBER_STATE {
 			c.resetConn()
-			return c.read(ctx, request, ch)
+			if err := c.read(ctx, request, ch); err != nil {
+				ch <- service.Output{
+					Error: err,
+				}
+			}
+			return
 		} else {
 			ch <- service.Output{
 				Error: errors.New(response.Message),
 			}
 		}
 	}
-	return nil
 }
 
 // Close closes the client
