@@ -269,7 +269,6 @@ func (r *FollowerRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRes
 
 	// Vote requests can modify the server's vote record, so we need to hold a write lock while handling the request.
 	r.server.writeLock()
-	defer r.server.writeUnlock()
 
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context.
@@ -277,18 +276,14 @@ func (r *FollowerRole) Vote(ctx context.Context, request *VoteRequest) (*VoteRes
 		go r.server.becomeFollower()
 	}
 
-	response, err := r.handleVote(ctx, request)
-	_ = r.server.logResponse("VoteResponse", response, err)
-	return response, err
-}
-
-// handleVote handles a vote request and sets the heartbeat timeout
-func (r *FollowerRole) handleVote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
-	r.server.writeLock()
+	// Handle the vote request and then release the lock
 	response, err := r.ActiveRole.handleVote(ctx, request)
 	r.server.writeUnlock()
+
+	// If we voted for the candidate, reset the heartbeat timeout
 	if response.Voted {
 		r.resetHeartbeatTimeout()
 	}
+	_ = r.server.logResponse("VoteResponse", response, err)
 	return response, err
 }
