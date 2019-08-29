@@ -22,6 +22,10 @@ import "atomix/raft/raft.proto";
 import "google/protobuf/timestamp.proto";
 import "gogoproto/gogo.proto";
 
+option (gogoproto.testgen_all) = true;
+option (gogoproto.populate_all) = true;
+option (gogoproto.equal_all) = true;
+
 // Raft log entry
 message RaftLogEntry {
     int64 term = 1 [(gogoproto.casttype) = "Term"];

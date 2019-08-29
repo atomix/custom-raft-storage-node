@@ -57,9 +57,7 @@ func (p *Protocol) Start(cluster cluster.Cluster, registry *service.Registry) er
 	}
 
 	p.server = NewServer(cluster, registry, electionTimeout)
-	go func() {
-		_ = p.server.Start()
-	}()
+	go p.server.Start()
 	return p.server.waitForReady()
 }
 

@@ -18,6 +18,12 @@ syntax = "proto3";
 
 package atomix.service;
 
+import "gogoproto/gogo.proto";
+
+option (gogoproto.testgen_all) = true;
+option (gogoproto.populate_all) = true;
+option (gogoproto.equal_all) = true;
+
 // Test value snapshot
 message TestValueSnapshot {
     string value = 1;

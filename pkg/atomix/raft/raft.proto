@@ -22,6 +22,10 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "gogoproto/gogo.proto";
 
+option (gogoproto.testgen_all) = true;
+option (gogoproto.populate_all) = true;
+option (gogoproto.equal_all) = true;
+
 message RaftMember {
     string member_id = 1 [(gogoproto.casttype) = "MemberID", (gogoproto.customname) = "MemberID"];
     Type type = 2;

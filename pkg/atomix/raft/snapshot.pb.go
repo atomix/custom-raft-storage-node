@@ -7,15 +7,19 @@ import (
 	fmt "fmt"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
+	_ "github.com/gogo/protobuf/types"
+	github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 	io "io"
 	math "math"
 	math_bits "math/bits"
+	time "time"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+var _ = time.Kitchen
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
@@ -25,8 +29,8 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Snapshot descriptor
 type SnapshotDescriptor struct {
-	Index     Index `protobuf:"varint,1,opt,name=index,proto3,casttype=Index" json:"index,omitempty"`
-	Timestamp Term  `protobuf:"varint,2,opt,name=timestamp,proto3,casttype=Term" json:"timestamp,omitempty"`
+	Index     Index      `protobuf:"varint,1,opt,name=index,proto3,casttype=Index" json:"index,omitempty"`
+	Timestamp *time.Time `protobuf:"bytes,2,opt,name=timestamp,proto3,stdtime" json:"timestamp,omitempty"`
 }
 
 func (m *SnapshotDescriptor) Reset()         { *m = SnapshotDescriptor{} }
@@ -69,11 +73,11 @@ func (m *SnapshotDescriptor) GetIndex() Index {
 	return 0
 }
 
-func (m *SnapshotDescriptor) GetTimestamp() Term {
+func (m *SnapshotDescriptor) GetTimestamp() *time.Time {
 	if m != nil {
 		return m.Timestamp
 	}
-	return 0
+	return nil
 }
 
 func init() {
@@ -83,21 +87,54 @@ func init() {
 func init() { proto.RegisterFile("atomix/raft/snapshot.proto", fileDescriptor_58c3c314973b5e08) }
 
 var fileDescriptor_58c3c314973b5e08 = []byte{
-	// 177 bytes of a gzipped FileDescriptorProto
+	// 220 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x4a, 0x2c, 0xc9, 0xcf,
 	0xcd, 0xac, 0xd0, 0x2f, 0x4a, 0x4c, 0x2b, 0xd1, 0x2f, 0xce, 0x4b, 0x2c, 0x28, 0xce, 0xc8, 0x2f,
-	0xd1, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x86, 0xc8, 0xe9, 0x81, 0xe4, 0xa4, 0x44, 0xd2,
-	0xf3, 0xd3, 0xf3, 0xc1, 0xe2, 0xfa, 0x20, 0x16, 0x44, 0x89, 0x52, 0x2c, 0x97, 0x50, 0x30, 0x54,
-	0x93, 0x4b, 0x6a, 0x71, 0x72, 0x51, 0x66, 0x41, 0x49, 0x7e, 0x91, 0x90, 0x3c, 0x17, 0x6b, 0x66,
-	0x5e, 0x4a, 0x6a, 0x85, 0x04, 0xa3, 0x02, 0xa3, 0x06, 0xb3, 0x13, 0xe7, 0xaf, 0x7b, 0xf2, 0xac,
-	0x9e, 0x20, 0x81, 0x20, 0x88, 0xb8, 0x90, 0x1a, 0x17, 0x67, 0x49, 0x66, 0x6e, 0x6a, 0x71, 0x49,
-	0x62, 0x6e, 0x81, 0x04, 0x13, 0x58, 0x11, 0xc7, 0xaf, 0x7b, 0xf2, 0x2c, 0x21, 0xa9, 0x45, 0xb9,
-	0x41, 0x08, 0x29, 0x27, 0x89, 0x13, 0x8f, 0xe4, 0x18, 0x2f, 0x3c, 0x92, 0x63, 0x7c, 0xf0, 0x48,
-	0x8e, 0x71, 0xc2, 0x63, 0x39, 0x86, 0x0b, 0x8f, 0xe5, 0x18, 0x6e, 0x3c, 0x96, 0x63, 0x48, 0x62,
-	0x03, 0xdb, 0x6f, 0x0c, 0x08, 0x00, 0x00, 0xff, 0xff, 0xa0, 0x3f, 0x16, 0x37, 0xc0, 0x00, 0x00,
-	0x00,
+	0xd1, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x86, 0xc8, 0xe9, 0x81, 0xe4, 0xa4, 0xe4, 0xd3,
+	0xf3, 0xf3, 0xd3, 0x73, 0x52, 0xf5, 0xc1, 0x52, 0x49, 0xa5, 0x69, 0xfa, 0x25, 0x99, 0xb9, 0xa9,
+	0xc5, 0x25, 0x89, 0xb9, 0x05, 0x10, 0xd5, 0x52, 0x22, 0xe9, 0xf9, 0xe9, 0xf9, 0x60, 0xa6, 0x3e,
+	0x88, 0x05, 0x11, 0x55, 0x2a, 0xe5, 0x12, 0x0a, 0x86, 0x9a, 0xea, 0x92, 0x5a, 0x9c, 0x5c, 0x94,
+	0x59, 0x50, 0x92, 0x5f, 0x24, 0x24, 0xcf, 0xc5, 0x9a, 0x99, 0x97, 0x92, 0x5a, 0x21, 0xc1, 0xa8,
+	0xc0, 0xa8, 0xc1, 0xec, 0xc4, 0xf9, 0xeb, 0x9e, 0x3c, 0xab, 0x27, 0x48, 0x20, 0x08, 0x22, 0x2e,
+	0x64, 0xc7, 0xc5, 0x09, 0x37, 0x5f, 0x82, 0x49, 0x81, 0x51, 0x83, 0xdb, 0x48, 0x4a, 0x0f, 0xe2,
+	0x02, 0x3d, 0x98, 0x0b, 0xf4, 0x42, 0x60, 0x2a, 0x9c, 0x58, 0x26, 0xdc, 0x97, 0x67, 0x0c, 0x42,
+	0x68, 0x71, 0x52, 0xf9, 0xf1, 0x50, 0x8e, 0x71, 0xc5, 0x23, 0x39, 0xc6, 0x1d, 0x8f, 0xe4, 0x18,
+	0x4f, 0x3c, 0x92, 0x63, 0xbc, 0xf0, 0x48, 0x8e, 0xf1, 0xc1, 0x23, 0x39, 0xc6, 0x09, 0x8f, 0xe5,
+	0x18, 0x2e, 0x3c, 0x96, 0x63, 0xb8, 0xf1, 0x58, 0x8e, 0x21, 0x89, 0x0d, 0x6c, 0x94, 0x31, 0x20,
+	0x00, 0x00, 0xff, 0xff, 0xbe, 0xb1, 0xd2, 0x02, 0x05, 0x01, 0x00, 0x00,
 }
 
+func (this *SnapshotDescriptor) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*SnapshotDescriptor)
+	if !ok {
+		that2, ok := that.(SnapshotDescriptor)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.Index != that1.Index {
+		return false
+	}
+	if that1.Timestamp == nil {
+		if this.Timestamp != nil {
+			return false
+		}
+	} else if !this.Timestamp.Equal(*that1.Timestamp) {
+		return false
+	}
+	return true
+}
 func (m *SnapshotDescriptor) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -118,10 +155,15 @@ func (m *SnapshotDescriptor) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.Timestamp != 0 {
-		i = encodeVarintSnapshot(dAtA, i, uint64(m.Timestamp))
+	if m.Timestamp != nil {
+		n1, err1 := github_com_gogo_protobuf_types.StdTimeMarshalTo(*m.Timestamp, dAtA[i-github_com_gogo_protobuf_types.SizeOfStdTime(*m.Timestamp):])
+		if err1 != nil {
+			return 0, err1
+		}
+		i -= n1
+		i = encodeVarintSnapshot(dAtA, i, uint64(n1))
 		i--
-		dAtA[i] = 0x10
+		dAtA[i] = 0x12
 	}
 	if m.Index != 0 {
 		i = encodeVarintSnapshot(dAtA, i, uint64(m.Index))
@@ -142,6 +184,92 @@ func encodeVarintSnapshot(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
+func NewPopulatedSnapshotDescriptor(r randySnapshot, easy bool) *SnapshotDescriptor {
+	this := &SnapshotDescriptor{}
+	this.Index = Index(r.Int63())
+	if r.Intn(2) == 0 {
+		this.Index = Index(uint64(int64(this.Index) * -1))
+	}
+	if r.Intn(5) != 0 {
+		this.Timestamp = github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
+	}
+	if !easy && r.Intn(10) != 0 {
+	}
+	return this
+}
+
+type randySnapshot interface {
+	Float32() float32
+	Float64() float64
+	Int63() int64
+	Int31() int32
+	Uint32() uint32
+	Intn(n int) int
+}
+
+func randUTF8RuneSnapshot(r randySnapshot) rune {
+	ru := r.Intn(62)
+	if ru < 10 {
+		return rune(ru + 48)
+	} else if ru < 36 {
+		return rune(ru + 55)
+	}
+	return rune(ru + 61)
+}
+func randStringSnapshot(r randySnapshot) string {
+	v1 := r.Intn(100)
+	tmps := make([]rune, v1)
+	for i := 0; i < v1; i++ {
+		tmps[i] = randUTF8RuneSnapshot(r)
+	}
+	return string(tmps)
+}
+func randUnrecognizedSnapshot(r randySnapshot, maxFieldNumber int) (dAtA []byte) {
+	l := r.Intn(5)
+	for i := 0; i < l; i++ {
+		wire := r.Intn(4)
+		if wire == 3 {
+			wire = 5
+		}
+		fieldNumber := maxFieldNumber + r.Intn(100)
+		dAtA = randFieldSnapshot(dAtA, r, fieldNumber, wire)
+	}
+	return dAtA
+}
+func randFieldSnapshot(dAtA []byte, r randySnapshot, fieldNumber int, wire int) []byte {
+	key := uint32(fieldNumber)<<3 | uint32(wire)
+	switch wire {
+	case 0:
+		dAtA = encodeVarintPopulateSnapshot(dAtA, uint64(key))
+		v2 := r.Int63()
+		if r.Intn(2) == 0 {
+			v2 *= -1
+		}
+		dAtA = encodeVarintPopulateSnapshot(dAtA, uint64(v2))
+	case 1:
+		dAtA = encodeVarintPopulateSnapshot(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+	case 2:
+		dAtA = encodeVarintPopulateSnapshot(dAtA, uint64(key))
+		ll := r.Intn(100)
+		dAtA = encodeVarintPopulateSnapshot(dAtA, uint64(ll))
+		for j := 0; j < ll; j++ {
+			dAtA = append(dAtA, byte(r.Intn(256)))
+		}
+	default:
+		dAtA = encodeVarintPopulateSnapshot(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+	}
+	return dAtA
+}
+func encodeVarintPopulateSnapshot(dAtA []byte, v uint64) []byte {
+	for v >= 1<<7 {
+		dAtA = append(dAtA, uint8(uint64(v)&0x7f|0x80))
+		v >>= 7
+	}
+	dAtA = append(dAtA, uint8(v))
+	return dAtA
+}
 func (m *SnapshotDescriptor) Size() (n int) {
 	if m == nil {
 		return 0
@@ -151,8 +279,9 @@ func (m *SnapshotDescriptor) Size() (n int) {
 	if m.Index != 0 {
 		n += 1 + sovSnapshot(uint64(m.Index))
 	}
-	if m.Timestamp != 0 {
-		n += 1 + sovSnapshot(uint64(m.Timestamp))
+	if m.Timestamp != nil {
+		l = github_com_gogo_protobuf_types.SizeOfStdTime(*m.Timestamp)
+		n += 1 + l + sovSnapshot(uint64(l))
 	}
 	return n
 }
@@ -212,10 +341,10 @@ func (m *SnapshotDescriptor) Unmarshal(dAtA []byte) error {
 				}
 			}
 		case 2:
-			if wireType != 0 {
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Timestamp", wireType)
 			}
-			m.Timestamp = 0
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowSnapshot
@@ -225,11 +354,28 @@ func (m *SnapshotDescriptor) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Timestamp |= Term(b&0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
+			if msglen < 0 {
+				return ErrInvalidLengthSnapshot
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthSnapshot
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Timestamp == nil {
+				m.Timestamp = new(time.Time)
+			}
+			if err := github_com_gogo_protobuf_types.StdTimeUnmarshal(m.Timestamp, dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipSnapshot(dAtA[iNdEx:])
