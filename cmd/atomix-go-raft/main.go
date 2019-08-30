@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"github.com/atomix/atomix-api/proto/atomix/controller"
 	"github.com/atomix/atomix-go-node/pkg/atomix"
+	"github.com/atomix/atomix-go-node/pkg/atomix/registry"
 	"github.com/atomix/atomix-go-raft/pkg/atomix/raft"
 	"github.com/golang/protobuf/jsonpb"
 	log "github.com/sirupsen/logrus"
@@ -34,7 +35,7 @@ func main() {
 	partitionConfig := parsePartitionConfig()
 	protocolConfig := parseProtocolConfig()
 
-	node := atomix.NewNode(nodeID, partitionConfig, raft.NewProtocol(protocolConfig))
+	node := atomix.NewNode(nodeID, partitionConfig, raft.NewProtocol(protocolConfig), registry.Registry)
 	if err := node.Start(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

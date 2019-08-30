@@ -17,6 +17,7 @@ package raft
 import (
 	"github.com/atomix/atomix-api/proto/atomix/controller"
 	"github.com/atomix/atomix-go-node/pkg/atomix"
+	"github.com/atomix/atomix-go-node/pkg/atomix/registry"
 	"testing"
 	"time"
 )
@@ -39,7 +40,7 @@ func TestProtocol(t *testing.T) {
 		},
 	}
 	protocol := NewProtocol(&RaftProtocolConfig{})
-	node := atomix.NewNode("foo", config, protocol)
+	node := atomix.NewNode("foo", config, protocol, registry.Registry)
 	node.Start()
 	time.Sleep(1 * time.Second)
 	defer node.Stop()

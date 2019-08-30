@@ -44,7 +44,7 @@ func TestAppend(t *testing.T) {
 		Leader:       "bar",
 		PrevLogIndex: 0,
 		PrevLogTerm:  0,
-		Entries: []*RaftLogEntry{},
+		Entries:      []*RaftLogEntry{},
 		CommitIndex:  0,
 	})
 
@@ -61,7 +61,7 @@ func TestAppend(t *testing.T) {
 		Leader:       "foo",
 		PrevLogIndex: 0,
 		PrevLogTerm:  0,
-		Entries: []*RaftLogEntry{},
+		Entries:      []*RaftLogEntry{},
 		CommitIndex:  0,
 	})
 
@@ -103,12 +103,12 @@ func TestAppend(t *testing.T) {
 
 	// Test committing entries
 	response, err = role.Append(context.TODO(), &AppendRequest{
-		Term: 2,
-		Leader: "bar",
+		Term:         2,
+		Leader:       "bar",
 		PrevLogIndex: 2,
-		PrevLogTerm: 2,
-		Entries: []*RaftLogEntry{},
-		CommitIndex: 1,
+		PrevLogTerm:  2,
+		Entries:      []*RaftLogEntry{},
+		CommitIndex:  1,
 	})
 
 	assert.NoError(t, err)
@@ -119,13 +119,13 @@ func TestAppend(t *testing.T) {
 
 	// Test rejecting a request due to missing entries
 	response, err = role.Append(context.TODO(), &AppendRequest{
-		Term: 2,
-		Leader: "bar",
+		Term:         2,
+		Leader:       "bar",
 		PrevLogIndex: 3,
-		PrevLogTerm: 2,
+		PrevLogTerm:  2,
 		Entries: []*RaftLogEntry{
 			{
-				Term: 2,
+				Term:      2,
 				Timestamp: time.Now(),
 				Entry: &RaftLogEntry_Initialize{
 					Initialize: &InitializeEntry{},
@@ -143,13 +143,13 @@ func TestAppend(t *testing.T) {
 
 	// Test rejecting entries for an inconsistent term
 	response, err = role.Append(context.TODO(), &AppendRequest{
-		Term: 3,
-		Leader: "baz",
+		Term:         3,
+		Leader:       "baz",
 		PrevLogIndex: 2,
-		PrevLogTerm: 3,
+		PrevLogTerm:  3,
 		Entries: []*RaftLogEntry{
 			{
-				Term: 2,
+				Term:      2,
 				Timestamp: time.Now(),
 				Entry: &RaftLogEntry_Initialize{
 					Initialize: &InitializeEntry{},
@@ -169,20 +169,20 @@ func TestAppend(t *testing.T) {
 
 	// Test replacing entries from a prior term
 	response, err = role.Append(context.TODO(), &AppendRequest{
-		Term: 3,
-		Leader: "baz",
+		Term:         3,
+		Leader:       "baz",
 		PrevLogIndex: 1,
-		PrevLogTerm: 2,
+		PrevLogTerm:  2,
 		Entries: []*RaftLogEntry{
 			{
-				Term: 3,
+				Term:      3,
 				Timestamp: time.Now(),
 				Entry: &RaftLogEntry_Initialize{
 					Initialize: &InitializeEntry{},
 				},
 			},
 			{
-				Term: 3,
+				Term:      3,
 				Timestamp: time.Now(),
 				Entry: &RaftLogEntry_Initialize{
 					Initialize: &InitializeEntry{},
