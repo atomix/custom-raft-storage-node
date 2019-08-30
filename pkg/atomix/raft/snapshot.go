@@ -94,7 +94,8 @@ func (s *memorySnapshot) Reader() io.ReadCloser {
 
 func (s *memorySnapshot) Writer() io.WriteCloser {
 	return &memoryWriter{
-		writer: bytes.NewBuffer(s.bytes),
+		snapshot: s,
+		buf:      bytes.NewBuffer(s.bytes),
 	}
 }
 
@@ -111,13 +112,15 @@ func (r *memoryReader) Close() error {
 }
 
 type memoryWriter struct {
-	writer io.Writer
+	snapshot *memorySnapshot
+	buf      *bytes.Buffer
 }
 
 func (w *memoryWriter) Write(p []byte) (n int, err error) {
-	return w.writer.Write(p)
+	return w.buf.Write(p)
 }
 
 func (w *memoryWriter) Close() error {
+	w.snapshot.bytes = w.buf.Bytes()
 	return nil
 }
