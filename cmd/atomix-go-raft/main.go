@@ -25,6 +25,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
+	"os/signal"
 )
 
 func main() {
@@ -35,8 +36,20 @@ func main() {
 	partitionConfig := parsePartitionConfig()
 	protocolConfig := parseProtocolConfig()
 
+	// Start the node. The node will be started in its own goroutine.
 	node := atomix.NewNode(nodeID, partitionConfig, raft.NewProtocol(protocolConfig), registry.Registry)
 	if err := node.Start(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Wait for an interrupt signal
+	ch := make(chan os.Signal)
+	signal.Notify(ch, os.Interrupt)
+	<-ch
+
+	// Stop the node after an interrupt
+	if err := node.Stop(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
