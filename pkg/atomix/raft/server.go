@@ -163,7 +163,7 @@ func (s *Server) setStatus(status Status) {
 	if s.status != status {
 		log.WithField("memberID", s.cluster.member).Infof("Server is %s", status)
 		s.status = status
-		if status == StatusReady {
+		if status == StatusReady && s.readyCh != nil {
 			s.readyCh <- struct{}{}
 		}
 	}
@@ -336,8 +336,16 @@ func (s *Server) Query(request *QueryRequest, server RaftService_QueryServer) er
 
 // Stop shuts down the Raft server
 func (s *Server) Stop() error {
-	s.server.Stop()
+	s.writeLock()
+	defer s.writeUnlock()
+	if s.server != nil {
+		s.server.Stop()
+	}
+	if s.role != nil {
+		s.role.stop()
+	}
 	close(s.readyCh)
+	s.readyCh = nil
 	return nil
 }
 

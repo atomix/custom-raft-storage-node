@@ -23,6 +23,7 @@ import (
 
 func TestActiveAppend(t *testing.T) {
 	server := newTestServer()
+	defer server.Stop()
 	role := newActiveRole(server)
 
 	// Test accepting the current term/leader
@@ -65,6 +66,7 @@ func TestActiveAppend(t *testing.T) {
 
 func TestActivePoll(t *testing.T) {
 	server := newTestServer()
+	defer server.Stop()
 	role := newActiveRole(server)
 
 	// Test rejecting a poll for an old term
@@ -169,6 +171,7 @@ func TestActivePoll(t *testing.T) {
 
 func TestActiveVote(t *testing.T) {
 	server := newTestServer()
+	defer server.Stop()
 	role := newActiveRole(server)
 
 	// Test rejecting a vote request for an old term

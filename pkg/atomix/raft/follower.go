@@ -91,7 +91,7 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 				r.server.setLeader("")
 				r.server.writeUnlock()
 				log.WithField("memberID", r.server.cluster.member).
-					Debugf("Heartbeat timed out in %d", timeout)
+					Debugf("Heartbeat timed out in %d milliseconds", timeout/time.Millisecond)
 				r.sendPollRequests()
 			} else {
 				r.server.writeUnlock()
