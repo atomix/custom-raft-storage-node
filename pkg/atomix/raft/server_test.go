@@ -70,7 +70,7 @@ func TestRaftNode(t *testing.T) {
 	ch = make(chan service.Output)
 	bytes, err = proto.Marshal(&GetRequest{})
 	assert.NoError(t, err)
-	assert.NoError(t, client.Read(context.Background(), newQueryRequest(t, sessionID, commandResponse.Context.Index, 1, "get", bytes), ch))
+	assert.NoError(t, client.Read(context.Background(), newQueryRequest(sessionID, commandResponse.Context.Index, 1, "get", bytes), ch))
 	out = <-ch
 	assert.True(t, out.Succeeded())
 	queryResponse := getQueryResponse(out.Value)
@@ -111,6 +111,40 @@ func TestRaftCluster(t *testing.T) {
 	go startServer(serverBar, wg)
 	go startServer(serverBaz, wg)
 	wg.Wait()
+
+	client := newClient(ReadConsistency_SEQUENTIAL)
+	assert.NoError(t, client.Connect(cluster))
+
+	ch := make(chan service.Output)
+	assert.NoError(t, client.Write(context.Background(), newOpenSessionRequest(), ch))
+	out := <-ch
+	assert.True(t, out.Succeeded())
+	openSessionResponse := getOpenSessionResponse(out.Value)
+	assert.NotEqual(t, 0, openSessionResponse.SessionID)
+	sessionID := openSessionResponse.SessionID
+
+	ch = make(chan service.Output)
+	bytes, err := proto.Marshal(&SetRequest{
+		Value: "Hello world!",
+	})
+	assert.NoError(t, err)
+	assert.NoError(t, client.Write(context.Background(), newCommandRequest(sessionID, 1, "set", bytes), ch))
+	out = <-ch
+	assert.True(t, out.Succeeded())
+	commandResponse := getCommandResponse(out.Value)
+	setResponse := &SetResponse{}
+	assert.NoError(t, proto.Unmarshal(commandResponse.Output, setResponse))
+
+	ch = make(chan service.Output)
+	bytes, err = proto.Marshal(&GetRequest{})
+	assert.NoError(t, err)
+	assert.NoError(t, client.Read(context.Background(), newQueryRequest(sessionID, commandResponse.Context.Index, 1, "get", bytes), ch))
+	out = <-ch
+	assert.True(t, out.Succeeded())
+	queryResponse := getQueryResponse(out.Value)
+	getResponse := &GetResponse{}
+	assert.NoError(t, proto.Unmarshal(queryResponse.Output, getResponse))
+	assert.Equal(t, "Hello world!", getResponse.Value)
 
 	defer stopServer(serverFoo)
 	defer stopServer(serverBar)
@@ -257,8 +291,8 @@ func getCommandResponse(bytes []byte) *service.SessionCommandResponse {
 	return sessionResponse.GetCommand()
 }
 
-func newQueryRequest(t *testing.T, sessionID uint64, lastIndex uint64, lastCommandID uint64, name string, bytes []byte) []byte {
-	bytes, err := proto.Marshal(&service.SessionRequest{
+func newQueryRequest(sessionID uint64, lastIndex uint64, lastCommandID uint64, name string, bytes []byte) []byte {
+	bytes, _ = proto.Marshal(&service.SessionRequest{
 		Request: &service.SessionRequest_Query{
 			Query: &service.SessionQueryRequest{
 				Context: &service.SessionQueryContext{
@@ -271,8 +305,7 @@ func newQueryRequest(t *testing.T, sessionID uint64, lastIndex uint64, lastComma
 			},
 		},
 	})
-	assert.NoError(t, err)
-	return newTestQueryRequest(t, bytes)
+	return newTestQueryRequest(bytes)
 }
 
 func getQueryResponse(bytes []byte) *service.SessionQueryResponse {
@@ -297,8 +330,8 @@ func newTestCommandRequest(bytes []byte) []byte {
 	return bytes
 }
 
-func newTestQueryRequest(t *testing.T, bytes []byte) []byte {
-	bytes, err := proto.Marshal(&service.ServiceRequest{
+func newTestQueryRequest(bytes []byte) []byte {
+	bytes, _ = proto.Marshal(&service.ServiceRequest{
 		Id: &service.ServiceId{
 			Type:      "test",
 			Name:      "test",
@@ -308,7 +341,6 @@ func newTestQueryRequest(t *testing.T, bytes []byte) []byte {
 			Query: bytes,
 		},
 	})
-	assert.NoError(t, err)
 	return bytes
 }
 

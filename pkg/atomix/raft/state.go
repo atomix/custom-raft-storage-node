@@ -80,12 +80,19 @@ func (m *stateManager) start() {
 
 // execChange executes the given change on the state machine
 func (m *stateManager) execChange(change *change) {
-	if change.entry.Index > m.lastApplied {
+	if change.entry.Entry != nil {
+		// If the entry is a query, apply it without incrementing the lastApplied index
+		if query, ok := change.entry.Entry.Entry.(*RaftLogEntry_Query); ok {
+			m.execQuery(change.entry.Index, change.entry.Entry.Timestamp, query.Query, change.result)
+		} else {
+			m.execPendingChanges(change.entry.Index - 1)
+			m.execEntry(change.entry, change.result)
+			m.lastApplied = change.entry.Index
+		}
+	} else if change.entry.Index > m.lastApplied {
 		m.execPendingChanges(change.entry.Index - 1)
 		m.execEntry(change.entry, change.result)
 		m.lastApplied = change.entry.Index
-	} else if query, ok := change.entry.Entry.Entry.(*RaftLogEntry_Query); ok {
-		m.execQuery(change.entry.Index, change.entry.Entry.Timestamp, query.Query, change.result)
 	}
 }
 
