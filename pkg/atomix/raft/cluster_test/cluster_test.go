@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package raft
+package cluster
 
 import (
 	"context"
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
+	"github.com/atomix/atomix-go-raft/pkg/atomix/raft"
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -42,9 +43,9 @@ func TestRaftNode(t *testing.T) {
 	server := newServer("foo", cluster)
 	go server.Start()
 	defer server.Stop()
-	_ = server.waitForReady()
+	_ = server.WaitForReady()
 
-	client := newClient(ReadConsistency_SEQUENTIAL)
+	client := raft.NewClient(raft.ReadConsistency_SEQUENTIAL)
 	assert.NoError(t, client.Connect(cluster))
 
 	ch := make(chan service.Output)
@@ -112,7 +113,7 @@ func TestRaftCluster(t *testing.T) {
 	go startServer(serverBaz, wg)
 	wg.Wait()
 
-	client := newClient(ReadConsistency_SEQUENTIAL)
+	client := raft.NewClient(raft.ReadConsistency_SEQUENTIAL)
 	assert.NoError(t, client.Connect(cluster))
 
 	ch := make(chan service.Output)
@@ -190,7 +191,7 @@ func BenchmarkRaftCluster(b *testing.B) {
 	defer stopServer(serverBar)
 	defer stopServer(serverBaz)
 
-	client := newClient(ReadConsistency_SEQUENTIAL)
+	client := raft.NewClient(raft.ReadConsistency_SEQUENTIAL)
 	assert.NoError(b, client.Connect(cluster))
 
 	ch := make(chan service.Output)
@@ -232,19 +233,19 @@ func BenchmarkRaftCluster(b *testing.B) {
 	})
 }
 
-func newServer(memberID string, cluster cluster.Cluster) *Server {
+func newServer(memberID string, cluster cluster.Cluster) *raft.Server {
 	cluster.MemberID = memberID
-	return NewServer(cluster, service.GetRegistry(), 5*time.Second)
+	return raft.NewServer(cluster, service.GetRegistry(), 5*time.Second)
 }
 
-func startServer(server *Server, wg *sync.WaitGroup) {
+func startServer(server *raft.Server, wg *sync.WaitGroup) {
 	defer wg.Done()
 	go func() {
 		if err := server.Start(); err != nil {
 			wg.Done()
 		}
 	}()
-	_ = server.waitForReady()
+	_ = server.WaitForReady()
 }
 
 func newOpenSessionRequest() []byte {
@@ -344,7 +345,7 @@ func newTestQueryRequest(bytes []byte) []byte {
 	return bytes
 }
 
-func stopServer(server *Server) {
+func stopServer(server *raft.Server) {
 	_ = server.Stop()
 }
 

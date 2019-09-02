@@ -51,14 +51,14 @@ func (p *Protocol) Start(cluster cluster.Cluster, registry *service.Registry) er
 		electionTimeout = *p.config.ElectionTimeout
 	}
 
-	p.client = newClient(ReadConsistency_SEQUENTIAL)
+	p.client = NewClient(ReadConsistency_SEQUENTIAL)
 	if err := p.client.Connect(cluster); err != nil {
 		return err
 	}
 
 	p.server = NewServer(cluster, registry, electionTimeout)
 	go p.server.Start()
-	return p.server.waitForReady()
+	return p.server.WaitForReady()
 }
 
 // Client returns the Raft protocol client

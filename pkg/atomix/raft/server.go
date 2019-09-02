@@ -215,8 +215,8 @@ func (s *Server) Start() error {
 	return s.server.Serve(lis)
 }
 
-// waitForReady blocks the current goroutine until the server is ready
-func (s *Server) waitForReady() error {
+// WaitForReady blocks the current goroutine until the server is ready
+func (s *Server) WaitForReady() error {
 	_, ok := <-s.readyCh
 	if ok {
 		return nil

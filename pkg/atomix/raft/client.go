@@ -27,8 +27,8 @@ import (
 	"sync"
 )
 
-// newClient returns a new Raft client
-func newClient(consistency ReadConsistency) *Client {
+// NewClient returns a new Raft client
+func NewClient(consistency ReadConsistency) *Client {
 	return &Client{
 		consistency: consistency,
 	}
