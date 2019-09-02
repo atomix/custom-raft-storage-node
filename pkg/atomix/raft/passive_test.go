@@ -34,7 +34,7 @@ func TestUpdateTermAndLeader(t *testing.T) {
 	assert.False(t, result)
 }
 
-func TestAppend(t *testing.T) {
+func TestPassiveAppend(t *testing.T) {
 	server := newTestServer()
 	role := newPassiveRole(server)
 
