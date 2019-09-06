@@ -75,8 +75,8 @@ func (a *raftAppender) start() {
 	a.processCommits()
 }
 
-// heartbeat sends a heartbeat to a majority of followers
-func (a *raftAppender) heartbeat() error {
+// verify sends a heartbeat to a majority of followers to verify leadership
+func (a *raftAppender) verify() error {
 	// If there are no members to send the entry to, immediately return.
 	if len(a.members) == 0 {
 		return nil
@@ -91,7 +91,7 @@ func (a *raftAppender) heartbeat() error {
 
 	// Iterate through member appenders and add the future time to the heartbeat channels.
 	for _, member := range a.members {
-		member.heartbeatCh <- future.time
+		member.verifyCh <- future.time
 	}
 	_, ok := <-future.ch
 	if ok {
@@ -275,8 +275,8 @@ type memberCommit struct {
 }
 
 const (
-	minBackoffFailureCount = 5
-	maxHeartbeatWait       = 1 * time.Minute
+	minBackoffFailureCount = 3
+	maxHeartbeatWait       = 30 * time.Second
 	maxBatchSize           = 1024 * 1024
 )
 
@@ -284,19 +284,19 @@ func newMemberAppender(server *Server, member *RaftMember, commitCh chan<- membe
 	ticker := time.NewTicker(server.electionTimeout / 2)
 	reader := server.log.OpenReader(0)
 	return &memberAppender{
-		server:      server,
-		member:      member,
-		nextIndex:   reader.LastIndex() + 1,
-		entryCh:     make(chan *LogEntry),
-		appendCh:    make(chan bool),
-		commitCh:    commitCh,
-		failCh:      failCh,
-		heartbeatCh: make(chan time.Time),
-		stopped:     make(chan bool),
-		reader:      reader,
-		tickTicker:  ticker,
-		tickCh:      ticker.C,
-		queue:       list.New(),
+		server:     server,
+		member:     member,
+		nextIndex:  reader.LastIndex() + 1,
+		entryCh:    make(chan *LogEntry),
+		appendCh:   make(chan bool),
+		commitCh:   commitCh,
+		failCh:     failCh,
+		verifyCh:   make(chan time.Time),
+		stopped:    make(chan bool),
+		reader:     reader,
+		tickTicker: ticker,
+		tickCh:     ticker.C,
+		queue:      list.New(),
 	}
 }
 
@@ -316,7 +316,7 @@ type memberAppender struct {
 	appendCh         chan bool
 	commitCh         chan<- memberCommit
 	failCh           chan<- time.Time
-	heartbeatCh      chan time.Time
+	verifyCh         chan time.Time
 	tickCh           <-chan time.Time
 	tickTicker       *time.Ticker
 	stopped          chan bool
@@ -350,7 +350,7 @@ func (a *memberAppender) processEvents() {
 				a.appending = true
 				go a.append()
 			}
-		case <-a.heartbeatCh:
+		case <-a.verifyCh:
 			go a.sendAppendRequest(a.emptyAppendRequest())
 		case <-a.tickCh:
 			if !a.appending {
@@ -364,12 +364,10 @@ func (a *memberAppender) processEvents() {
 }
 
 func (a *memberAppender) append() {
-	if a.failureCount >= minBackoffFailureCount {
-		timeSinceFailure := float64(time.Since(a.firstFailureTime))
-		heartbeatWaitTime := math.Min(float64(a.failureCount)*float64(a.failureCount)*float64(a.server.electionTimeout), float64(maxHeartbeatWait))
-		if timeSinceFailure > heartbeatWaitTime {
-			a.sendAppendRequest(a.nextAppendRequest())
-		}
+	if a.failureCount > minBackoffFailureCount {
+		heartbeatWaitTime := math.Min(float64(a.failureCount-minBackoffFailureCount) * float64(a.server.electionTimeout/2), float64(maxHeartbeatWait))
+		time.Sleep(time.Duration(heartbeatWaitTime))
+		a.sendAppendRequest(a.nextAppendRequest())
 	} else {
 		// TODO: The snapshot store needs concurrency control when accessing the snapshots for replication.
 		snapshot := a.server.snapshot.CurrentSnapshot()
@@ -492,7 +490,6 @@ func (a *memberAppender) handleInstallFailure(snapshot Snapshot, response *Insta
 func (a *memberAppender) handleInstallError(snapshot Snapshot, err error, startTime time.Time) {
 	log.WithField("memberID", a.server.cluster.member).
 		Debugf("Failed to install %s: %s", a.member.MemberID, err)
-	a.server.cluster.resetClient(a.member.MemberID)
 	a.fail(startTime)
 	a.requeue()
 }
@@ -701,7 +698,6 @@ func (a *memberAppender) handleAppendFailure(request *AppendRequest, response *A
 }
 
 func (a *memberAppender) handleAppendError(request *AppendRequest, err error, startTime time.Time) {
-	a.server.cluster.resetClient(a.member.MemberID)
 	a.fail(startTime)
 	a.requeue()
 }

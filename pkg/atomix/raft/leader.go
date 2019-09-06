@@ -281,7 +281,7 @@ func (r *LeaderRole) queryLinearizable(entry *LogEntry, server RaftService_Query
 	// Iterate through results and translate them into QueryResponses.
 	for result := range ch {
 		// Send a heartbeat to a majority of the cluster to verify leadership.
-		if err := r.appender.heartbeat(); err != nil {
+		if err := r.appender.verify(); err != nil {
 			return r.server.logResponse("QueryResponse", nil, err)
 		}
 		if result.Succeeded() {

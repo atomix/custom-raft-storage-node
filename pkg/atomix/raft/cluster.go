@@ -71,7 +71,7 @@ func (c *Cluster) getConn(member MemberID) (*grpc.ClientConn, error) {
 			return nil, fmt.Errorf("unknown member %s", member)
 		}
 
-		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", location.Host, location.Port), grpc.WithInsecure())
+		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", location.Host, location.Port), grpc.WithInsecure(), grpc.WithBackoffMaxDelay(0))
 		if err != nil {
 			return nil, err
 		}
@@ -101,16 +101,4 @@ func (c *Cluster) getClient(member MemberID) (RaftServiceClient, error) {
 		}
 	}
 	return client, nil
-}
-
-// resetClient resets the client/connection to the given member
-func (c *Cluster) resetClient(member MemberID) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	conn, ok := c.conns[member]
-	if ok {
-		_ = conn.Close()
-		delete(c.conns, member)
-		delete(c.clients, member)
-	}
 }

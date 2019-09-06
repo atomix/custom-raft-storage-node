@@ -152,6 +152,101 @@ func TestRaftCluster(t *testing.T) {
 	defer stopServer(serverBaz)
 }
 
+func TestSlowCluster(t *testing.T) {
+	cluster := cluster.Cluster{
+		MemberID: "foo",
+		Members: map[string]cluster.Member{
+			"foo": {
+				ID:   "foo",
+				Host: "localhost",
+				Port: 5001,
+			},
+			"bar": {
+				ID:   "bar",
+				Host: "localhost",
+				Port: 5002,
+			},
+			"baz": {
+				ID:   "baz",
+				Host: "localhost",
+				Port: 5003,
+			},
+		},
+	}
+
+	serverFoo := newServer("foo", cluster)
+	serverBar := newServer("bar", cluster)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go startServer(serverFoo, wg)
+	go startServer(serverBar, wg)
+	wg.Wait()
+
+	time.Sleep(5*time.Second)
+
+	wg = &sync.WaitGroup{}
+	wg.Add(1)
+	serverBaz := newServer("baz", cluster)
+	go startServer(serverBaz, wg)
+	wg.Wait()
+
+	defer stopServer(serverFoo)
+	defer stopServer(serverBar)
+	defer stopServer(serverBaz)
+}
+
+func TestNodeRestart(t *testing.T) {
+	cluster := cluster.Cluster{
+		MemberID: "foo",
+		Members: map[string]cluster.Member{
+			"foo": {
+				ID:   "foo",
+				Host: "localhost",
+				Port: 5001,
+			},
+			"bar": {
+				ID:   "bar",
+				Host: "localhost",
+				Port: 5002,
+			},
+			"baz": {
+				ID:   "baz",
+				Host: "localhost",
+				Port: 5003,
+			},
+		},
+	}
+
+	serverFoo := newServer("foo", cluster)
+	serverBar := newServer("bar", cluster)
+	serverBaz := newServer("baz", cluster)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(3)
+	go startServer(serverFoo, wg)
+	go startServer(serverBar, wg)
+	go startServer(serverBaz, wg)
+	wg.Wait()
+
+	time.Sleep(5*time.Second)
+
+	stopServer(serverFoo)
+
+	time.Sleep(30*time.Second)
+
+	serverFoo = newServer("foo", cluster)
+
+	wg = &sync.WaitGroup{}
+	wg.Add(1)
+	go startServer(serverFoo, wg)
+	wg.Wait()
+
+	defer stopServer(serverFoo)
+	defer stopServer(serverBar)
+	defer stopServer(serverBaz)
+}
+
 func BenchmarkRaftCluster(b *testing.B) {
 	log.SetLevel(log.InfoLevel)
 
