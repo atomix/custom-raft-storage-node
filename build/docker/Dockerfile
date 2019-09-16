@@ -2,6 +2,6 @@ FROM alpine:3.9
 
 USER nobody
 
-ADD build/_output/atomix-go-raft /usr/local/bin/atomix-go-raft
+ADD build/_output/atomix-raft-node /usr/local/bin/atomix-raft-node
 
-ENTRYPOINT ["atomix-go-raft"]
+ENTRYPOINT ["atomix-raft-node"]
