@@ -18,7 +18,7 @@ import (
 	"context"
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
-	"github.com/atomix/atomix-go-raft/pkg/atomix/raft"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft"
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
