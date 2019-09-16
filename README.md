@@ -1,4 +1,4 @@
-# atomix-go-raft
+# atomix-raft-node
 
 [![Build Status](https://travis-ci.org/atomix/atomix-go-raft.svg?branch=master)](https://travis-ci.org/atomix/atomix-go-raft)
 [![Integration Test Status](https://img.shields.io/travis/atomix/atomix-go-raft?label=Integration%20Tests&logo=Integration)](https://travis-ci.org/onosproject/onos-test)

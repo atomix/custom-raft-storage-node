@@ -9,16 +9,16 @@ all: build
 
 build: # @HELP build the source code
 build:
-	GOOS=linux GOARCH=amd64 go build -o build/_output/atomix-go-raft ./cmd/atomix-go-raft
+	GOOS=linux GOARCH=amd64 go build -o build/_output/atomix-raft-node ./cmd/atomix-raft-node
 
 test: # @HELP run the unit tests and source code validation
 test: build license_check linters
-	go test github.com/atomix/atomix-go-raft/pkg/...
+	go test github.com/atomix/atomix-raft-node/pkg/...
 
 coverage: # @HELP generate unit test coverage data
 coverage: build linters license_check
-	#go test github.com/atomix/atomix-go-raft/... -coverprofile=coverage.out -covermode=count -coverpkg=`go list github.com/atomix/atomix-go-raft/...`
-	go test github.com/atomix/atomix-go-raft/... -coverprofile=coverage.out -covermode=count -coverpkg=./...
+	#go test github.com/atomix/atomix-raft-node/... -coverprofile=coverage.out -covermode=count -coverpkg=`go list github.com/atomix/atomix-raft-node/...`
+	go test github.com/atomix/atomix-raft-node/... -coverprofile=coverage.out -covermode=count -coverpkg=./...
 
 linters: # @HELP examines Go source code and reports coding problems
 	golangci-lint run
@@ -28,11 +28,11 @@ license_check: # @HELP examine and ensure license headers exist
 
 proto: # @HELP build Protobuf/gRPC generated types
 proto:
-	docker run -it -v `pwd`:/go/src/github.com/atomix/atomix-go-raft \
-		-w /go/src/github.com/atomix/atomix-go-raft \
+	docker run -it -v `pwd`:/go/src/github.com/atomix/atomix-raft-node \
+		-w /go/src/github.com/atomix/atomix-raft-node \
 		--entrypoint build/bin/compile_protos.sh \
 		onosproject/protoc-go:stable
 
-image: # @HELP build atomix-go-raft Docker image
+image: # @HELP build atomix-raft-node Docker image
 image: build
-	docker build . -f build/docker/Dockerfile -t atomix/atomix-go-raft:${ATOMIX_GO_RAFT_VERSION}
+	docker build . -f build/docker/Dockerfile -t atomix/atomix-raft-node:${ATOMIX_GO_RAFT_VERSION}
