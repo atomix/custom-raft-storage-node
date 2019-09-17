@@ -16,7 +16,7 @@ package raft
 
 import (
 	"context"
-	"github.com/atomix/atomix-go-node/pkg/atomix/service"
+	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	log "github.com/sirupsen/logrus"
 	"time"
 )
@@ -185,7 +185,7 @@ func (r *LeaderRole) Command(request *CommandRequest, server RaftService_Command
 	// Create a function to apply the entry to the state machine once committed.
 	// This is done in a function to ensure entries are applied in the order in which they
 	// are committed by the appender.
-	ch := make(chan service.Output)
+	ch := make(chan node.Output)
 	f := func() {
 		r.server.state.applyEntry(indexed, ch)
 	}
@@ -273,7 +273,7 @@ func (r *LeaderRole) Query(request *QueryRequest, server RaftService_QueryServer
 // queryLinearizable performs a linearizable query
 func (r *LeaderRole) queryLinearizable(entry *LogEntry, server RaftService_QueryServer) error {
 	// Create a result channel
-	ch := make(chan service.Output)
+	ch := make(chan node.Output)
 
 	// Apply the entry to the state machine
 	r.server.state.applyEntry(entry, ch)

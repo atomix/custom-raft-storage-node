@@ -18,7 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/atomix/atomix-go-node/pkg/atomix/service"
+	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"math"
@@ -398,7 +398,7 @@ func (r *PassiveRole) Query(request *QueryRequest, server RaftService_QueryServe
 // applyQuery applies a query to the state machine
 func (r *PassiveRole) applyQuery(entry *LogEntry, server RaftService_QueryServer) error {
 	// Create a result channel
-	ch := make(chan service.Output)
+	ch := make(chan node.Output)
 
 	// Apply the entry to the state machine
 	r.server.state.applyEntry(entry, ch)

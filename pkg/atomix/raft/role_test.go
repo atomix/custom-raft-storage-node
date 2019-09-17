@@ -17,7 +17,7 @@ package raft
 import (
 	"context"
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
-	"github.com/atomix/atomix-go-node/pkg/atomix/service"
+	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -45,7 +45,7 @@ func newTestServer() *Server {
 		},
 	}
 
-	return NewServer(config, service.GetRegistry(), 5*time.Second)
+	return NewServer(config, node.GetRegistry(), 5*time.Second)
 }
 
 func TestRole(t *testing.T) {

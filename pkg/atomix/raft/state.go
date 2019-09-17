@@ -15,6 +15,7 @@
 package raft
 
 import (
+	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	log "github.com/sirupsen/logrus"
 	"time"
@@ -25,26 +26,31 @@ const (
 )
 
 // newStateManager returns a new Raft state manager
-func newStateManager(server *Server, registry *service.Registry) *stateManager {
+func newStateManager(server *Server, registry *node.Registry) *stateManager {
 	sm := &stateManager{
 		server: server,
 		reader: server.log.OpenReader(0),
 		ch:     make(chan *change, stateBufferSize),
 	}
-	sm.state = service.NewPrimitiveStateMachine(registry, sm)
+	sm.state = node.NewPrimitiveStateMachine(registry, sm)
 	return sm
 }
 
 // stateManager manages the Raft state machine
 type stateManager struct {
 	server       *Server
-	state        service.StateMachine
+	state        node.StateMachine
 	currentIndex Index
 	currentTime  time.Time
 	lastApplied  Index
 	reader       LogReader
 	operation    service.OperationType
 	ch           chan *change
+}
+
+// Node returns the local node identifier
+func (m *stateManager) Node() string {
+	return string(m.server.cluster.member)
 }
 
 // applyIndex applies entries up to the given index
@@ -57,7 +63,7 @@ func (m *stateManager) applyIndex(index Index) {
 }
 
 // applyEntry enqueues the given entry to be applied to the state machine, returning output on the given channel
-func (m *stateManager) applyEntry(entry *LogEntry, ch chan service.Output) {
+func (m *stateManager) applyEntry(entry *LogEntry, ch chan node.Output) {
 	m.ch <- &change{
 		entry:  entry,
 		result: ch,
@@ -112,7 +118,7 @@ func (m *stateManager) execPendingChanges(index Index) {
 }
 
 // execEntry applies the given entry to the state machine and returns the result(s) on the given channel
-func (m *stateManager) execEntry(entry *LogEntry, ch chan service.Output) {
+func (m *stateManager) execEntry(entry *LogEntry, ch chan node.Output) {
 	log.WithField("memberID", m.server.cluster.member).Tracef("Applying %d", entry.Index)
 	if entry.Entry == nil {
 		m.reader.Reset(entry.Index)
@@ -131,28 +137,28 @@ func (m *stateManager) execEntry(entry *LogEntry, ch chan service.Output) {
 	}
 }
 
-func (m *stateManager) execInit(index Index, timestamp time.Time, init *InitializeEntry, ch chan service.Output) {
+func (m *stateManager) execInit(index Index, timestamp time.Time, init *InitializeEntry, ch chan node.Output) {
 	m.updateClock(index, timestamp)
 	if ch != nil {
-		ch <- service.Output{}
+		ch <- node.Output{}
 		close(ch)
 	}
 }
 
-func (m *stateManager) execConfig(index Index, timestamp time.Time, config *ConfigurationEntry, ch chan service.Output) {
+func (m *stateManager) execConfig(index Index, timestamp time.Time, config *ConfigurationEntry, ch chan node.Output) {
 	m.updateClock(index, timestamp)
 	if ch != nil {
-		ch <- service.Output{}
+		ch <- node.Output{}
 		close(ch)
 	}
 }
 
-func (m *stateManager) execQuery(index Index, timestamp time.Time, query *QueryEntry, ch chan service.Output) {
+func (m *stateManager) execQuery(index Index, timestamp time.Time, query *QueryEntry, ch chan node.Output) {
 	m.operation = service.OpTypeQuery
 	m.state.Query(query.Value, ch)
 }
 
-func (m *stateManager) execCommand(index Index, timestamp time.Time, command *CommandEntry, ch chan service.Output) {
+func (m *stateManager) execCommand(index Index, timestamp time.Time, command *CommandEntry, ch chan node.Output) {
 	m.updateClock(index, timestamp)
 	m.operation = service.OpTypeCommand
 	m.state.Command(command.Value, ch)
@@ -160,7 +166,7 @@ func (m *stateManager) execCommand(index Index, timestamp time.Time, command *Co
 
 type change struct {
 	entry  *LogEntry
-	result chan service.Output
+	result chan node.Output
 }
 
 func (m *stateManager) Index() uint64 {

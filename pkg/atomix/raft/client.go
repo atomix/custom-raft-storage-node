@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
-	"github.com/atomix/atomix-go-node/pkg/atomix/service"
+	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"io"
@@ -36,7 +36,7 @@ func NewClient(consistency ReadConsistency) *Client {
 
 // Client is a service Client implementation for the Raft consensus protocol
 type Client struct {
-	service.Client
+	node.Client
 	members      map[string]cluster.Member
 	membersList  *list.List
 	memberNode   *list.Element
@@ -62,7 +62,7 @@ func (c *Client) Connect(config cluster.Cluster) error {
 }
 
 // Write sends a write operation to the cluster
-func (c *Client) Write(ctx context.Context, in []byte, ch chan<- service.Output) error {
+func (c *Client) Write(ctx context.Context, in []byte, ch chan<- node.Output) error {
 	request := &CommandRequest{
 		Value: in,
 	}
@@ -78,7 +78,7 @@ func (c *Client) Write(ctx context.Context, in []byte, ch chan<- service.Output)
 }
 
 // Read sends a read operation to the cluster
-func (c *Client) Read(ctx context.Context, in []byte, ch chan<- service.Output) error {
+func (c *Client) Read(ctx context.Context, in []byte, ch chan<- node.Output) error {
 	request := &QueryRequest{
 		Value:           in,
 		ReadConsistency: c.consistency,
@@ -138,7 +138,7 @@ func (c *Client) getLeaderClient() (RaftServiceClient, error) {
 }
 
 // write sends the given write request to the cluster
-func (c *Client) write(ctx context.Context, request *CommandRequest, ch chan<- service.Output) error {
+func (c *Client) write(ctx context.Context, request *CommandRequest, ch chan<- node.Output) error {
 	client, err := c.getLeaderClient()
 	if err != nil {
 		return err
@@ -153,13 +153,13 @@ func (c *Client) write(ctx context.Context, request *CommandRequest, ch chan<- s
 	return nil
 }
 
-func (c *Client) receiveWrite(ctx context.Context, request *CommandRequest, ch chan<- service.Output, stream RaftService_CommandClient) {
+func (c *Client) receiveWrite(ctx context.Context, request *CommandRequest, ch chan<- node.Output, stream RaftService_CommandClient) {
 	for {
 		response, err := stream.Recv()
 		if err != nil {
 			if err != io.EOF {
 				c.resetLeaderConn()
-				ch <- service.Output{
+				ch <- node.Output{
 					Error: err,
 				}
 			}
@@ -169,7 +169,7 @@ func (c *Client) receiveWrite(ctx context.Context, request *CommandRequest, ch c
 
 		log.Tracef("Received CommandResponse %+v", response)
 		if response.Status == ResponseStatus_OK {
-			ch <- service.Output{
+			ch <- node.Output{
 				Value: response.Output,
 			}
 		} else if response.Error == RaftError_ILLEGAL_MEMBER_STATE {
@@ -180,23 +180,23 @@ func (c *Client) receiveWrite(ctx context.Context, request *CommandRequest, ch c
 					c.resetLeaderConn()
 					c.leader = leader
 					if err := c.write(ctx, request, ch); err != nil {
-						ch <- service.Output{
+						ch <- node.Output{
 							Error: err,
 						}
 					}
 					return
 				}
-				ch <- service.Output{
+				ch <- node.Output{
 					Error: errors.New(response.Message),
 				}
 				return
 			}
-			ch <- service.Output{
+			ch <- node.Output{
 				Error: errors.New(response.Message),
 			}
 			return
 		} else {
-			ch <- service.Output{
+			ch <- node.Output{
 				Error: errors.New(response.Message),
 			}
 		}
@@ -254,7 +254,7 @@ func (c *Client) getClient() (RaftServiceClient, error) {
 }
 
 // read sends the given read request to the cluster
-func (c *Client) read(ctx context.Context, request *QueryRequest, ch chan<- service.Output) error {
+func (c *Client) read(ctx context.Context, request *QueryRequest, ch chan<- node.Output) error {
 	client, err := c.getClient()
 	if err != nil {
 		close(ch)
@@ -271,12 +271,12 @@ func (c *Client) read(ctx context.Context, request *QueryRequest, ch chan<- serv
 	return nil
 }
 
-func (c *Client) receiveRead(ctx context.Context, request *QueryRequest, ch chan<- service.Output, stream RaftService_QueryClient) {
+func (c *Client) receiveRead(ctx context.Context, request *QueryRequest, ch chan<- node.Output, stream RaftService_QueryClient) {
 	for {
 		response, err := stream.Recv()
 		if err != nil {
 			if err != io.EOF {
-				ch <- service.Output{
+				ch <- node.Output{
 					Error: err,
 				}
 			}
@@ -286,19 +286,19 @@ func (c *Client) receiveRead(ctx context.Context, request *QueryRequest, ch chan
 
 		log.Tracef("Received QueryResponse %+v", response)
 		if response.Status == ResponseStatus_OK {
-			ch <- service.Output{
+			ch <- node.Output{
 				Value: response.Output,
 			}
 		} else if response.Error == RaftError_ILLEGAL_MEMBER_STATE {
 			c.resetConn()
 			if err := c.read(ctx, request, ch); err != nil {
-				ch <- service.Output{
+				ch <- node.Output{
 					Error: err,
 				}
 			}
 			return
 		} else {
-			ch <- service.Output{
+			ch <- node.Output{
 				Error: errors.New(response.Message),
 			}
 		}

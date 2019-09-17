@@ -15,12 +15,13 @@
 package cluster
 
 import (
+	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	"github.com/golang/protobuf/proto"
 )
 
 func init() {
-	service.RegisterService("test", newTestService)
+	node.RegisterService("test", newTestService)
 }
 
 // newTestService returns a new TestService

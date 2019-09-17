@@ -15,16 +15,14 @@
 package raft
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
-	"github.com/atomix/atomix-go-node/pkg/atomix/service"
+	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"net"
-	"strings"
 	"sync"
 	"time"
 )
@@ -44,7 +42,7 @@ const (
 )
 
 // NewServer returns a new Raft consensus protocol server
-func NewServer(cluster cluster.Cluster, registry *service.Registry, electionTimeout time.Duration) *Server {
+func NewServer(cluster cluster.Cluster, registry *node.Registry, electionTimeout time.Duration) *Server {
 	log := newMemoryLog()
 	reader := log.OpenReader(0)
 	writer := log.Writer()
@@ -347,27 +345,4 @@ func (s *Server) Stop() error {
 	close(s.readyCh)
 	s.readyCh = nil
 	return nil
-}
-
-type serverFormatter struct{}
-
-func (f *serverFormatter) Format(entry *log.Entry) ([]byte, error) {
-	buf := bytes.Buffer{}
-	buf.Write([]byte(entry.Time.Format(time.StampMilli)))
-	buf.Write([]byte(" "))
-	buf.Write([]byte(fmt.Sprintf("%-6v", strings.ToUpper(entry.Level.String()))))
-	buf.Write([]byte(" "))
-	memberID := entry.Data["memberID"]
-	if memberID == nil {
-		memberID = ""
-	}
-	buf.Write([]byte(fmt.Sprintf("%-10v", memberID)))
-	buf.Write([]byte(" "))
-	buf.Write([]byte(entry.Message))
-	buf.Write([]byte("\n"))
-	return buf.Bytes(), nil
-}
-
-func init() {
-	log.SetFormatter(&serverFormatter{})
 }

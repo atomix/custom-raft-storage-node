@@ -17,6 +17,7 @@ package cluster
 import (
 	"context"
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
+	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft"
 	"github.com/golang/protobuf/proto"
@@ -48,7 +49,7 @@ func TestRaftNode(t *testing.T) {
 	client := raft.NewClient(raft.ReadConsistency_SEQUENTIAL)
 	assert.NoError(t, client.Connect(cluster))
 
-	ch := make(chan service.Output)
+	ch := make(chan node.Output)
 	assert.NoError(t, client.Write(context.Background(), newOpenSessionRequest(), ch))
 	out := <-ch
 	assert.True(t, out.Succeeded())
@@ -56,7 +57,7 @@ func TestRaftNode(t *testing.T) {
 	assert.NotEqual(t, 0, openSessionResponse.SessionID)
 	sessionID := openSessionResponse.SessionID
 
-	ch = make(chan service.Output)
+	ch = make(chan node.Output)
 	bytes, err := proto.Marshal(&SetRequest{
 		Value: "Hello world!",
 	})
@@ -68,7 +69,7 @@ func TestRaftNode(t *testing.T) {
 	setResponse := &SetResponse{}
 	assert.NoError(t, proto.Unmarshal(commandResponse.Output, setResponse))
 
-	ch = make(chan service.Output)
+	ch = make(chan node.Output)
 	bytes, err = proto.Marshal(&GetRequest{})
 	assert.NoError(t, err)
 	assert.NoError(t, client.Read(context.Background(), newQueryRequest(sessionID, commandResponse.Context.Index, 1, "get", bytes), ch))
@@ -116,7 +117,7 @@ func TestRaftCluster(t *testing.T) {
 	client := raft.NewClient(raft.ReadConsistency_SEQUENTIAL)
 	assert.NoError(t, client.Connect(cluster))
 
-	ch := make(chan service.Output)
+	ch := make(chan node.Output)
 	assert.NoError(t, client.Write(context.Background(), newOpenSessionRequest(), ch))
 	out := <-ch
 	assert.True(t, out.Succeeded())
@@ -124,7 +125,7 @@ func TestRaftCluster(t *testing.T) {
 	assert.NotEqual(t, 0, openSessionResponse.SessionID)
 	sessionID := openSessionResponse.SessionID
 
-	ch = make(chan service.Output)
+	ch = make(chan node.Output)
 	bytes, err := proto.Marshal(&SetRequest{
 		Value: "Hello world!",
 	})
@@ -136,7 +137,7 @@ func TestRaftCluster(t *testing.T) {
 	setResponse := &SetResponse{}
 	assert.NoError(t, proto.Unmarshal(commandResponse.Output, setResponse))
 
-	ch = make(chan service.Output)
+	ch = make(chan node.Output)
 	bytes, err = proto.Marshal(&GetRequest{})
 	assert.NoError(t, err)
 	assert.NoError(t, client.Read(context.Background(), newQueryRequest(sessionID, commandResponse.Context.Index, 1, "get", bytes), ch))
@@ -194,7 +195,7 @@ func BenchmarkRaftCluster(b *testing.B) {
 	client := raft.NewClient(raft.ReadConsistency_SEQUENTIAL)
 	assert.NoError(b, client.Connect(cluster))
 
-	ch := make(chan service.Output)
+	ch := make(chan node.Output)
 	assert.NoError(b, client.Write(context.Background(), newOpenSessionRequest(), ch))
 	out := <-ch
 	assert.True(b, out.Succeeded())
@@ -211,7 +212,7 @@ func BenchmarkRaftCluster(b *testing.B) {
 			wg.Add(1)
 			go func() {
 				for commandID := range ch {
-					ch := make(chan service.Output)
+					ch := make(chan node.Output)
 					bytes, _ := proto.Marshal(&SetRequest{
 						Value: "Hello world!",
 					})
@@ -235,7 +236,7 @@ func BenchmarkRaftCluster(b *testing.B) {
 
 func newServer(memberID string, cluster cluster.Cluster) *raft.Server {
 	cluster.MemberID = memberID
-	return raft.NewServer(cluster, service.GetRegistry(), 5*time.Second)
+	return raft.NewServer(cluster, node.GetRegistry(), 5*time.Second)
 }
 
 func startServer(server *raft.Server, wg *sync.WaitGroup) {
