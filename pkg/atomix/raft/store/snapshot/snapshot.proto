@@ -16,33 +16,15 @@ limitations under the License.
 
 syntax = "proto3";
 
-package atomix.service;
+package atomix.raft;
 
+import "google/protobuf/timestamp.proto";
 import "gogoproto/gogo.proto";
 
 option (gogoproto.equal_all) = true;
 
-// Test value snapshot
-message TestValueSnapshot {
-    string value = 1;
-}
-
-// Set request
-message SetRequest {
-    string value = 1;
-}
-
-// Set response
-message SetResponse {
-
-}
-
-// Get request
-message GetRequest {
-
-}
-
-// Get response
-message GetResponse {
-    string value = 1;
+// Snapshot descriptor
+message SnapshotDescriptor {
+    int64 index = 1 [(gogoproto.casttype) = "Index"];
+    google.protobuf.Timestamp timestamp = 2 [(gogoproto.stdtime) = true];
 }

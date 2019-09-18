@@ -16,33 +16,38 @@ limitations under the License.
 
 syntax = "proto3";
 
-package atomix.service;
+package atomix.raft.protocol;
 
+import "atomix/raft/protocol/cluster.proto";
+import "google/protobuf/timestamp.proto";
 import "gogoproto/gogo.proto";
 
 option (gogoproto.equal_all) = true;
 
-// Test value snapshot
-message TestValueSnapshot {
-    string value = 1;
+// Raft log entry
+message RaftLogEntry {
+    int64 term = 1 [(gogoproto.casttype) = "Term"];
+    google.protobuf.Timestamp timestamp = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+
+    oneof entry {
+        InitializeEntry initialize = 3;
+        ConfigurationEntry configuration = 4;
+        CommandEntry command = 5;
+        QueryEntry query = 6;
+    }
 }
 
-// Set request
-message SetRequest {
-    string value = 1;
+message InitializeEntry {
 }
 
-// Set response
-message SetResponse {
-
+message ConfigurationEntry {
+    repeated RaftMember members = 1;
 }
 
-// Get request
-message GetRequest {
-
+message CommandEntry {
+    bytes value = 1;
 }
 
-// Get response
-message GetResponse {
-    string value = 1;
+message QueryEntry {
+    bytes value = 1;
 }

@@ -20,6 +20,9 @@ import (
 	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/client"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +49,7 @@ func TestRaftNode(t *testing.T) {
 	defer server.Stop()
 	_ = server.WaitForReady()
 
-	client := raft.NewClient(raft.ReadConsistency_SEQUENTIAL)
+	client := client.NewClient(protocol.ReadConsistency_SEQUENTIAL)
 	assert.NoError(t, client.Connect(cluster))
 
 	ch := make(chan node.Output)
@@ -114,7 +117,7 @@ func TestRaftCluster(t *testing.T) {
 	go startServer(serverBaz, wg)
 	wg.Wait()
 
-	client := raft.NewClient(raft.ReadConsistency_SEQUENTIAL)
+	client := client.NewClient(protocol.ReadConsistency_SEQUENTIAL)
 	assert.NoError(t, client.Connect(cluster))
 
 	ch := make(chan node.Output)
@@ -192,7 +195,7 @@ func BenchmarkRaftCluster(b *testing.B) {
 	defer stopServer(serverBar)
 	defer stopServer(serverBaz)
 
-	client := raft.NewClient(raft.ReadConsistency_SEQUENTIAL)
+	client := client.NewClient(protocol.ReadConsistency_SEQUENTIAL)
 	assert.NoError(b, client.Connect(cluster))
 
 	ch := make(chan node.Output)
@@ -236,7 +239,10 @@ func BenchmarkRaftCluster(b *testing.B) {
 
 func newServer(memberID string, cluster cluster.Cluster) *raft.Server {
 	cluster.MemberID = memberID
-	return raft.NewServer(cluster, node.GetRegistry(), 5*time.Second)
+	timeout := 5 * time.Second
+	return raft.NewServer(cluster, node.GetRegistry(), &config.ProtocolConfig{
+		ElectionTimeout: &timeout,
+	})
 }
 
 func startServer(server *raft.Server, wg *sync.WaitGroup) {
