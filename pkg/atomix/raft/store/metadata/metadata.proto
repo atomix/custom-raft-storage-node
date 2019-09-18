@@ -26,14 +26,14 @@ option (gogoproto.equal_all) = true;
 
 // Raft system metadata
 message RaftMetadata {
-    int64 term = 1 [(gogoproto.casttype) = "protocol.Term"];
-    string vote = 2 [(gogoproto.casttype) = "protocol.MemberID"];
+    int64 term = 1 [(gogoproto.casttype) = "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol.Term"];
+    string vote = 2 [(gogoproto.casttype) = "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol.MemberID"];
 }
 
 // Raft system configuration
 message RaftConfiguration {
-    int64 index = 1 [(gogoproto.casttype) = "protocol.Index"];
-    int64 term = 2 [(gogoproto.casttype) = "protocol.Term"];
+    int64 index = 1 [(gogoproto.casttype) = "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol.Index"];
+    int64 term = 2 [(gogoproto.casttype) = "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol.Term"];
     google.protobuf.Timestamp timestamp = 3 [(gogoproto.stdtime) = true];
     repeated atomix.raft.protocol.RaftMember members = 4;
 }

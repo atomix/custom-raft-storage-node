@@ -19,7 +19,6 @@ syntax = "proto3";
 package atomix.raft.config;
 
 import "google/protobuf/duration.proto";
-import "google/protobuf/timestamp.proto";
 import "gogoproto/gogo.proto";
 
 option (gogoproto.testgen_all) = true;
