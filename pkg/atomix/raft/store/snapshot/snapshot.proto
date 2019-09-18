@@ -25,6 +25,6 @@ option (gogoproto.equal_all) = true;
 
 // Snapshot descriptor
 message SnapshotDescriptor {
-    int64 index = 1 [(gogoproto.casttype) = "Index"];
+    int64 index = 1 [(gogoproto.casttype) = "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol.Index"];
     google.protobuf.Timestamp timestamp = 2 [(gogoproto.stdtime) = true];
 }
