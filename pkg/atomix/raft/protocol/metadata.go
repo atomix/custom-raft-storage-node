@@ -12,28 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package metadata
+package protocol
 
-import raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
-
-// NewMemoryMetadataStore creates a new in-memory metadata store
-func NewMemoryMetadataStore() MetadataStore {
+// newMemoryMetadataStore creates a new in-memory metadata store
+func newMemoryMetadataStore() MetadataStore {
 	return &memoryMetadataStore{}
 }
 
 // MetadataStore stores metadata for a Raft server
 type MetadataStore interface {
 	// StoreTerm stores the Raft term
-	StoreTerm(term raft.Term)
+	StoreTerm(term Term)
 
 	// LoadTerm loads the Raft term
-	LoadTerm() *raft.Term
+	LoadTerm() *Term
 
 	// StoreVote stores the Raft vote
-	StoreVote(vote *raft.MemberID)
+	StoreVote(vote *MemberID)
 
 	// LoadVote loads the Raft vote
-	LoadVote() *raft.MemberID
+	LoadVote() *MemberID
 
 	// Close closes the store
 	Close() error
@@ -41,23 +39,23 @@ type MetadataStore interface {
 
 // memoryMetadataStore implements MetadataStore in memory
 type memoryMetadataStore struct {
-	term *raft.Term
-	vote *raft.MemberID
+	term *Term
+	vote *MemberID
 }
 
-func (s *memoryMetadataStore) StoreTerm(term raft.Term) {
+func (s *memoryMetadataStore) StoreTerm(term Term) {
 	s.term = &term
 }
 
-func (s *memoryMetadataStore) LoadTerm() *raft.Term {
+func (s *memoryMetadataStore) LoadTerm() *Term {
 	return s.term
 }
 
-func (s *memoryMetadataStore) StoreVote(vote *raft.MemberID) {
+func (s *memoryMetadataStore) StoreVote(vote *MemberID) {
 	s.vote = vote
 }
 
-func (s *memoryMetadataStore) LoadVote() *raft.MemberID {
+func (s *memoryMetadataStore) LoadVote() *MemberID {
 	return s.vote
 }
 

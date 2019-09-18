@@ -45,6 +45,7 @@ func NewProtocol(cluster atomix.Cluster, config *config.ProtocolConfig) Raft {
 		config:    config,
 		status:    StatusStopped,
 		listeners: make([]func(Status), 1),
+		metadata:  newMemoryMetadataStore(),
 	}
 }
 
@@ -144,6 +145,7 @@ type raft struct {
 	log              util.Logger
 	status           Status
 	config           *config.ProtocolConfig
+	metadata         MetadataStore
 	listeners        []func(Status)
 	role             Role
 	term             Term
@@ -204,8 +206,8 @@ func (r *raft) SetTerm(term Term) {
 		r.term = term
 		r.leader = ""
 		r.lastVotedFor = nil
-		r.metadata.StoreTerm(term)           //TODO
-		r.metadata.StoreVote(r.lastVotedFor) //TODO
+		r.metadata.StoreTerm(term)
+		r.metadata.StoreVote(r.lastVotedFor)
 	}
 }
 
@@ -224,7 +226,7 @@ func (r *raft) SetLeader(leader MemberID) {
 		}
 
 		r.lastVotedFor = nil
-		r.metadata.StoreVote(r.lastVotedFor) //TODO
+		r.metadata.StoreVote(r.lastVotedFor)
 	}
 }
 
@@ -246,7 +248,7 @@ func (r *raft) SetLastVotedFor(memberID *MemberID) {
 	}
 
 	r.lastVotedFor = memberID
-	r.metadata.StoreVote(memberID) //TODO
+	r.metadata.StoreVote(memberID)
 
 	if memberID != nil {
 		r.log.Debug("Voted for %+v", memberID)

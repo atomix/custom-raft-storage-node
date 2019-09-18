@@ -16,7 +16,6 @@ package store
 
 import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store/log"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store/metadata"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store/snapshot"
 )
 
@@ -28,7 +27,6 @@ func NewMemoryStore() Store {
 		reader:   log.OpenReader(0),
 		writer:   log.Writer(),
 		snapshot: snapshot.NewMemorySnapshotStore(),
-		metadata: metadata.NewMemoryMetadataStore(),
 	}
 }
 
@@ -46,9 +44,6 @@ type Store interface {
 	// Snapshot returns the snapshot store
 	Snapshot() snapshot.SnapshotStore
 
-	// Metadata returns the metadata store
-	Metadata() metadata.MetadataStore
-
 	// Close closes the store
 	Close() error
 }
@@ -59,7 +54,6 @@ type store struct {
 	reader   log.LogReader
 	writer   log.LogWriter
 	snapshot snapshot.SnapshotStore
-	metadata metadata.MetadataStore
 }
 
 func (s *store) Log() log.Log {
@@ -78,13 +72,8 @@ func (s *store) Snapshot() snapshot.SnapshotStore {
 	return s.snapshot
 }
 
-func (s *store) Metadata() metadata.MetadataStore {
-	return s.metadata
-}
-
 func (s *store) Close() error {
 	s.log.Close()
 	s.snapshot.Close()
-	s.metadata.Close()
 	return nil
 }
