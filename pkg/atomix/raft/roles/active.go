@@ -45,7 +45,7 @@ func (r *ActiveRole) Append(ctx context.Context, request *raft.AppendRequest) (*
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context and transition to follower.
 	if r.updateTermAndLeader(request.Term, request.Leader) {
-		go r.raft.SetRole(newFollowerRole(r.raft))
+		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
 	}
 	response, err := r.handleAppend(ctx, request)
 	_ = r.log.Response("AppendResponse", response, err)

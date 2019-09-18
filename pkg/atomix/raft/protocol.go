@@ -20,7 +20,6 @@ import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/client"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
-	"time"
 )
 
 // NewProtocol returns a new Raft Protocol instance
@@ -40,17 +39,12 @@ type Protocol struct {
 
 // Start starts the Raft protocol
 func (p *Protocol) Start(cluster cluster.Cluster, registry *node.Registry) error {
-	electionTimeout := 5 * time.Second
-	if p.config.ElectionTimeout != nil {
-		electionTimeout = *p.config.ElectionTimeout
-	}
-
 	p.client = client.NewClient(raft.ReadConsistency_SEQUENTIAL)
 	if err := p.client.Connect(cluster); err != nil {
 		return err
 	}
 
-	p.server = NewServer(cluster, registry, electionTimeout)
+	p.server = NewServer(cluster, registry, p.config)
 	go p.server.Start()
 	return p.server.WaitForReady()
 }

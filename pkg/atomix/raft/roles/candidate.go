@@ -116,7 +116,7 @@ func (r *CandidateRole) resetElectionTimeout() {
 
 	// Set the election timeout in a semi-random fashion with the random range
 	// being election timeout and 2 * election timeout.
-	timeout := r.raft.ElectionTimeout() + time.Duration(rand.Int63n(int64(r.raft.ElectionTimeout())))
+	timeout := r.raft.Config().GetElectionTimeoutOrDefault() + time.Duration(rand.Int63n(int64(r.raft.Config().GetElectionTimeoutOrDefault())))
 	r.electionTimer = time.NewTimer(timeout)
 	electionCh := r.electionTimer.C
 	r.electionExpired = make(chan bool, 1)

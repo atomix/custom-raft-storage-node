@@ -254,7 +254,7 @@ func (a *raftAppender) commitMemberTime(member raft.MemberID, time time.Time) {
 }
 
 func (a *raftAppender) failTime(failTime time.Time) {
-	if failTime.Sub(a.lastQuorumTime) > a.raft.ElectionTimeout()*2 {
+	if failTime.Sub(a.lastQuorumTime) > a.raft.Config().GetElectionTimeoutOrDefault()*2 {
 		a.log.Warn("Suspected network partition; stepping down")
 		a.raft.SetLeader("")
 		go a.raft.SetRole(newFollowerRole(a.raft, a.sm, a.store))
@@ -290,7 +290,7 @@ const (
 )
 
 func newMemberAppender(state raft.Raft, sm state.Manager, store store.Store, logger util.Logger, member *raft.RaftMember, commitCh chan<- memberCommit, failCh chan<- time.Time) *memberAppender {
-	ticker := time.NewTicker(state.ElectionTimeout() / 2)
+	ticker := time.NewTicker(state.Config().GetElectionTimeoutOrDefault() / 2)
 	reader := store.Log().OpenReader(0)
 	return &memberAppender{
 		raft:        state,
@@ -381,7 +381,7 @@ func (a *memberAppender) processEvents() {
 func (a *memberAppender) append() {
 	if a.failureCount >= minBackoffFailureCount {
 		timeSinceFailure := float64(time.Since(a.firstFailureTime))
-		heartbeatWaitTime := math.Min(float64(a.failureCount)*float64(a.failureCount)*float64(a.raft.ElectionTimeout()), float64(maxHeartbeatWait))
+		heartbeatWaitTime := math.Min(float64(a.failureCount)*float64(a.failureCount)*float64(a.raft.Config().GetElectionTimeoutOrDefault()), float64(maxHeartbeatWait))
 		if timeSinceFailure > heartbeatWaitTime {
 			a.sendAppendRequest(a.nextAppendRequest())
 		}
@@ -444,7 +444,7 @@ func (a *memberAppender) sendInstallRequests(snapshot snapshot.Snapshot) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), a.raft.ElectionTimeout())
+	ctx, cancel := context.WithTimeout(context.Background(), a.raft.Config().GetElectionTimeoutOrDefault())
 	defer cancel()
 
 	stream, err := client.Install(ctx)
@@ -617,7 +617,7 @@ func (a *memberAppender) sendAppendRequest(request *raft.AppendRequest) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), a.raft.ElectionTimeout())
+	ctx, cancel := context.WithTimeout(context.Background(), a.raft.Config().GetElectionTimeoutOrDefault())
 	defer cancel()
 
 	a.log.SendTo("AppendRequest", request, a.member.MemberID)

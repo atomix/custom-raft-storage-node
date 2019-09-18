@@ -30,7 +30,7 @@ func newLeaderRole(raft raft.Raft, state state.Manager, store store.Store) raft.
 	log := util.NewRoleLogger(string(raft.Member()), string(RoleLeader))
 	return &LeaderRole{
 		ActiveRole: newActiveRole(raft, state, store, log),
-		appender:   newAppender(raft, log),
+		appender:   newAppender(raft, state, store, log),
 	}
 }
 

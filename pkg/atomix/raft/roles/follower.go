@@ -81,7 +81,7 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 
 	// Set the election timeout in a semi-random fashion with the random range
 	// being election timeout and 2 * election timeout.
-	timeout := r.raft.ElectionTimeout() + time.Duration(rand.Int63n(int64(r.raft.ElectionTimeout())))
+	timeout := r.raft.Config().GetElectionTimeoutOrDefault() + time.Duration(rand.Int63n(int64(r.raft.Config().GetElectionTimeoutOrDefault())))
 	r.heartbeatTimer = time.NewTimer(timeout)
 	heartbeatStop := make(chan bool, 1)
 	r.heartbeatStop = heartbeatStop
@@ -107,13 +107,13 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 // sendPollRequests sends PollRequests to all members of the cluster
 func (r *FollowerRole) sendPollRequests() {
 	// Set a new timer within which other nodes must respond in order for this node to transition to candidate.
-	timeoutTimer := time.NewTimer(r.raft.ElectionTimeout())
+	timeoutTimer := time.NewTimer(r.raft.Config().GetElectionTimeoutOrDefault())
 	timeoutExpired := make(chan bool, 1)
 	go func() {
 		select {
 		case <-timeoutTimer.C:
 			if r.active {
-				r.log.Debug("Failed to poll a majority of the cluster in %d", r.raft.ElectionTimeout())
+				r.log.Debug("Failed to poll a majority of the cluster in %d", r.raft.Config().GetElectionTimeoutOrDefault())
 				r.resetHeartbeatTimeout()
 			}
 		case <-timeoutExpired:
@@ -266,7 +266,9 @@ func (r *FollowerRole) Vote(ctx context.Context, request *raft.VoteRequest) (*ra
 
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context.
-	r.updateTermAndLeader(request.Term, "")
+	if r.updateTermAndLeader(request.Term, "") {
+		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+	}
 
 	// Handle the vote request and then release the lock
 	response, err := r.ActiveRole.handleVote(ctx, request)
