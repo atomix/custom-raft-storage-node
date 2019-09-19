@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cluster
+package test
 
 import (
 	"github.com/atomix/atomix-go-node/pkg/atomix/node"
@@ -24,29 +24,29 @@ func init() {
 	node.RegisterService("test", newTestService)
 }
 
-// newTestService returns a new TestService
+// newTestService returns a new testService
 func newTestService(context service.Context) service.Service {
-	service := &TestService{
+	service := &testService{
 		SessionizedService: service.NewSessionizedService(context),
 	}
 	service.init()
 	return service
 }
 
-// TestService is a state machine for a test primitive
-type TestService struct {
+// testService is a state machine for a test primitive
+type testService struct {
 	*service.SessionizedService
 	value string
 }
 
 // init initializes the test service
-func (s *TestService) init() {
+func (s *testService) init() {
 	s.Executor.Register("set", s.Set)
 	s.Executor.Register("get", s.Get)
 }
 
 // Backup backs up the map service
-func (s *TestService) Backup() ([]byte, error) {
+func (s *testService) Backup() ([]byte, error) {
 	snapshot := &TestValueSnapshot{
 		Value: s.value,
 	}
@@ -54,7 +54,7 @@ func (s *TestService) Backup() ([]byte, error) {
 }
 
 // Restore restores the map service
-func (s *TestService) Restore(bytes []byte) error {
+func (s *testService) Restore(bytes []byte) error {
 	snapshot := &TestValueSnapshot{}
 	if err := proto.Unmarshal(bytes, snapshot); err != nil {
 		return err
@@ -64,7 +64,7 @@ func (s *TestService) Restore(bytes []byte) error {
 }
 
 // Get gets the test value
-func (s *TestService) Get(value []byte, ch chan<- service.Result) {
+func (s *testService) Get(value []byte, ch chan<- service.Result) {
 	defer close(ch)
 	ch <- s.NewResult(proto.Marshal(&GetResponse{
 		Value: s.value,
@@ -72,7 +72,7 @@ func (s *TestService) Get(value []byte, ch chan<- service.Result) {
 }
 
 // Set sets the test value
-func (s *TestService) Set(value []byte, ch chan<- service.Result) {
+func (s *testService) Set(value []byte, ch chan<- service.Result) {
 	defer close(ch)
 	request := &SetRequest{}
 	if err := proto.Unmarshal(value, request); err != nil {

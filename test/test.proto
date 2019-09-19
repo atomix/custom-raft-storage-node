@@ -16,7 +16,7 @@ limitations under the License.
 
 syntax = "proto3";
 
-package atomix.service;
+package atomix.raft.test;
 
 import "gogoproto/gogo.proto";
 
