@@ -43,7 +43,8 @@ func NewProtocol(cluster atomix.Cluster, config *config.ProtocolConfig) Raft {
 		log:       util.NewNodeLogger(string(cluster.MemberID)),
 		config:    config,
 		status:    StatusStopped,
-		listeners: make([]func(Status), 1),
+		listeners: make([]func(Status), 0, 1),
+		cluster:   NewCluster(cluster),
 		metadata:  newMemoryMetadataStore(),
 	}
 }
