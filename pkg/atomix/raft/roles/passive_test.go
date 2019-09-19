@@ -19,6 +19,7 @@ import (
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/metadata"
 	"testing"
 	"time"
 )
@@ -200,4 +201,71 @@ func TestPassiveAppend(t *testing.T) {
 	assert.Equal(t, raft.Term(3), response.Term)
 	assert.True(t, response.Succeeded)
 	assert.Equal(t, raft.Index(3), response.LastLogIndex)
+}
+
+func TestPassiveCommand(t *testing.T) {
+	protocol, sm, stores := newTestArgs()
+	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
+	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
+
+	server := newCommandServer()
+	err := role.Command(&raft.CommandRequest{}, server)
+	assert.NoError(t, err)
+	response := server.NextResponse()
+	assert.Equal(t, raft.ResponseStatus_ERROR, response.Status)
+	assert.Equal(t, raft.RaftError_ILLEGAL_MEMBER_STATE, response.Error)
+	assert.Equal(t, raft.Term(1), response.Term)
+	assert.Equal(t, raft.MemberID(""), response.Leader)
+
+	assert.NoError(t, role.raft.SetLeader(&role.raft.Members()[1]))
+	err = role.Command(&raft.CommandRequest{}, server)
+	assert.NoError(t, err)
+	response = server.NextResponse()
+	assert.Equal(t, raft.ResponseStatus_ERROR, response.Status)
+	assert.Equal(t, raft.RaftError_ILLEGAL_MEMBER_STATE, response.Error)
+	assert.Equal(t, raft.Term(1), response.Term)
+	assert.Equal(t, role.raft.Members()[1], response.Leader)
+}
+
+func newCommandServer() *commandServer {
+	return &commandServer{
+		responses: make(chan *raft.CommandResponse, 1),
+	}
+}
+
+type commandServer struct {
+	responses chan *raft.CommandResponse
+}
+
+func (s *commandServer) NextResponse() *raft.CommandResponse {
+	return <-s.responses
+}
+
+func (s *commandServer) Send(response *raft.CommandResponse) error {
+	s.responses <- response
+	return nil
+}
+
+func (s *commandServer) SetHeader(metadata.MD) error {
+	panic("implement me")
+}
+
+func (s *commandServer) SendHeader(metadata.MD) error {
+	panic("implement me")
+}
+
+func (s *commandServer) SetTrailer(metadata.MD) {
+	panic("implement me")
+}
+
+func (s *commandServer) Context() context.Context {
+	panic("implement me")
+}
+
+func (s *commandServer) SendMsg(m interface{}) error {
+	panic("implement me")
+}
+
+func (s *commandServer) RecvMsg(m interface{}) error {
+	panic("implement me")
 }

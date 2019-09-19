@@ -40,11 +40,6 @@ type PassiveRole struct {
 	*raftRole
 }
 
-// Name is the name of the role
-func (r *PassiveRole) Name() string {
-	return "Passive"
-}
-
 // updateTermAndLeader updates the current term and leader if necessary
 func (r *PassiveRole) updateTermAndLeader(term raft.Term, leader *raft.MemberID) bool {
 	// If the request indicates a term that is greater than the current term or no leader has been
