@@ -56,7 +56,10 @@ func (r *LeaderRole) Start() error {
 
 // setLeadership sets the leader as the current leader
 func (r *LeaderRole) setLeadership() {
-	r.raft.SetLeader(r.raft.Member())
+	member := r.raft.Member()
+	if err := r.raft.SetLeader(&member); err != nil {
+		r.log.Error("Failed to set leadership", err)
+	}
 }
 
 // startAppender starts the appender goroutines
@@ -89,7 +92,9 @@ func (r *LeaderRole) commitInitializeEntry() {
 	if err != nil {
 		r.log.Debug("Failed to commit entry from leader's term; transitioning to follower")
 		r.raft.WriteLock()
-		r.raft.SetLeader("")
+		if err := r.raft.SetLeader(nil); err != nil {
+			r.log.Error("Failed to unset leader", err)
+		}
 		r.raft.WriteUnlock()
 		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
 	} else {
@@ -116,7 +121,7 @@ func (r *LeaderRole) Vote(ctx context.Context, request *raft.VoteRequest) (*raft
 	r.log.Request("VoteRequest", request)
 	r.raft.WriteLock()
 	defer r.raft.WriteUnlock()
-	if r.updateTermAndLeader(request.Term, "") {
+	if r.updateTermAndLeader(request.Term, nil) {
 		r.log.Debug("Received greater term")
 		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
 		response, err := r.ActiveRole.Vote(ctx, request)
@@ -138,7 +143,7 @@ func (r *LeaderRole) Append(ctx context.Context, request *raft.AppendRequest) (*
 	r.log.Request("AppendRequest", request)
 	r.raft.WriteLock()
 	defer r.raft.WriteUnlock()
-	if r.updateTermAndLeader(request.Term, request.Leader) {
+	if r.updateTermAndLeader(request.Term, &request.Leader) {
 		r.log.Debug("Received greater term")
 		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
 		response, err := r.ActiveRole.Append(ctx, request)
@@ -155,8 +160,6 @@ func (r *LeaderRole) Append(ctx context.Context, request *raft.AppendRequest) (*
 		return response, nil
 	}
 
-	r.raft.SetLeader(request.Leader)
-	go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
 	response, err := r.ActiveRole.Append(ctx, request)
 	_ = r.log.Response("AppendResponse", response, err)
 	return response, err
@@ -206,7 +209,7 @@ func (r *LeaderRole) Command(request *raft.CommandRequest, server raft.RaftServi
 			r.raft.ReadLock()
 			response := &raft.CommandResponse{
 				Status:  raft.ResponseStatus_OK,
-				Leader:  r.raft.Leader(),
+				Leader:  r.raft.Member(),
 				Term:    r.raft.Term(),
 				Members: r.raft.Members(),
 				Output:  output.Value,
@@ -222,7 +225,7 @@ func (r *LeaderRole) Command(request *raft.CommandRequest, server raft.RaftServi
 				Status:  raft.ResponseStatus_ERROR,
 				Error:   raft.RaftError_APPLICATION_ERROR,
 				Message: output.Error.Error(),
-				Leader:  r.raft.Leader(),
+				Leader:  r.raft.Member(),
 				Term:    r.raft.Term(),
 				Members: r.raft.Members(),
 			}
@@ -321,8 +324,10 @@ func (r *LeaderRole) querySequential(entry *log.Entry, server raft.RaftService_Q
 
 // stepDown unsets the leader
 func (r *LeaderRole) stepDown() {
-	if r.raft.Leader() != "" && r.raft.Leader() == r.raft.Member() {
-		r.raft.SetLeader("")
+	if r.raft.Leader() != nil && *r.raft.Leader() == r.raft.Member() {
+		if err := r.raft.SetLeader(nil); err != nil {
+			r.log.Error("Failed to step down", err)
+		}
 	}
 }
 

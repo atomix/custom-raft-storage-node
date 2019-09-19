@@ -27,12 +27,13 @@ func TestUpdateTermAndLeader(t *testing.T) {
 	protocol, sm, stores := newTestArgs()
 	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
-	result := role.updateTermAndLeader(raft.Term(1), raft.MemberID("foo"))
+	foo := raft.MemberID("foo")
+	result := role.updateTermAndLeader(raft.Term(1), &foo)
 	assert.True(t, result)
 	assert.Equal(t, raft.Term(1), role.raft.Term())
-	assert.Equal(t, raft.MemberID("foo"), role.raft.Leader())
+	assert.Equal(t, &foo, role.raft.Leader())
 
-	result = role.updateTermAndLeader(raft.Term(1), raft.MemberID("foo"))
+	result = role.updateTermAndLeader(raft.Term(1), &foo)
 	assert.False(t, result)
 }
 
@@ -55,7 +56,7 @@ func TestPassiveAppend(t *testing.T) {
 	assert.Equal(t, raft.Term(2), response.Term)
 	assert.True(t, response.Succeeded)
 	assert.Equal(t, raft.Term(2), role.raft.Term())
-	assert.Equal(t, raft.MemberID("bar"), role.raft.Leader())
+	assert.Equal(t, raft.MemberID("bar"), *role.raft.Leader())
 
 	// Test rejecting an old term/leader
 	response, err = role.Append(context.TODO(), &raft.AppendRequest{
@@ -167,7 +168,7 @@ func TestPassiveAppend(t *testing.T) {
 	assert.False(t, response.Succeeded)
 	assert.Equal(t, raft.Index(1), response.LastLogIndex)
 	assert.Equal(t, raft.Term(3), role.raft.Term())
-	assert.Equal(t, raft.MemberID("baz"), role.raft.Leader())
+	assert.Equal(t, raft.MemberID("baz"), *role.raft.Leader())
 
 	// Test replacing entries from a prior term
 	response, err = role.Append(context.TODO(), &raft.AppendRequest{

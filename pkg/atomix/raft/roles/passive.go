@@ -46,12 +46,16 @@ func (r *PassiveRole) Name() string {
 }
 
 // updateTermAndLeader updates the current term and leader if necessary
-func (r *PassiveRole) updateTermAndLeader(term raft.Term, leader raft.MemberID) bool {
+func (r *PassiveRole) updateTermAndLeader(term raft.Term, leader *raft.MemberID) bool {
 	// If the request indicates a term that is greater than the current term or no leader has been
 	// set for the current term, update leader and term.
-	if term > r.raft.Term() || (term == r.raft.Term() && r.raft.Leader() == "" && leader != "") {
-		r.raft.SetTerm(term)
-		r.raft.SetLeader(leader)
+	if term > r.raft.Term() || (term == r.raft.Term() && r.raft.Leader() == nil && leader != nil) {
+		if err := r.raft.SetTerm(term); err != nil {
+			r.log.Error("Failed to update term", err)
+		}
+		if err := r.raft.SetLeader(leader); err != nil {
+			r.log.Error("Failed to update leader", err)
+		}
 		return true
 	}
 	return false
@@ -62,7 +66,7 @@ func (r *PassiveRole) Append(ctx context.Context, request *raft.AppendRequest) (
 	r.log.Request("AppendRequest", request)
 	r.raft.WriteLock()
 	defer r.raft.WriteUnlock()
-	r.updateTermAndLeader(request.Term, request.Leader)
+	r.updateTermAndLeader(request.Term, &request.Leader)
 	response, err := r.handleAppend(ctx, request)
 	_ = r.log.Response("AppendResponse", response, err)
 	return response, err
@@ -225,7 +229,8 @@ func (r *PassiveRole) appendEntries(request *raft.AppendRequest) (*raft.AppendRe
 	}
 
 	// Update the context commit and global indices.
-	prevCommitIndex := r.raft.SetCommitIndex(request.CommitIndex, commitIndex)
+	r.raft.SetCommitIndex(request.CommitIndex)
+	prevCommitIndex := r.raft.Commit(commitIndex)
 	if commitIndex > prevCommitIndex {
 		r.log.Trace("Committed entries up to index %d", commitIndex)
 
@@ -293,7 +298,7 @@ func (r *PassiveRole) Install(stream raft.RaftService_InstallServer) error {
 		r.raft.WriteLock()
 
 		// Update the term and leader
-		r.updateTermAndLeader(request.Term, request.Leader)
+		r.updateTermAndLeader(request.Term, &request.Leader)
 
 		// If the request is for a lesser term, reject the request.
 		if request.Term < r.raft.Term() {
@@ -325,10 +330,15 @@ func (r *PassiveRole) Install(stream raft.RaftService_InstallServer) error {
 func (r *PassiveRole) Command(request *raft.CommandRequest, server raft.RaftService_CommandServer) error {
 	r.log.Request("CommandRequest", request)
 	r.raft.ReadLock()
+	leader := raft.MemberID("")
+	if r.raft.Leader() != nil {
+		leader = *r.raft.Leader()
+	}
+
 	response := &raft.CommandResponse{
 		Status: raft.ResponseStatus_ERROR,
 		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
-		Leader: r.raft.Leader(),
+		Leader: leader,
 		Term:   r.raft.Term(),
 	}
 	r.raft.ReadUnlock()
@@ -416,8 +426,8 @@ func (r *PassiveRole) applyQuery(entry *log.Entry, server raft.RaftService_Query
 }
 
 // forwardQuery forwards a query request to the leader
-func (r *PassiveRole) forwardQuery(request *raft.QueryRequest, leader raft.MemberID, server raft.RaftService_QueryServer) error {
-	if leader == "" {
+func (r *PassiveRole) forwardQuery(request *raft.QueryRequest, leader *raft.MemberID, server raft.RaftService_QueryServer) error {
+	if leader == nil {
 		response := &raft.QueryResponse{
 			Status: raft.ResponseStatus_ERROR,
 			Error:  raft.RaftError_NO_LEADER,
@@ -426,7 +436,7 @@ func (r *PassiveRole) forwardQuery(request *raft.QueryRequest, leader raft.Membe
 	}
 
 	r.log.Trace("Forwarding %v", request)
-	client, err := r.raft.Connect(leader)
+	client, err := r.raft.Connect(*leader)
 	if err != nil {
 		return r.log.Response("QueryResponse", nil, err)
 	}

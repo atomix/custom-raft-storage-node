@@ -76,7 +76,7 @@ func (r *CandidateRole) Vote(ctx context.Context, request *raft.VoteRequest) (*r
 
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context and step down as a candidate.
-	if r.updateTermAndLeader(request.Term, "") {
+	if r.updateTermAndLeader(request.Term, nil) {
 		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
 		response, err := r.handleVote(ctx, request)
 		_ = r.log.Response("VoteResponse", response, err)
@@ -152,8 +152,16 @@ func (r *CandidateRole) sendVoteRequests() {
 	// restart the election.
 	r.raft.WriteLock()
 	member := r.raft.Member()
-	r.raft.SetTerm(r.raft.Term() + 1)
-	r.raft.SetLastVotedFor(&member)
+	if err := r.raft.SetTerm(r.raft.Term() + 1); err != nil {
+		r.log.Error("Failed to increment term", err)
+		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+		return
+	}
+	if err := r.raft.SetLastVotedFor(member); err != nil {
+		r.log.Error("Failed to vote for self", err)
+		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+		return
+	}
 	term := r.raft.Term()
 	r.raft.WriteUnlock()
 
@@ -175,7 +183,7 @@ func (r *CandidateRole) sendVoteRequests() {
 			if vote {
 				// If no other leader has been discovered and a quorum of votes was received, transition to leader.
 				voteCount++
-				if r.raft.Leader() == "" && voteCount == quorum {
+				if r.raft.Leader() == nil && voteCount == quorum {
 					log.WithField("memberID", r.raft.Member()).
 						Debugf("Won election with %d/%d votes; transitioning to leader", voteCount, len(votingMembers))
 					go r.raft.SetRole(newLeaderRole(r.raft, r.state, r.store))
@@ -251,7 +259,7 @@ func (r *CandidateRole) sendVoteRequests() {
 					if response.Term > request.Term {
 						log.WithField("memberID", r.raft.Member()).
 							Debugf("Received greater term from %s; transitioning back to follower", member)
-						r.raft.SetTerm(response.Term)
+						_ = r.raft.SetTerm(response.Term)
 						go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
 						r.raft.WriteUnlock()
 						close(votes)

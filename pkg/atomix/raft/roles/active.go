@@ -44,7 +44,7 @@ func (r *ActiveRole) Append(ctx context.Context, request *raft.AppendRequest) (*
 
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context and transition to follower.
-	if r.updateTermAndLeader(request.Term, request.Leader) {
+	if r.updateTermAndLeader(request.Term, &request.Leader) {
 		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
 	}
 	response, err := r.handleAppend(ctx, request)
@@ -58,7 +58,7 @@ func (r *ActiveRole) Poll(ctx context.Context, request *raft.PollRequest) (*raft
 
 	// Acquire a write lock to update the leader and term.
 	r.raft.WriteLock()
-	r.updateTermAndLeader(request.Term, "")
+	r.updateTermAndLeader(request.Term, nil)
 	r.raft.WriteUnlock()
 
 	// Acquire a read lock to vote for the follower.
@@ -144,7 +144,7 @@ func (r *ActiveRole) Vote(ctx context.Context, request *raft.VoteRequest) (*raft
 
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context.
-	if r.updateTermAndLeader(request.Term, "") {
+	if r.updateTermAndLeader(request.Term, nil) {
 		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
 	}
 
@@ -166,7 +166,7 @@ func (r *ActiveRole) handleVote(ctx context.Context, request *raft.VoteRequest) 
 			Term:   r.raft.Term(),
 			Voted:  false,
 		}, nil
-	} else if r.raft.Leader() != "" {
+	} else if r.raft.Leader() != nil {
 		// If a leader was already determined for this term then reject the request.
 		log.WithField("memberID", r.raft.Member()).
 			Debugf("Rejected %+v: leader already exists", request)
@@ -188,7 +188,14 @@ func (r *ActiveRole) handleVote(ctx context.Context, request *raft.VoteRequest) 
 	} else if r.raft.LastVotedFor() == nil {
 		// If no vote has been cast, check the log and cast a vote if necessary.
 		if r.isLogUpToDate(request.LastLogIndex, request.LastLogTerm, request) {
-			r.raft.SetLastVotedFor(&request.Candidate)
+			if err := r.raft.SetLastVotedFor(request.Candidate); err != nil {
+				r.log.Error("Failed to handle vote request", err)
+				return &raft.VoteResponse{
+					Status: raft.ResponseStatus_OK,
+					Term:   r.raft.Term(),
+					Voted:  false,
+				}, nil
+			}
 			return &raft.VoteResponse{
 				Status: raft.ResponseStatus_OK,
 				Term:   r.raft.Term(),

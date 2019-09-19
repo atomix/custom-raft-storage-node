@@ -91,7 +91,9 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 		case <-heartbeatCh:
 			r.raft.WriteLock()
 			if r.active {
-				r.raft.SetLeader("")
+				if err := r.raft.SetLeader(nil); err != nil {
+					r.log.Error("Failed to update leader", err)
+				}
 				r.raft.WriteUnlock()
 				r.log.Debug("Heartbeat timed out in %d milliseconds", timeout/time.Millisecond)
 				r.sendPollRequests()
@@ -137,7 +139,7 @@ func (r *FollowerRole) sendPollRequests() {
 			if vote {
 				// If no leader has been discovered and the quorum was reached, transition to candidate.
 				acceptCount++
-				if r.raft.Leader() == "" && acceptCount == quorum {
+				if r.raft.Leader() == nil && acceptCount == quorum {
 					r.raft.ReadUnlock()
 					r.log.Debug("Received %d/%d pre-votes; transitioning to candidate", acceptCount, len(votingMembers))
 					go r.raft.SetRole(newCandidateRole(r.raft, r.state, r.store))
@@ -215,7 +217,7 @@ func (r *FollowerRole) sendPollRequests() {
 					if response.Term > term {
 						r.raft.WriteLock()
 						if response.Term > r.raft.Term() {
-							r.raft.SetTerm(response.Term)
+							_ = r.raft.SetTerm(response.Term)
 						}
 						r.raft.WriteUnlock()
 					}
@@ -266,7 +268,7 @@ func (r *FollowerRole) Vote(ctx context.Context, request *raft.VoteRequest) (*ra
 
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context.
-	if r.updateTermAndLeader(request.Term, "") {
+	if r.updateTermAndLeader(request.Term, nil) {
 		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
 	}
 

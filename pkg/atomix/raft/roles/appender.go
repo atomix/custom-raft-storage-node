@@ -116,7 +116,8 @@ func (a *raftAppender) commit(entry *log.Entry, f func()) error {
 	// If there are no members to send the entry to, immediately commit it.
 	if len(a.members) == 0 {
 		a.raft.WriteLock()
-		a.raft.SetCommitIndex(entry.Index, entry.Index)
+		a.raft.SetCommitIndex(entry.Index)
+		a.raft.Commit(entry.Index)
 		if f != nil {
 			f()
 		}
@@ -205,7 +206,8 @@ func (a *raftAppender) commitMemberIndex(member raft.MemberID, index raft.Index)
 
 func (a *raftAppender) commitIndex(index raft.Index) {
 	// Update the server commit index.
-	a.raft.SetCommitIndex(index, index)
+	a.raft.SetCommitIndex(index)
+	a.raft.Commit(index)
 
 	// Acquire a lock on the appender and complete the commit channels and futures.
 	a.mu.Lock()
@@ -256,7 +258,7 @@ func (a *raftAppender) commitMemberTime(member raft.MemberID, time time.Time) {
 func (a *raftAppender) failTime(failTime time.Time) {
 	if failTime.Sub(a.lastQuorumTime) > a.raft.Config().GetElectionTimeoutOrDefault()*2 {
 		a.log.Warn("Suspected network partition; stepping down")
-		a.raft.SetLeader("")
+		_ = a.raft.SetLeader(nil)
 		go a.raft.SetRole(newFollowerRole(a.raft, a.sm, a.store))
 	}
 }
@@ -428,7 +430,7 @@ func (a *memberAppender) newInstallRequest(snapshot snapshot.Snapshot, bytes []b
 	defer a.raft.ReadUnlock()
 	return &raft.InstallRequest{
 		Term:      a.raft.Term(),
-		Leader:    a.raft.Leader(),
+		Leader:    a.raft.Member(),
 		Index:     snapshot.Index(),
 		Timestamp: snapshot.Timestamp(),
 		Data:      bytes,
@@ -530,7 +532,7 @@ func (a *memberAppender) emptyAppendRequest() *raft.AppendRequest {
 	}
 	return &raft.AppendRequest{
 		Term:         a.raft.Term(),
-		Leader:       a.raft.Leader(),
+		Leader:       a.raft.Member(),
 		PrevLogIndex: a.nextIndex - 1,
 		PrevLogTerm:  a.prevTerm,
 		CommitIndex:  a.raft.CommitIndex(),
@@ -545,7 +547,7 @@ func (a *memberAppender) entriesAppendRequest() *raft.AppendRequest {
 	}
 	request := &raft.AppendRequest{
 		Term:         a.raft.Term(),
-		Leader:       a.raft.Leader(),
+		Leader:       a.raft.Member(),
 		PrevLogIndex: a.nextIndex - 1,
 		PrevLogTerm:  a.prevTerm,
 		CommitIndex:  a.raft.CommitIndex(),
@@ -676,8 +678,8 @@ func (a *memberAppender) handleAppendResponse(request *raft.AppendRequest, respo
 			defer a.raft.WriteUnlock()
 			if response.Term > a.raft.Term() {
 				// If we've received a greater term, update the term and transition back to follower.
-				a.raft.SetTerm(response.Term)
-				a.raft.SetLeader("")
+				_ = a.raft.SetTerm(response.Term)
+				_ = a.raft.SetLeader(nil)
 				go a.raft.SetRole(newFollowerRole(a.raft, a.sm, a.store))
 				return
 			}

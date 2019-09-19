@@ -63,6 +63,9 @@ type Server struct {
 func (s *Server) Start() error {
 	s.mu.Lock()
 
+	// Initialize the Raft state
+	s.raft.Init()
+
 	// Transition the node to the follower role
 	go s.raft.SetRole(roles.NewInitialRole(s.raft, s.state, s.store))
 

@@ -25,10 +25,10 @@ func TestAdditionalConfigFunctions(t *testing.T) {
 	assert.Equal(t, defaultElectionTimeout, config.GetElectionTimeoutOrDefault())
 	assert.Equal(t, defaultHeartbeatInterval, config.GetHeartbeatIntervalOrDefault())
 
-	electionTimeout := 30*time.Second
-	heartbeatInterval := 1*time.Second
+	electionTimeout := 30 * time.Second
+	heartbeatInterval := 1 * time.Second
 	config = &ProtocolConfig{
-		ElectionTimeout: &electionTimeout,
+		ElectionTimeout:   &electionTimeout,
 		HeartbeatInterval: &heartbeatInterval,
 	}
 	assert.Equal(t, electionTimeout, config.GetElectionTimeoutOrDefault())

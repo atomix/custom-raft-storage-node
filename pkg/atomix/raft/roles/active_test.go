@@ -28,8 +28,9 @@ func TestActiveAppend(t *testing.T) {
 	role := newActiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	// Test accepting the current term/leader
-	role.raft.SetTerm(1)
-	role.raft.SetLeader("bar")
+	bar := raft.MemberID("bar")
+	assert.NoError(t, role.raft.SetTerm(1))
+	assert.NoError(t, role.raft.SetLeader(&bar))
 
 	response, err := role.Append(context.TODO(), &raft.AppendRequest{
 		Term:         1,
@@ -45,7 +46,7 @@ func TestActiveAppend(t *testing.T) {
 	assert.True(t, response.Succeeded)
 	assert.Equal(t, raft.Term(1), response.Term)
 	assert.Equal(t, raft.Term(1), role.raft.Term())
-	assert.Equal(t, raft.MemberID("bar"), role.raft.Leader())
+	assert.Equal(t, raft.MemberID("bar"), *role.raft.Leader())
 
 	// Test updating the term/leader
 	response, err = role.Append(context.TODO(), &raft.AppendRequest{
@@ -62,7 +63,7 @@ func TestActiveAppend(t *testing.T) {
 	assert.Equal(t, raft.Term(2), response.Term)
 	assert.True(t, response.Succeeded)
 	assert.Equal(t, raft.Term(2), role.raft.Term())
-	assert.Equal(t, raft.MemberID("baz"), role.raft.Leader())
+	assert.Equal(t, raft.MemberID("baz"), *role.raft.Leader())
 }
 
 func TestActivePoll(t *testing.T) {
@@ -70,8 +71,9 @@ func TestActivePoll(t *testing.T) {
 	role := newActiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	// Test rejecting a poll for an old term
-	role.raft.SetTerm(2)
-	role.raft.SetLeader("bar")
+	bar := raft.MemberID("bar")
+	assert.NoError(t, role.raft.SetTerm(2))
+	assert.NoError(t, role.raft.SetLeader(&bar))
 
 	response, err := role.Poll(context.TODO(), &raft.PollRequest{
 		Term:         1,
@@ -174,8 +176,9 @@ func TestActiveVote(t *testing.T) {
 	role := newActiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	// Test rejecting a vote request for an old term
-	role.raft.SetTerm(2)
-	role.raft.SetLeader("bar")
+	bar := raft.MemberID("bar")
+	assert.NoError(t, role.raft.SetTerm(2))
+	assert.NoError(t, role.raft.SetLeader(&bar))
 
 	response, err := role.Vote(context.TODO(), &raft.VoteRequest{
 		Term:         1,
@@ -224,23 +227,15 @@ func TestActiveVote(t *testing.T) {
 	assert.True(t, response.Voted)
 	assert.Equal(t, raft.Term(3), response.Term)
 	assert.Equal(t, raft.Term(3), role.raft.Term())
-	assert.Equal(t, raft.MemberID(""), role.raft.Leader())
+	assert.Nil(t, role.raft.Leader())
 	assert.Equal(t, raft.MemberID("baz"), *role.raft.LastVotedFor())
 
 	// Reset the server state
-	role.raft.SetTerm(2)
-	role.raft.SetLeader("bar")
-	role.raft.SetLastVotedFor(nil)
+	assert.NoError(t, role.raft.SetTerm(3))
+	assert.NoError(t, role.raft.SetLeader(&bar))
 
 	// Test that the request is rejected if the LastLogTerm is lower than the log's last entry term
 	role.store.Writer().Append(&raft.RaftLogEntry{
-		Term:      raft.Term(1),
-		Timestamp: time.Now(),
-		Entry: &raft.RaftLogEntry_Initialize{
-			Initialize: &raft.InitializeEntry{},
-		},
-	})
-	role.store.Writer().Append(&raft.RaftLogEntry{
 		Term:      raft.Term(2),
 		Timestamp: time.Now(),
 		Entry: &raft.RaftLogEntry_Initialize{
@@ -248,7 +243,14 @@ func TestActiveVote(t *testing.T) {
 		},
 	})
 	role.store.Writer().Append(&raft.RaftLogEntry{
-		Term:      raft.Term(2),
+		Term:      raft.Term(3),
+		Timestamp: time.Now(),
+		Entry: &raft.RaftLogEntry_Initialize{
+			Initialize: &raft.InitializeEntry{},
+		},
+	})
+	role.store.Writer().Append(&raft.RaftLogEntry{
+		Term:      raft.Term(3),
 		Timestamp: time.Now(),
 		Entry: &raft.RaftLogEntry_Initialize{
 			Initialize: &raft.InitializeEntry{},
@@ -258,7 +260,7 @@ func TestActiveVote(t *testing.T) {
 	assert.Equal(t, raft.Index(3), role.store.Writer().LastIndex())
 
 	response, err = role.Vote(context.TODO(), &raft.VoteRequest{
-		Term:         3,
+		Term:         4,
 		Candidate:    "baz",
 		LastLogIndex: 10,
 		LastLogTerm:  1,
@@ -266,58 +268,29 @@ func TestActiveVote(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
 	assert.False(t, response.Voted)
-	assert.Equal(t, raft.Term(3), response.Term)
-	assert.Equal(t, raft.Term(3), role.raft.Term())
-	assert.Equal(t, raft.MemberID(""), role.raft.Leader())
+	assert.Equal(t, raft.Term(4), response.Term)
+	assert.Equal(t, raft.Term(4), role.raft.Term())
+	assert.Nil(t, role.raft.Leader())
 	assert.Nil(t, role.raft.LastVotedFor())
-
-	// Reset the server state
-	role.raft.SetTerm(2)
-	role.raft.SetLeader("bar")
-	role.raft.SetLastVotedFor(nil)
 
 	// Test that the request is rejected if the candidate's last index is less than the local log's last index in the same term
 	response, err = role.Vote(context.TODO(), &raft.VoteRequest{
-		Term:         3,
+		Term:         4,
 		Candidate:    "baz",
 		LastLogIndex: 2,
-		LastLogTerm:  2,
+		LastLogTerm:  3,
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
 	assert.False(t, response.Voted)
-	assert.Equal(t, raft.Term(3), response.Term)
-	assert.Equal(t, raft.Term(3), role.raft.Term())
-	assert.Equal(t, raft.MemberID(""), role.raft.Leader())
+	assert.Equal(t, raft.Term(4), response.Term)
+	assert.Equal(t, raft.Term(4), role.raft.Term())
+	assert.Nil(t, role.raft.Leader())
 	assert.Nil(t, role.raft.LastVotedFor())
-
-	// Reset the server state
-	role.raft.SetTerm(2)
-	role.raft.SetLeader("bar")
-	role.raft.SetLastVotedFor(nil)
 
 	// Test that the vote is granted if the candidate's last index is greater than the local log's last index in an equal or greater term
 	response, err = role.Vote(context.TODO(), &raft.VoteRequest{
-		Term:         3,
-		Candidate:    "baz",
-		LastLogIndex: 10,
-		LastLogTerm:  2,
-	})
-	assert.NoError(t, err)
-	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
-	assert.True(t, response.Voted)
-	assert.Equal(t, raft.Term(3), response.Term)
-	assert.Equal(t, raft.Term(3), role.raft.Term())
-	assert.Equal(t, raft.MemberID(""), role.raft.Leader())
-	assert.Equal(t, raft.MemberID("baz"), *role.raft.LastVotedFor())
-
-	// Reset the server state
-	role.raft.SetTerm(2)
-	role.raft.SetLeader("bar")
-	role.raft.SetLastVotedFor(nil)
-
-	response, err = role.Vote(context.TODO(), &raft.VoteRequest{
-		Term:         3,
+		Term:         4,
 		Candidate:    "baz",
 		LastLogIndex: 10,
 		LastLogTerm:  3,
@@ -325,27 +298,41 @@ func TestActiveVote(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
 	assert.True(t, response.Voted)
-	assert.Equal(t, raft.Term(3), response.Term)
-	assert.Equal(t, raft.Term(3), role.raft.Term())
-	assert.Equal(t, raft.MemberID(""), role.raft.Leader())
+	assert.Equal(t, raft.Term(4), response.Term)
+	assert.Equal(t, raft.Term(4), role.raft.Term())
+	assert.Nil(t, role.raft.Leader())
+	assert.Equal(t, raft.MemberID("baz"), *role.raft.LastVotedFor())
+
+	response, err = role.Vote(context.TODO(), &raft.VoteRequest{
+		Term:         5,
+		Candidate:    "baz",
+		LastLogIndex: 10,
+		LastLogTerm:  5,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+	assert.True(t, response.Voted)
+	assert.Equal(t, raft.Term(5), response.Term)
+	assert.Equal(t, raft.Term(5), role.raft.Term())
+	assert.Nil(t, role.raft.Leader())
 	assert.Equal(t, raft.MemberID("baz"), *role.raft.LastVotedFor())
 
 	// Test that the node rejects any vote once it's already voted for a candidate
 	response, err = role.Vote(context.TODO(), &raft.VoteRequest{
-		Term:         3,
+		Term:         5,
 		Candidate:    "bar",
 		LastLogIndex: 10,
-		LastLogTerm:  2,
+		LastLogTerm:  3,
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
 	assert.False(t, response.Voted)
 
 	response, err = role.Vote(context.TODO(), &raft.VoteRequest{
-		Term:         3,
+		Term:         5,
 		Candidate:    "bar",
 		LastLogIndex: 10,
-		LastLogTerm:  3,
+		LastLogTerm:  4,
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, raft.ResponseStatus_OK, response.Status)

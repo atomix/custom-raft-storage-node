@@ -17,6 +17,7 @@ package protocol
 import (
 	"context"
 	"errors"
+	"fmt"
 	atomix "github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
@@ -39,13 +40,18 @@ const (
 
 // NewProtocol returns a new Raft protocol state struct
 func NewProtocol(cluster atomix.Cluster, config *config.ProtocolConfig) Raft {
+	return newProtocol(cluster, config, newMemoryMetadataStore())
+}
+
+// newProtocol returns a new Raft protocol state struct
+func newProtocol(cluster atomix.Cluster, config *config.ProtocolConfig, store MetadataStore) Raft {
 	return &raft{
 		log:       util.NewNodeLogger(string(cluster.MemberID)),
 		config:    config,
 		status:    StatusStopped,
 		listeners: make([]func(Status), 0, 1),
 		cluster:   NewCluster(cluster),
-		metadata:  newMemoryMetadataStore(),
+		metadata:  store,
 	}
 }
 
@@ -61,6 +67,9 @@ type Term uint64
 // Raft is an interface for managing the state of the Raft consensus protocol
 type Raft interface {
 	RaftServiceServer
+
+	// Initi initializes the Raft state
+	Init()
 
 	// Status returns the Raft protocol status
 	Status() Status
@@ -87,25 +96,28 @@ type Raft interface {
 	Term() Term
 
 	// SetTerm sets the current term
-	SetTerm(term Term)
+	SetTerm(term Term) error
 
 	// Leader returns the current leader
-	Leader() MemberID
+	Leader() *MemberID
 
 	// SetLeader sets the current leader
-	SetLeader(leader MemberID)
+	SetLeader(leader *MemberID) error
 
 	// LastVotedFor returns the last member voted for by this node
 	LastVotedFor() *MemberID
 
 	// SetLastVotedFor sets the last member voted for by this node
-	SetLastVotedFor(memberID *MemberID)
+	SetLastVotedFor(memberID MemberID) error
 
 	// CommitIndex returns the current commit index
 	CommitIndex() Index
 
-	// SetCommitIndex sets the current and persisted commit indexes and returns the previous commit index
-	SetCommitIndex(commitIndex, storedIndex Index) Index
+	// SetCommitIndex sets the highest known commit index
+	SetCommitIndex(index Index)
+
+	// Commit sets the persisted commit index
+	Commit(index Index) Index
 
 	// WriteLock acquires a write lock on the state
 	WriteLock()
@@ -149,12 +161,21 @@ type raft struct {
 	listeners        []func(Status)
 	role             Role
 	term             Term
-	leader           MemberID
+	leader           *MemberID
 	lastVotedFor     *MemberID
 	firstCommitIndex *Index
 	commitIndex      Index
 	cluster          Cluster
 	mu               sync.RWMutex
+}
+
+func (r *raft) Init() {
+	term := r.metadata.LoadTerm()
+	if term != nil {
+		r.term = *term
+	}
+	r.lastVotedFor = r.metadata.LoadVote()
+	r.setStatus(StatusRunning)
 }
 
 func (r *raft) Status() Status {
@@ -200,81 +221,79 @@ func (r *raft) Term() Term {
 	return r.term
 }
 
-func (r *raft) SetTerm(term Term) {
+func (r *raft) SetTerm(term Term) error {
+	if term < r.term {
+		return fmt.Errorf("cannot decrease term %d to %d", r.term, term)
+	}
+
 	r.term = term
-	r.leader = ""
+	r.leader = nil
 	r.lastVotedFor = nil
 	r.metadata.StoreTerm(term)
 	r.metadata.StoreVote(r.lastVotedFor)
+	return nil
 }
 
-func (r *raft) Leader() MemberID {
+func (r *raft) Leader() *MemberID {
 	return r.leader
 }
 
-func (r *raft) SetLeader(leader MemberID) {
-	if r.leader != leader {
-		if leader == "" {
-			r.leader = ""
+func (r *raft) SetLeader(leader *MemberID) error {
+	if r.leader == nil && leader != nil {
+		// If the leader is being set for the first time, verify it's a member of the cluster configuration
+		if r.GetMember(*leader) != nil {
+			r.leader = leader
 		} else {
-			if r.GetMember(leader) != nil {
-				r.leader = leader
-			}
+			return fmt.Errorf("unknown member %+v", leader)
 		}
-
-		r.lastVotedFor = nil
-		r.metadata.StoreVote(r.lastVotedFor)
+	} else if r.leader != nil && leader == nil {
+		r.leader = nil
+	} else if r.leader != nil && leader != nil && r.leader != leader {
+		return fmt.Errorf("cannot change leader %+v to %+v", r.leader, leader)
 	}
+	return nil
 }
 
 func (r *raft) LastVotedFor() *MemberID {
 	return r.lastVotedFor
 }
 
-func (r *raft) SetLastVotedFor(memberID *MemberID) {
+func (r *raft) SetLastVotedFor(memberID MemberID) error {
 	// If we've already voted for another candidate in this term then the last voted for candidate cannot be overridden.
-	if r.lastVotedFor != nil && memberID != nil {
-		r.log.Error("Already voted for another candidate")
+	if r.lastVotedFor != nil && *r.lastVotedFor != memberID {
+		return fmt.Errorf("already voted for %+v", r.lastVotedFor)
 	}
 
 	// Verify the candidate is a member of the cluster.
-	if memberID != nil {
-		if r.GetMember(*memberID) == nil {
-			r.log.Error("Unknown candidate: %+v", memberID)
-		}
+	if r.GetMember(memberID) == nil {
+		return fmt.Errorf("unknown candidate %s", memberID)
 	}
 
-	r.lastVotedFor = memberID
-	r.metadata.StoreVote(memberID)
-
-	if memberID != nil {
-		r.log.Debug("Voted for %+v", memberID)
-	} else {
-		r.log.Trace("Reset last voted for")
-	}
+	r.lastVotedFor = &memberID
+	r.metadata.StoreVote(&memberID)
+	r.log.Debug("Voted for %+v", memberID)
+	return nil
 }
 
 func (r *raft) CommitIndex() Index {
 	return r.commitIndex
 }
 
-func (r *raft) SetCommitIndex(commitIndex, storedIndex Index) Index {
-	previousCommitIndex := r.commitIndex
-	if commitIndex > previousCommitIndex {
-		r.commitIndex = storedIndex
-		r.setFirstCommitIndex(commitIndex)
+func (r *raft) SetCommitIndex(index Index) {
+	if r.firstCommitIndex == nil {
+		r.firstCommitIndex = &index
 	}
-	if r.firstCommitIndex != nil && storedIndex >= *r.firstCommitIndex {
-		r.setStatus(StatusReady)
-	}
-	return previousCommitIndex
 }
 
-// setFirstCommitIndex sets the first commit index learned by the node
-func (r *raft) setFirstCommitIndex(commitIndex Index) {
-	if r.firstCommitIndex == nil {
-		r.firstCommitIndex = &commitIndex
+func (r *raft) Commit(index Index) Index {
+	prevIndex := r.commitIndex
+	if index > prevIndex {
+		r.commitIndex = index
+		if r.firstCommitIndex != nil && index >= *r.firstCommitIndex {
+			r.setStatus(StatusReady)
+		}
 	}
+	return prevIndex
 }
 
 func (r *raft) WriteLock() {
@@ -295,9 +314,6 @@ func (r *raft) ReadUnlock() {
 
 func (r *raft) SetRole(role Role) {
 	r.WriteLock()
-	if r.status == StatusStopped {
-		r.setStatus(StatusRunning)
-	}
 	r.log.Info("Transitioning to %s", role.Name())
 	if r.role != nil {
 		if err := r.role.Stop(); err != nil {
@@ -368,5 +384,6 @@ func (r *raft) Transfer(context.Context, *TransferRequest) (*TransferResponse, e
 }
 
 func (r *raft) Close() error {
-	return nil
+	r.setStatus(StatusStopped)
+	return r.metadata.Close()
 }
