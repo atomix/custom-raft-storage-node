@@ -41,7 +41,7 @@ func TestRaftProtocol(t *testing.T) {
 				Port: 5679,
 			},
 			"baz": {
-				ID: "baz",
+				ID:   "baz",
 				Port: 5680,
 			},
 		},
@@ -71,6 +71,7 @@ func TestRaftProtocol(t *testing.T) {
 	_, err := raft.Connect(MemberID("none"))
 	assert.Error(t, err)
 	client, err := raft.Connect(MemberID("bar"))
+	assert.NoError(t, err)
 	assert.NotNil(t, client)
 
 	// Verify the initial values
