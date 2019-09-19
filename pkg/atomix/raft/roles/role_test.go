@@ -18,13 +18,17 @@ import (
 	"context"
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-go-node/pkg/atomix/node"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
+	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/state"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 	"github.com/stretchr/testify/assert"
 	"testing"
-	"time"
 )
 
-func newTestServer() *Server {
-	config := cluster.Cluster{
+func newTestArgs() (raft.Raft, state.Manager, store.Store) {
+	members := cluster.Cluster{
 		MemberID: "foo",
 		Members: map[string]cluster.Member{
 			"foo": {
@@ -44,102 +48,45 @@ func newTestServer() *Server {
 			},
 		},
 	}
-
-	return NewServer(config, node.GetRegistry(), 5*time.Second)
+	raft := raft.NewProtocol(members, &config.ProtocolConfig{})
+	store := store.NewMemoryStore()
+	state := state.NewManager(raft, store, node.GetRegistry())
+	return raft, state, store
 }
 
 func TestRole(t *testing.T) {
-	role := newRaftRole(newTestServer())
+	protocol, sm, stores := newTestArgs()
+	role := newRaftRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
-	joinResponse, err := role.Join(context.TODO(), &JoinRequest{})
+	joinResponse, err := role.Join(context.TODO(), &raft.JoinRequest{})
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_ERROR, joinResponse.Status)
+	assert.Equal(t, raft.ResponseStatus_ERROR, joinResponse.Status)
 
-	leaveResponse, err := role.Leave(context.TODO(), &LeaveRequest{})
+	leaveResponse, err := role.Leave(context.TODO(), &raft.LeaveRequest{})
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_ERROR, leaveResponse.Status)
+	assert.Equal(t, raft.ResponseStatus_ERROR, leaveResponse.Status)
 
-	configureResponse, err := role.Configure(context.TODO(), &ConfigureRequest{})
+	configureResponse, err := role.Configure(context.TODO(), &raft.ConfigureRequest{})
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_ERROR, configureResponse.Status)
+	assert.Equal(t, raft.ResponseStatus_ERROR, configureResponse.Status)
 
-	reconfigureResponse, err := role.Reconfigure(context.TODO(), &ReconfigureRequest{})
+	reconfigureResponse, err := role.Reconfigure(context.TODO(), &raft.ReconfigureRequest{})
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_ERROR, reconfigureResponse.Status)
+	assert.Equal(t, raft.ResponseStatus_ERROR, reconfigureResponse.Status)
 
-	pollResponse, err := role.Poll(context.TODO(), &PollRequest{})
+	pollResponse, err := role.Poll(context.TODO(), &raft.PollRequest{})
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_ERROR, pollResponse.Status)
+	assert.Equal(t, raft.ResponseStatus_ERROR, pollResponse.Status)
 
-	voteResponse, err := role.Vote(context.TODO(), &VoteRequest{})
+	voteResponse, err := role.Vote(context.TODO(), &raft.VoteRequest{})
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_ERROR, voteResponse.Status)
+	assert.Equal(t, raft.ResponseStatus_ERROR, voteResponse.Status)
 
-	transferResponse, err := role.Transfer(context.TODO(), &TransferRequest{})
+	transferResponse, err := role.Transfer(context.TODO(), &raft.TransferRequest{})
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_ERROR, transferResponse.Status)
+	assert.Equal(t, raft.ResponseStatus_ERROR, transferResponse.Status)
 
-	appendResponse, err := role.Append(context.TODO(), &AppendRequest{})
+	appendResponse, err := role.Append(context.TODO(), &raft.AppendRequest{})
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_ERROR, appendResponse.Status)
-
-	installCh := make(chan *InstallResponse, 1)
-	err = role.Install(newTestInstallServer(installCh))
-	installResponse := <-installCh
-	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_ERROR, installResponse.Status)
-
-	commandCh := make(chan *CommandResponse, 1)
-	err = role.Command(&CommandRequest{}, newTestCommandServer(commandCh))
-	commandResponse := <-commandCh
-	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_ERROR, commandResponse.Status)
-
-	queryCh := make(chan *QueryResponse, 1)
-	err = role.Query(&QueryRequest{}, newTestQueryServer(queryCh))
-	response := <-queryCh
-	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_ERROR, response.Status)
-}
-
-func newTestInstallServer(ch chan<- *InstallResponse) RaftService_InstallServer {
-	return &installServer{ch: ch}
-}
-
-type installServer struct {
-	*raftServiceInstallServer
-	ch chan<- *InstallResponse
-}
-
-func (s *installServer) SendAndClose(response *InstallResponse) error {
-	s.ch <- response
-	return nil
-}
-
-func newTestCommandServer(ch chan<- *CommandResponse) RaftService_CommandServer {
-	return commandServer{ch: ch}
-}
-
-type commandServer struct {
-	raftServiceCommandServer
-	ch chan<- *CommandResponse
-}
-
-func (s commandServer) Send(response *CommandResponse) error {
-	s.ch <- response
-	return nil
-}
-
-func newTestQueryServer(ch chan<- *QueryResponse) RaftService_QueryServer {
-	return queryServer{ch: ch}
-}
-
-type queryServer struct {
-	raftServiceQueryServer
-	ch chan<- *QueryResponse
-}
-
-func (s queryServer) Send(response *QueryResponse) error {
-	s.ch <- response
-	return nil
+	assert.Equal(t, raft.ResponseStatus_ERROR, appendResponse.Status)
 }

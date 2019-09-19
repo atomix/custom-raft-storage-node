@@ -47,7 +47,7 @@ func (r *LeaderRole) Name() string {
 }
 
 // start starts the leader
-func (r *LeaderRole) start() error {
+func (r *LeaderRole) Start() error {
 	r.setLeadership()
 	go r.startAppender()
 	go r.commitInitializeEntry()
@@ -327,7 +327,7 @@ func (r *LeaderRole) stepDown() {
 }
 
 // stop stops the leader
-func (r *LeaderRole) stop() error {
+func (r *LeaderRole) Stop() error {
 	r.appender.stop()
 	r.stepDown()
 	return nil

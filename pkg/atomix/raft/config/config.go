@@ -30,7 +30,7 @@ func (c *ProtocolConfig) GetElectionTimeoutOrDefault() time.Duration {
 	return defaultElectionTimeout
 }
 
-// GetElectionTimeoutOrDefault returns the configured heartbeat interval if set, otherwise the default heartbeat interval
+// GetHeartbeatIntervalOrDefault returns the configured heartbeat interval if set, otherwise the default heartbeat interval
 func (c *ProtocolConfig) GetHeartbeatIntervalOrDefault() time.Duration {
 	interval := c.GetHeartbeatInterval()
 	if interval != nil {

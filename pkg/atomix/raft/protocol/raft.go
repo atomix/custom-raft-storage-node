@@ -21,7 +21,6 @@ import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 	"sync"
-	"time"
 )
 
 // Status represents the status of a Raft server
@@ -154,7 +153,6 @@ type raft struct {
 	firstCommitIndex *Index
 	commitIndex      Index
 	cluster          Cluster
-	electionTimeout  time.Duration
 	mu               sync.RWMutex
 }
 

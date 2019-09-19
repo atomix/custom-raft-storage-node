@@ -12,18 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package protocol
+package raft
 
 import (
 	"github.com/atomix/atomix-api/proto/atomix/controller"
 	"github.com/atomix/atomix-go-node/pkg/atomix"
 	"github.com/atomix/atomix-go-node/pkg/atomix/registry"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
 	"testing"
 	"time"
 )
 
 func TestProtocol(t *testing.T) {
-	config := &controller.PartitionConfig{
+	c := &controller.PartitionConfig{
 		Partition: &controller.PartitionId{
 			Partition: 1,
 			Group: &controller.PartitionGroupId{
@@ -39,8 +40,8 @@ func TestProtocol(t *testing.T) {
 			},
 		},
 	}
-	protocol := NewProtocol(&RaftProtocolConfig{})
-	node := atomix.NewNode("foo", config, protocol, registry.Registry)
+	protocol := NewProtocol(&config.ProtocolConfig{})
+	node := atomix.NewNode("foo", c, protocol, registry.Registry)
 	node.Start()
 	time.Sleep(1 * time.Second)
 	defer node.Stop()

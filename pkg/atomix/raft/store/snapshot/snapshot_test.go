@@ -15,6 +15,7 @@
 package snapshot
 
 import (
+	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -25,8 +26,8 @@ func TestSnapshot(t *testing.T) {
 	assert.Nil(t, store.CurrentSnapshot())
 
 	ts := time.Now()
-	snapshot := store.NewSnapshot(Index(1), ts)
-	assert.Equal(t, Index(1), snapshot.Index())
+	snapshot := store.NewSnapshot(raft.Index(1), ts)
+	assert.Equal(t, raft.Index(1), snapshot.Index())
 	assert.Equal(t, ts, snapshot.Timestamp())
 
 	writer := snapshot.Writer()

@@ -16,79 +16,81 @@ package roles
 
 import (
 	"context"
+	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
 func TestUpdateTermAndLeader(t *testing.T) {
-	server := newTestServer()
-	role := newPassiveRole(server)
+	protocol, sm, stores := newTestArgs()
+	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
-	result := role.updateTermAndLeader(Term(1), MemberID("foo"))
+	result := role.updateTermAndLeader(raft.Term(1), raft.MemberID("foo"))
 	assert.True(t, result)
-	assert.Equal(t, Term(1), server.term)
-	assert.Equal(t, MemberID("foo"), server.leader)
+	assert.Equal(t, raft.Term(1), role.raft.Term())
+	assert.Equal(t, raft.MemberID("foo"), role.raft.Leader())
 
-	result = role.updateTermAndLeader(Term(1), MemberID("foo"))
+	result = role.updateTermAndLeader(raft.Term(1), raft.MemberID("foo"))
 	assert.False(t, result)
 }
 
 func TestPassiveAppend(t *testing.T) {
-	server := newTestServer()
-	role := newPassiveRole(server)
+	protocol, sm, stores := newTestArgs()
+	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	// Test updating the term/leader
-	response, err := role.Append(context.TODO(), &AppendRequest{
+	response, err := role.Append(context.TODO(), &raft.AppendRequest{
 		Term:         2,
 		Leader:       "bar",
 		PrevLogIndex: 0,
 		PrevLogTerm:  0,
-		Entries:      []*RaftLogEntry{},
+		Entries:      []*raft.RaftLogEntry{},
 		CommitIndex:  0,
 	})
 
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_OK, response.Status)
-	assert.Equal(t, Term(2), response.Term)
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+	assert.Equal(t, raft.Term(2), response.Term)
 	assert.True(t, response.Succeeded)
-	assert.Equal(t, Term(2), server.term)
-	assert.Equal(t, MemberID("bar"), server.leader)
+	assert.Equal(t, raft.Term(2), role.raft.Term())
+	assert.Equal(t, raft.MemberID("bar"), role.raft.Leader())
 
 	// Test rejecting an old term/leader
-	response, err = role.Append(context.TODO(), &AppendRequest{
+	response, err = role.Append(context.TODO(), &raft.AppendRequest{
 		Term:         1,
 		Leader:       "foo",
 		PrevLogIndex: 0,
 		PrevLogTerm:  0,
-		Entries:      []*RaftLogEntry{},
+		Entries:      []*raft.RaftLogEntry{},
 		CommitIndex:  0,
 	})
 
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_OK, response.Status)
-	assert.Equal(t, Term(2), response.Term)
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+	assert.Equal(t, raft.Term(2), response.Term)
 	assert.False(t, response.Succeeded)
 
 	// Test appending initial entries
-	response, err = role.Append(context.TODO(), &AppendRequest{
+	response, err = role.Append(context.TODO(), &raft.AppendRequest{
 		Term:         2,
 		Leader:       "bar",
 		PrevLogIndex: 0,
 		PrevLogTerm:  0,
-		Entries: []*RaftLogEntry{
+		Entries: []*raft.RaftLogEntry{
 			{
 				Term:      2,
 				Timestamp: time.Now(),
-				Entry: &RaftLogEntry_Initialize{
-					Initialize: &InitializeEntry{},
+				Entry: &raft.RaftLogEntry_Initialize{
+					Initialize: &raft.InitializeEntry{},
 				},
 			},
 			{
 				Term:      2,
 				Timestamp: time.Now(),
-				Entry: &RaftLogEntry_Initialize{
-					Initialize: &InitializeEntry{},
+				Entry: &raft.RaftLogEntry_Initialize{
+					Initialize: &raft.InitializeEntry{},
 				},
 			},
 		},
@@ -96,39 +98,39 @@ func TestPassiveAppend(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_OK, response.Status)
-	assert.Equal(t, Term(2), response.Term)
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+	assert.Equal(t, raft.Term(2), response.Term)
 	assert.True(t, response.Succeeded)
-	assert.Equal(t, Index(2), response.LastLogIndex)
+	assert.Equal(t, raft.Index(2), response.LastLogIndex)
 
 	// Test committing entries
-	response, err = role.Append(context.TODO(), &AppendRequest{
+	response, err = role.Append(context.TODO(), &raft.AppendRequest{
 		Term:         2,
 		Leader:       "bar",
 		PrevLogIndex: 2,
 		PrevLogTerm:  2,
-		Entries:      []*RaftLogEntry{},
+		Entries:      []*raft.RaftLogEntry{},
 		CommitIndex:  1,
 	})
 
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_OK, response.Status)
-	assert.Equal(t, Term(2), response.Term)
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+	assert.Equal(t, raft.Term(2), response.Term)
 	assert.True(t, response.Succeeded)
-	assert.Equal(t, Index(1), server.commitIndex)
+	assert.Equal(t, raft.Index(1), role.raft.CommitIndex())
 
 	// Test rejecting a request due to missing entries
-	response, err = role.Append(context.TODO(), &AppendRequest{
+	response, err = role.Append(context.TODO(), &raft.AppendRequest{
 		Term:         2,
 		Leader:       "bar",
 		PrevLogIndex: 3,
 		PrevLogTerm:  2,
-		Entries: []*RaftLogEntry{
+		Entries: []*raft.RaftLogEntry{
 			{
 				Term:      2,
 				Timestamp: time.Now(),
-				Entry: &RaftLogEntry_Initialize{
-					Initialize: &InitializeEntry{},
+				Entry: &raft.RaftLogEntry_Initialize{
+					Initialize: &raft.InitializeEntry{},
 				},
 			},
 		},
@@ -136,23 +138,23 @@ func TestPassiveAppend(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_OK, response.Status)
-	assert.Equal(t, Term(2), response.Term)
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+	assert.Equal(t, raft.Term(2), response.Term)
 	assert.False(t, response.Succeeded)
-	assert.Equal(t, Index(2), response.LastLogIndex)
+	assert.Equal(t, raft.Index(2), response.LastLogIndex)
 
 	// Test rejecting entries for an inconsistent term
-	response, err = role.Append(context.TODO(), &AppendRequest{
+	response, err = role.Append(context.TODO(), &raft.AppendRequest{
 		Term:         3,
 		Leader:       "baz",
 		PrevLogIndex: 2,
 		PrevLogTerm:  3,
-		Entries: []*RaftLogEntry{
+		Entries: []*raft.RaftLogEntry{
 			{
 				Term:      2,
 				Timestamp: time.Now(),
-				Entry: &RaftLogEntry_Initialize{
-					Initialize: &InitializeEntry{},
+				Entry: &raft.RaftLogEntry_Initialize{
+					Initialize: &raft.InitializeEntry{},
 				},
 			},
 		},
@@ -160,32 +162,32 @@ func TestPassiveAppend(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_OK, response.Status)
-	assert.Equal(t, Term(3), response.Term)
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+	assert.Equal(t, raft.Term(3), response.Term)
 	assert.False(t, response.Succeeded)
-	assert.Equal(t, Index(1), response.LastLogIndex)
-	assert.Equal(t, Term(3), server.term)
-	assert.Equal(t, MemberID("baz"), server.leader)
+	assert.Equal(t, raft.Index(1), response.LastLogIndex)
+	assert.Equal(t, raft.Term(3), role.raft.Term())
+	assert.Equal(t, raft.MemberID("baz"), role.raft.Leader())
 
 	// Test replacing entries from a prior term
-	response, err = role.Append(context.TODO(), &AppendRequest{
+	response, err = role.Append(context.TODO(), &raft.AppendRequest{
 		Term:         3,
 		Leader:       "baz",
 		PrevLogIndex: 1,
 		PrevLogTerm:  2,
-		Entries: []*RaftLogEntry{
+		Entries: []*raft.RaftLogEntry{
 			{
 				Term:      3,
 				Timestamp: time.Now(),
-				Entry: &RaftLogEntry_Initialize{
-					Initialize: &InitializeEntry{},
+				Entry: &raft.RaftLogEntry_Initialize{
+					Initialize: &raft.InitializeEntry{},
 				},
 			},
 			{
 				Term:      3,
 				Timestamp: time.Now(),
-				Entry: &RaftLogEntry_Initialize{
-					Initialize: &InitializeEntry{},
+				Entry: &raft.RaftLogEntry_Initialize{
+					Initialize: &raft.InitializeEntry{},
 				},
 			},
 		},
@@ -193,8 +195,8 @@ func TestPassiveAppend(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
-	assert.Equal(t, ResponseStatus_OK, response.Status)
-	assert.Equal(t, Term(3), response.Term)
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+	assert.Equal(t, raft.Term(3), response.Term)
 	assert.True(t, response.Succeeded)
-	assert.Equal(t, Index(3), response.LastLogIndex)
+	assert.Equal(t, raft.Index(3), response.LastLogIndex)
 }
