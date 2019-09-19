@@ -201,13 +201,11 @@ func (r *raft) Term() Term {
 }
 
 func (r *raft) SetTerm(term Term) {
-	if term > r.term {
-		r.term = term
-		r.leader = ""
-		r.lastVotedFor = nil
-		r.metadata.StoreTerm(term)
-		r.metadata.StoreVote(r.lastVotedFor)
-	}
+	r.term = term
+	r.leader = ""
+	r.lastVotedFor = nil
+	r.metadata.StoreTerm(term)
+	r.metadata.StoreVote(r.lastVotedFor)
 }
 
 func (r *raft) Leader() MemberID {
