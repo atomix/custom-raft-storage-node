@@ -248,7 +248,7 @@ func TestPassiveQuery(t *testing.T) {
 	err = role.Query(&raft.QueryRequest{}, server)
 	assert.Error(t, err)
 
-	bytes, err := proto.Marshal(&service.ServiceRequest{
+	bytes, _ := proto.Marshal(&service.ServiceRequest{
 		Request: &service.ServiceRequest_Metadata{
 			Metadata: &service.MetadataRequest{},
 		},
