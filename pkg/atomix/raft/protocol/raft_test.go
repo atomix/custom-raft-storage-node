@@ -20,6 +20,7 @@ import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 )
 
 func TestRaftProtocol(t *testing.T) {
@@ -32,20 +33,23 @@ func TestRaftProtocol(t *testing.T) {
 			"foo": {
 				ID:   "foo",
 				Host: "foo",
-				Port: 4568,
+				Port: 5678,
 			},
 			"bar": {
 				ID:   "bar",
 				Host: "bar",
+				Port: 5679,
 			},
 			"baz": {
-				ID: "foo",
+				ID: "baz",
+				Port: 5680,
 			},
 		},
 	}
 
 	store := newMemoryMetadataStore()
-	raft := newProtocol(cluster, &config.ProtocolConfig{}, store)
+	electionTimeout := 10 * time.Second
+	raft := newProtocol(cluster, &config.ProtocolConfig{ElectionTimeout: &electionTimeout}, store)
 	assert.Equal(t, StatusStopped, raft.Status())
 	statusCh := make(chan Status, 1)
 	raft.WatchStatus(func(status Status) {
@@ -54,6 +58,20 @@ func TestRaftProtocol(t *testing.T) {
 	raft.Init()
 	assert.Equal(t, StatusRunning, raft.Status())
 	assert.Equal(t, StatusRunning, <-statusCh)
+
+	// Verify the cluster configuration
+	assert.Equal(t, electionTimeout, raft.Config().GetElectionTimeoutOrDefault())
+	assert.Equal(t, MemberID("foo"), raft.Member())
+	assert.Len(t, raft.Members(), 3)
+	assert.Equal(t, MemberID("foo"), raft.GetMember(MemberID("foo")).MemberID)
+	assert.Equal(t, MemberID("bar"), raft.GetMember(MemberID("bar")).MemberID)
+	assert.Equal(t, MemberID("baz"), raft.GetMember(MemberID("baz")).MemberID)
+
+	// Attempt to connect to a node
+	_, err := raft.Connect(MemberID("none"))
+	assert.Error(t, err)
+	client, err := raft.Connect(MemberID("bar"))
+	assert.NotNil(t, client)
 
 	// Verify the initial values
 	assert.Equal(t, foo, raft.Member())
@@ -208,4 +226,3 @@ func (r *testRole) Command(*CommandRequest, RaftService_CommandServer) error {
 func (r *testRole) Query(*QueryRequest, RaftService_QueryServer) error {
 	panic("implement me")
 }
-
