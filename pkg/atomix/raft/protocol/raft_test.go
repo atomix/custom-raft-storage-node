@@ -15,6 +15,7 @@
 package protocol
 
 import (
+	"context"
 	atomix "github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
 	"github.com/stretchr/testify/assert"
@@ -138,4 +139,73 @@ func TestRaftProtocol(t *testing.T) {
 	assert.Nil(t, raft.Leader())
 	assert.Equal(t, &bar, raft.LastVotedFor())
 	assert.Equal(t, Index(0), raft.CommitIndex())
+
+	// Test a role change
+	test := &testRole{}
+	raft.SetRole(test)
+	assert.False(t, test.appended)
+	_, _ = raft.Append(context.TODO(), &AppendRequest{})
+	assert.True(t, test.appended)
 }
+
+type testRole struct {
+	appended bool
+}
+
+func (r *testRole) Name() string {
+	return "test"
+}
+
+func (r *testRole) Start() error {
+	return nil
+}
+
+func (r *testRole) Stop() error {
+	return nil
+}
+
+func (r *testRole) Join(context.Context, *JoinRequest) (*JoinResponse, error) {
+	panic("implement me")
+}
+
+func (r *testRole) Leave(context.Context, *LeaveRequest) (*LeaveResponse, error) {
+	panic("implement me")
+}
+
+func (r *testRole) Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error) {
+	panic("implement me")
+}
+
+func (r *testRole) Reconfigure(context.Context, *ReconfigureRequest) (*ReconfigureResponse, error) {
+	panic("implement me")
+}
+
+func (r *testRole) Poll(context.Context, *PollRequest) (*PollResponse, error) {
+	panic("implement me")
+}
+
+func (r *testRole) Vote(context.Context, *VoteRequest) (*VoteResponse, error) {
+	panic("implement me")
+}
+
+func (r *testRole) Transfer(context.Context, *TransferRequest) (*TransferResponse, error) {
+	panic("implement me")
+}
+
+func (r *testRole) Append(context.Context, *AppendRequest) (*AppendResponse, error) {
+	r.appended = true
+	return &AppendResponse{}, nil
+}
+
+func (r *testRole) Install(RaftService_InstallServer) error {
+	panic("implement me")
+}
+
+func (r *testRole) Command(*CommandRequest, RaftService_CommandServer) error {
+	panic("implement me")
+}
+
+func (r *testRole) Query(*QueryRequest, RaftService_QueryServer) error {
+	panic("implement me")
+}
+
