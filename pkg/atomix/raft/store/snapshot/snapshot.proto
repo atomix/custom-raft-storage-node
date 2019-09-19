@@ -21,10 +21,12 @@ package atomix.raft;
 import "google/protobuf/timestamp.proto";
 import "gogoproto/gogo.proto";
 
+option (gogoproto.testgen_all) = true;
+option (gogoproto.populate_all) = true;
 option (gogoproto.equal_all) = true;
 
 // Snapshot descriptor
 message SnapshotDescriptor {
-    int64 index = 1 [(gogoproto.casttype) = "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol.Index"];
+    uint64 index = 1 [(gogoproto.casttype) = "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol.Index"];
     google.protobuf.Timestamp timestamp = 2 [(gogoproto.stdtime) = true];
 }
