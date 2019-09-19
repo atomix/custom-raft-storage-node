@@ -113,6 +113,8 @@ github.com/atomix/atomix-go-node v0.0.0-20190918200431-21db501987f0 h1:MSOKNd7kQ
 github.com/atomix/atomix-go-node v0.0.0-20190918200431-21db501987f0/go.mod h1:Fq2QpY1LYaICw1wbvTd7cm90yqRdUpc+Vi8KT0Z+HIM=
 github.com/atomix/atomix-go-node v0.0.0-20190919190641-9951ecc1268a h1:tw1GhOHeyftluGefbTqNe8Q4KECraE8qA6ImrGzVUO0=
 github.com/atomix/atomix-go-node v0.0.0-20190919190641-9951ecc1268a/go.mod h1:Fq2QpY1LYaICw1wbvTd7cm90yqRdUpc+Vi8KT0Z+HIM=
+github.com/atomix/atomix-go-node v0.0.0-20190919225615-693c6f4ab69a h1:kXKzCsV8XIp/IwAslHNigpBR6Ev9ZYseNe0sRi5Ltso=
+github.com/atomix/atomix-go-node v0.0.0-20190919225615-693c6f4ab69a/go.mod h1:Fq2QpY1LYaICw1wbvTd7cm90yqRdUpc+Vi8KT0Z+HIM=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/creack/pty v1.1.7/go.mod h1:lj5s0c3V2DBrqTV7llrYr5NG6My20zk30Fl46Y7DoTY=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=

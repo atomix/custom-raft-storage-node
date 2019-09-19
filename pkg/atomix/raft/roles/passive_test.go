@@ -16,8 +16,10 @@ package roles
 
 import (
 	"context"
+	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
 	"testing"
@@ -227,6 +229,56 @@ func TestPassiveCommand(t *testing.T) {
 	assert.Equal(t, role.raft.Members()[1], response.Leader)
 }
 
+func TestPassiveQuery(t *testing.T) {
+	protocol, sm, stores := newTestArgs()
+	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
+	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
+
+	server := newQueryServer()
+
+	// With no leader and no commits, the role should return an error
+	err := role.Query(&raft.QueryRequest{}, server)
+	assert.NoError(t, err)
+	response := server.NextResponse()
+	assert.Equal(t, raft.ResponseStatus_ERROR, response.Status)
+	assert.Equal(t, raft.RaftError_NO_LEADER, response.Error)
+
+	// With no commits and a leader, the role should forward the request
+	assert.NoError(t, role.raft.SetLeader(&role.raft.Members()[1]))
+	err = role.Query(&raft.QueryRequest{}, server)
+	assert.Error(t, err)
+
+	bytes, err := proto.Marshal(&service.ServiceRequest{
+		Request: &service.ServiceRequest_Metadata{
+			Metadata: &service.MetadataRequest{},
+		},
+	})
+
+	// With commits caught up, the role should handle sequential requests
+	role.store.Writer().Append(&raft.RaftLogEntry{
+		Term:      raft.Term(1),
+		Timestamp: time.Now(),
+		Entry: &raft.RaftLogEntry_Initialize{
+			Initialize: &raft.InitializeEntry{},
+		},
+	})
+	role.raft.SetCommitIndex(raft.Index(1))
+	role.raft.Commit(raft.Index(1))
+	err = role.Query(&raft.QueryRequest{
+		Value:           bytes,
+		ReadConsistency: raft.ReadConsistency_SEQUENTIAL,
+	}, server)
+	assert.NoError(t, err)
+	response = server.NextResponse()
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+
+	// Requests with stronger consistency requirements should be forwarded to the leader
+	err = role.Query(&raft.QueryRequest{ReadConsistency: raft.ReadConsistency_LINEARIZABLE_LEASE}, server)
+	assert.Error(t, err)
+	err = role.Query(&raft.QueryRequest{ReadConsistency: raft.ReadConsistency_LINEARIZABLE}, server)
+	assert.Error(t, err)
+}
+
 func newCommandServer() *commandServer {
 	return &commandServer{
 		responses: make(chan *raft.CommandResponse, 1),
@@ -267,5 +319,48 @@ func (s *commandServer) SendMsg(m interface{}) error {
 }
 
 func (s *commandServer) RecvMsg(m interface{}) error {
+	panic("implement me")
+}
+
+func newQueryServer() *queryServer {
+	return &queryServer{
+		responses: make(chan *raft.QueryResponse, 1),
+	}
+}
+
+type queryServer struct {
+	responses chan *raft.QueryResponse
+}
+
+func (s *queryServer) NextResponse() *raft.QueryResponse {
+	return <-s.responses
+}
+
+func (s *queryServer) Send(response *raft.QueryResponse) error {
+	s.responses <- response
+	return nil
+}
+
+func (s *queryServer) SetHeader(metadata.MD) error {
+	panic("implement me")
+}
+
+func (s *queryServer) SendHeader(metadata.MD) error {
+	panic("implement me")
+}
+
+func (s *queryServer) SetTrailer(metadata.MD) {
+	panic("implement me")
+}
+
+func (s *queryServer) Context() context.Context {
+	panic("implement me")
+}
+
+func (s *queryServer) SendMsg(m interface{}) error {
+	panic("implement me")
+}
+
+func (s *queryServer) RecvMsg(m interface{}) error {
 	panic("implement me")
 }
