@@ -3,7 +3,7 @@ export GO111MODULE=on
 
 .PHONY: build
 
-ATOMIX_GO_RAFT_VERSION := latest
+ATOMIX_RAFT_NODE_VERSION := latest
 
 all: build
 
@@ -35,4 +35,7 @@ proto:
 
 image: # @HELP build atomix-raft-node Docker image
 image: build
-	docker build . -f build/docker/Dockerfile -t atomix/atomix-raft-node:${ATOMIX_GO_RAFT_VERSION}
+	docker build . -f build/docker/Dockerfile -t atomix/atomix-raft-node:${ATOMIX_RAFT_NODE_VERSION}
+
+push: # @HELP push atomix-raft-node Docker image
+	docker push atomix/atomix-raft-node:${ATOMIX_RAFT_NODE_VERSION}
