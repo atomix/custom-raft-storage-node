@@ -26,7 +26,7 @@ func NewMemoryStore() Store {
 		log:      log,
 		reader:   log.OpenReader(0),
 		writer:   log.Writer(),
-		snapshot: snapshot.NewMemorySnapshotStore(),
+		snapshot: snapshot.NewMemoryStore(),
 	}
 }
 
@@ -36,13 +36,13 @@ type Store interface {
 	Log() log.Log
 
 	// Reader returns the primary Raft log reader
-	Reader() log.LogReader
+	Reader() log.Reader
 
 	// Writer returns the primary Raft log writer
-	Writer() log.LogWriter
+	Writer() log.Writer
 
 	// Snapshot returns the snapshot store
-	Snapshot() snapshot.SnapshotStore
+	Snapshot() snapshot.Store
 
 	// Close closes the store
 	Close() error
@@ -51,24 +51,24 @@ type Store interface {
 // store is the default implementation of Store
 type store struct {
 	log      log.Log
-	reader   log.LogReader
-	writer   log.LogWriter
-	snapshot snapshot.SnapshotStore
+	reader   log.Reader
+	writer   log.Writer
+	snapshot snapshot.Store
 }
 
 func (s *store) Log() log.Log {
 	return s.log
 }
 
-func (s *store) Reader() log.LogReader {
+func (s *store) Reader() log.Reader {
 	return s.reader
 }
 
-func (s *store) Writer() log.LogWriter {
+func (s *store) Writer() log.Writer {
 	return s.writer
 }
 
-func (s *store) Snapshot() snapshot.SnapshotStore {
+func (s *store) Snapshot() snapshot.Store {
 	return s.snapshot
 }
 

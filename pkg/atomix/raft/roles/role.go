@@ -22,12 +22,18 @@ import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 )
 
+// RoleType is a name for a Raft role
 type RoleType string
 
 const (
-	RoleFollower  RoleType = "Follower"
+	// RoleFollower is the type for a Raft follower
+	RoleFollower RoleType = "Follower"
+
+	// RoleCandidate is the type for a Raft candidate
 	RoleCandidate RoleType = "Candidate"
-	RoleLeader    RoleType = "Leader"
+
+	// RoleLeader is the type for a Raft leader
+	RoleLeader RoleType = "Leader"
 )
 
 // NewInitialRole returns an initial Role instance

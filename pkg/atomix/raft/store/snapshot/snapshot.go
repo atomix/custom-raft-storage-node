@@ -21,15 +21,15 @@ import (
 	"time"
 )
 
-// NewMemorySnapshotStore creates a new in-memory snapshot store
-func NewMemorySnapshotStore() SnapshotStore {
+// NewMemoryStore creates a new in-memory snapshot store
+func NewMemoryStore() Store {
 	return &memorySnapshotStore{
 		snapshots: make(map[raft.Index]Snapshot),
 	}
 }
 
-// SnapshotStore is an interface for managing snapshots
-type SnapshotStore interface {
+// Store is an interface for managing snapshots
+type Store interface {
 	// NewSnapshot creates a new snapshot
 	NewSnapshot(index raft.Index, timestamp time.Time) Snapshot
 
@@ -55,7 +55,7 @@ type Snapshot interface {
 	Writer() io.WriteCloser
 }
 
-// memorySnapshotStore is an in-memory SnapshotStore
+// memorySnapshotStore is an in-memory Store
 type memorySnapshotStore struct {
 	snapshots       map[raft.Index]Snapshot
 	currentSnapshot Snapshot

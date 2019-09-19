@@ -46,7 +46,7 @@ func (r *LeaderRole) Name() string {
 	return string(RoleLeader)
 }
 
-// start starts the leader
+// Start starts the leader
 func (r *LeaderRole) Start() error {
 	r.setLeadership()
 	go r.startAppender()
@@ -244,7 +244,7 @@ func (r *LeaderRole) Query(request *raft.QueryRequest, server raft.RaftService_Q
 	r.raft.ReadLock()
 
 	// Create the entry to apply to the state machine.
-	entry := &log.LogEntry{
+	entry := &log.Entry{
 		Index: r.store.Writer().LastIndex(),
 		Entry: &raft.RaftLogEntry{
 			Term:      r.raft.Term(),
@@ -273,7 +273,7 @@ func (r *LeaderRole) Query(request *raft.QueryRequest, server raft.RaftService_Q
 }
 
 // queryLinearizable performs a linearizable query
-func (r *LeaderRole) queryLinearizable(entry *log.LogEntry, server raft.RaftService_QueryServer) error {
+func (r *LeaderRole) queryLinearizable(entry *log.Entry, server raft.RaftService_QueryServer) error {
 	// Create a result channel
 	ch := make(chan node.Output)
 
@@ -310,12 +310,12 @@ func (r *LeaderRole) queryLinearizable(entry *log.LogEntry, server raft.RaftServ
 }
 
 // queryLinearizableLease performs a lease query
-func (r *LeaderRole) queryLinearizableLease(entry *log.LogEntry, server raft.RaftService_QueryServer) error {
+func (r *LeaderRole) queryLinearizableLease(entry *log.Entry, server raft.RaftService_QueryServer) error {
 	return r.applyQuery(entry, server)
 }
 
 // querySequential performs a sequential query
-func (r *LeaderRole) querySequential(entry *log.LogEntry, server raft.RaftService_QueryServer) error {
+func (r *LeaderRole) querySequential(entry *log.Entry, server raft.RaftService_QueryServer) error {
 	return r.applyQuery(entry, server)
 }
 
@@ -326,7 +326,7 @@ func (r *LeaderRole) stepDown() {
 	}
 }
 
-// stop stops the leader
+// Stop stops the leader
 func (r *LeaderRole) Stop() error {
 	r.appender.stop()
 	r.stepDown()

@@ -59,6 +59,6 @@ func (s *memoryMetadataStore) LoadVote() *MemberID {
 	return s.vote
 }
 
-func (c *memoryMetadataStore) Close() error {
+func (s *memoryMetadataStore) Close() error {
 	return nil
 }

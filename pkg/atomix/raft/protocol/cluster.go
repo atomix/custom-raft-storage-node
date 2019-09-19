@@ -129,15 +129,3 @@ func (c *cluster) GetClient(member MemberID) (RaftServiceClient, error) {
 	}
 	return client, nil
 }
-
-// resetClient resets the client/connection to the given member
-func (c *cluster) resetClient(member MemberID) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	conn, ok := c.conns[member]
-	if ok {
-		_ = conn.Close()
-		delete(c.conns, member)
-		delete(c.clients, member)
-	}
-}

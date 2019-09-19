@@ -21,12 +21,12 @@ import (
 
 // NewMemoryLog creates a new in-memory Log
 func NewMemoryLog() Log {
-	log := &memoryRaftLog{
-		entries:    make([]*LogEntry, 0, 1024),
+	log := &memoryLog{
+		entries:    make([]*Entry, 0, 1024),
 		firstIndex: 1,
-		readers:    make([]*memoryRaftLogReader, 0, 10),
+		readers:    make([]*memoryReader, 0, 10),
 	}
-	log.writer = &memoryRaftLogWriter{
+	log.writer = &memoryWriter{
 		log: log,
 	}
 	return log
@@ -37,24 +37,24 @@ type Log interface {
 	io.Closer
 
 	// Writer returns the Raft log writer
-	Writer() LogWriter
+	Writer() Writer
 
 	// OpenReader opens a Raft log reader
-	OpenReader(index raft.Index) LogReader
+	OpenReader(index raft.Index) Reader
 }
 
-// LogWriter supports writing entries to the Raft log
-type LogWriter interface {
+// Writer supports writing entries to the Raft log
+type Writer interface {
 	io.Closer
 
 	// LastIndex returns the last index written to the log
 	LastIndex() raft.Index
 
 	// LastEntry returns the last entry written to the log
-	LastEntry() *LogEntry
+	LastEntry() *Entry
 
 	// Append appends the given entry to the log
-	Append(entry *raft.RaftLogEntry) *LogEntry
+	Append(entry *raft.RaftLogEntry) *Entry
 
 	// Reset resets the log writer to the given index
 	Reset(index raft.Index)
@@ -63,8 +63,8 @@ type LogWriter interface {
 	Truncate(index raft.Index)
 }
 
-// LogReader supports reading of entries from the Raft log
-type LogReader interface {
+// Reader supports reading of entries from the Raft log
+type Reader interface {
 	io.Closer
 
 	// FirstIndex returns the first index in the log
@@ -76,37 +76,37 @@ type LogReader interface {
 	// CurrentIndex returns the current index of the reader
 	CurrentIndex() raft.Index
 
-	// CurrentEntry returns the current LogEntry
-	CurrentEntry() *LogEntry
+	// CurrentEntry returns the current Entry
+	CurrentEntry() *Entry
 
 	// NextIndex returns the next index in the log
 	NextIndex() raft.Index
 
 	// NextEntry advances the log index and returns the next entry in the log
-	NextEntry() *LogEntry
+	NextEntry() *Entry
 
 	// Reset resets the log reader to the given index
 	Reset(index raft.Index)
 }
 
-// LogEntry is an indexed Raft log entry
-type LogEntry struct {
+// Entry is an indexed Raft log entry
+type Entry struct {
 	Index raft.Index
 	Entry *raft.RaftLogEntry
 }
 
-type memoryRaftLog struct {
-	entries    []*LogEntry
+type memoryLog struct {
+	entries    []*Entry
 	firstIndex raft.Index
-	writer     *memoryRaftLogWriter
-	readers    []*memoryRaftLogReader
+	writer     *memoryWriter
+	readers    []*memoryReader
 }
 
-func (l *memoryRaftLog) Writer() LogWriter {
+func (l *memoryLog) Writer() Writer {
 	return l.writer
 }
 
-func (l *memoryRaftLog) OpenReader(index raft.Index) LogReader {
+func (l *memoryLog) OpenReader(index raft.Index) Reader {
 	readerIndex := -1
 	for i := 0; i < len(l.entries); i++ {
 		if l.entries[i].Index == index {
@@ -114,7 +114,7 @@ func (l *memoryRaftLog) OpenReader(index raft.Index) LogReader {
 			break
 		}
 	}
-	reader := &memoryRaftLogReader{
+	reader := &memoryReader{
 		log:   l,
 		index: readerIndex,
 	}
@@ -122,37 +122,37 @@ func (l *memoryRaftLog) OpenReader(index raft.Index) LogReader {
 	return reader
 }
 
-func (l *memoryRaftLog) Close() error {
+func (l *memoryLog) Close() error {
 	return nil
 }
 
-type memoryRaftLogWriter struct {
-	log *memoryRaftLog
+type memoryWriter struct {
+	log *memoryLog
 }
 
-func (w *memoryRaftLogWriter) LastIndex() raft.Index {
+func (w *memoryWriter) LastIndex() raft.Index {
 	if entry := w.LastEntry(); entry != nil {
 		return entry.Index
 	}
 	return w.log.firstIndex - 1
 }
 
-func (w *memoryRaftLogWriter) LastEntry() *LogEntry {
+func (w *memoryWriter) LastEntry() *Entry {
 	if len(w.log.entries) == 0 {
 		return nil
 	}
 	return w.log.entries[len(w.log.entries)-1]
 }
 
-func (w *memoryRaftLogWriter) nextIndex() raft.Index {
+func (w *memoryWriter) nextIndex() raft.Index {
 	if len(w.log.entries) == 0 {
 		return w.log.firstIndex
 	}
 	return w.log.entries[len(w.log.entries)-1].Index + 1
 }
 
-func (w *memoryRaftLogWriter) Append(entry *raft.RaftLogEntry) *LogEntry {
-	indexed := &LogEntry{
+func (w *memoryWriter) Append(entry *raft.RaftLogEntry) *Entry {
+	indexed := &Entry{
 		Index: w.nextIndex(),
 		Entry: entry,
 	}
@@ -160,7 +160,7 @@ func (w *memoryRaftLogWriter) Append(entry *raft.RaftLogEntry) *LogEntry {
 	return indexed
 }
 
-func (w *memoryRaftLogWriter) Reset(index raft.Index) {
+func (w *memoryWriter) Reset(index raft.Index) {
 	w.log.entries = w.log.entries[:0]
 	w.log.firstIndex = index
 	for _, reader := range w.log.readers {
@@ -168,7 +168,7 @@ func (w *memoryRaftLogWriter) Reset(index raft.Index) {
 	}
 }
 
-func (w *memoryRaftLogWriter) Truncate(index raft.Index) {
+func (w *memoryWriter) Truncate(index raft.Index) {
 	for i := 0; i < len(w.log.entries); i++ {
 		if w.log.entries[i].Index > index {
 			w.log.entries = w.log.entries[:i]
@@ -180,48 +180,48 @@ func (w *memoryRaftLogWriter) Truncate(index raft.Index) {
 	}
 }
 
-func (w *memoryRaftLogWriter) Close() error {
+func (w *memoryWriter) Close() error {
 	panic("implement me")
 }
 
-type memoryRaftLogReader struct {
-	log   *memoryRaftLog
+type memoryReader struct {
+	log   *memoryLog
 	index int
 }
 
-func (r *memoryRaftLogReader) FirstIndex() raft.Index {
+func (r *memoryReader) FirstIndex() raft.Index {
 	return r.log.firstIndex
 }
 
-func (r *memoryRaftLogReader) LastIndex() raft.Index {
+func (r *memoryReader) LastIndex() raft.Index {
 	if len(r.log.entries) == 0 {
 		return r.log.firstIndex - 1
 	}
 	return r.log.entries[len(r.log.entries)-1].Index
 }
 
-func (r *memoryRaftLogReader) CurrentIndex() raft.Index {
+func (r *memoryReader) CurrentIndex() raft.Index {
 	if r.index == -1 || len(r.log.entries) == 0 {
 		return r.log.firstIndex - 1
 	}
 	return r.log.entries[r.index].Index
 }
 
-func (r *memoryRaftLogReader) CurrentEntry() *LogEntry {
+func (r *memoryReader) CurrentEntry() *Entry {
 	if r.index == -1 || len(r.log.entries) == 0 {
 		return nil
 	}
 	return r.log.entries[r.index]
 }
 
-func (r *memoryRaftLogReader) NextIndex() raft.Index {
+func (r *memoryReader) NextIndex() raft.Index {
 	if r.index == -1 || len(r.log.entries) == 0 {
 		return r.log.firstIndex
 	}
 	return r.log.entries[r.index].Index + 1
 }
 
-func (r *memoryRaftLogReader) NextEntry() *LogEntry {
+func (r *memoryReader) NextEntry() *Entry {
 	if len(r.log.entries) > r.index+1 {
 		r.index++
 		return r.log.entries[r.index]
@@ -229,7 +229,7 @@ func (r *memoryRaftLogReader) NextEntry() *LogEntry {
 	return nil
 }
 
-func (r *memoryRaftLogReader) Reset(index raft.Index) {
+func (r *memoryReader) Reset(index raft.Index) {
 	for i := 0; i < len(r.log.entries); i++ {
 		if r.log.entries[i].Index >= index {
 			r.index = i - 1
@@ -238,12 +238,12 @@ func (r *memoryRaftLogReader) Reset(index raft.Index) {
 	}
 }
 
-func (r *memoryRaftLogReader) maybeReset() {
+func (r *memoryReader) maybeReset() {
 	if r.index >= 0 && len(r.log.entries) <= r.index {
 		r.index = len(r.log.entries) - 1
 	}
 }
 
-func (r *memoryRaftLogReader) Close() error {
+func (r *memoryReader) Close() error {
 	return nil
 }

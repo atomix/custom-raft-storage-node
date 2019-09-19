@@ -22,7 +22,7 @@ import (
 )
 
 func TestSnapshot(t *testing.T) {
-	store := NewMemorySnapshotStore()
+	store := NewMemoryStore()
 	assert.Nil(t, store.CurrentSnapshot())
 
 	ts := time.Now()

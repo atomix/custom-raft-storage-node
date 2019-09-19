@@ -43,7 +43,7 @@ type Manager interface {
 	ApplyIndex(index raft.Index)
 
 	// Apply applies a committed entry to the state machine
-	ApplyEntry(entry *log.LogEntry, ch chan<- node.Output)
+	ApplyEntry(entry *log.Entry, ch chan<- node.Output)
 
 	// Close closes the state manager
 	Close() error
@@ -62,7 +62,7 @@ type manager struct {
 	currentIndex raft.Index
 	currentTime  time.Time
 	lastApplied  raft.Index
-	reader       log.LogReader
+	reader       log.Reader
 	operation    service.OperationType
 	ch           chan *change
 }
@@ -75,14 +75,14 @@ func (m *manager) Node() string {
 // applyIndex applies entries up to the given index
 func (m *manager) ApplyIndex(index raft.Index) {
 	m.ch <- &change{
-		entry: &log.LogEntry{
+		entry: &log.Entry{
 			Index: index,
 		},
 	}
 }
 
 // applyEntry enqueues the given entry to be applied to the state machine, returning output on the given channel
-func (m *manager) ApplyEntry(entry *log.LogEntry, ch chan<- node.Output) {
+func (m *manager) ApplyEntry(entry *log.Entry, ch chan<- node.Output) {
 	m.ch <- &change{
 		entry:  entry,
 		result: ch,
@@ -137,7 +137,7 @@ func (m *manager) execPendingChanges(index raft.Index) {
 }
 
 // execEntry applies the given entry to the state machine and returns the result(s) on the given channel
-func (m *manager) execEntry(entry *log.LogEntry, ch chan<- node.Output) {
+func (m *manager) execEntry(entry *log.Entry, ch chan<- node.Output) {
 	m.log.Trace("Applying %d", entry.Index)
 	if entry.Entry == nil {
 		m.reader.Reset(entry.Index)
@@ -184,7 +184,7 @@ func (m *manager) execCommand(index raft.Index, timestamp time.Time, command *ra
 }
 
 type change struct {
-	entry  *log.LogEntry
+	entry  *log.Entry
 	result chan<- node.Output
 }
 

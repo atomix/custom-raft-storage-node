@@ -237,7 +237,7 @@ func (r *PassiveRole) appendEntries(request *raft.AppendRequest) (*raft.AppendRe
 
 		// Iterate through entries in the request and apply committed entries to the state machine.
 		for i := 0; request.PrevLogIndex+raft.Index(i)+1 <= commitIndex && i < len(request.Entries); i++ {
-			r.state.ApplyEntry(&log.LogEntry{
+			r.state.ApplyEntry(&log.Entry{
 				Index: request.PrevLogIndex + raft.Index(i) + 1,
 				Entry: request.Entries[i],
 			}, nil)
@@ -360,7 +360,7 @@ func (r *PassiveRole) Query(request *raft.QueryRequest, server raft.RaftService_
 			return r.forwardQuery(request, leader, server)
 		}
 
-		entry := &log.LogEntry{
+		entry := &log.Entry{
 			Index: r.store.Writer().LastIndex(),
 			Entry: &raft.RaftLogEntry{
 				Term:      r.raft.Term(),
@@ -383,7 +383,7 @@ func (r *PassiveRole) Query(request *raft.QueryRequest, server raft.RaftService_
 }
 
 // applyQuery applies a query to the state machine
-func (r *PassiveRole) applyQuery(entry *log.LogEntry, server raft.RaftService_QueryServer) error {
+func (r *PassiveRole) applyQuery(entry *log.Entry, server raft.RaftService_QueryServer) error {
 	// Create a result channel
 	ch := make(chan node.Output)
 

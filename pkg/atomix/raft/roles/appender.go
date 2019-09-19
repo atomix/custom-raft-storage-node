@@ -112,7 +112,7 @@ func (a *raftAppender) heartbeat() error {
 }
 
 // commit replicates the given entry to followers and returns once the entry is committed
-func (a *raftAppender) commit(entry *log.LogEntry, f func()) error {
+func (a *raftAppender) commit(entry *log.Entry, f func()) error {
 	// If there are no members to send the entry to, immediately commit it.
 	if len(a.members) == 0 {
 		a.raft.WriteLock()
@@ -299,7 +299,7 @@ func newMemberAppender(state raft.Raft, sm state.Manager, store store.Store, log
 		log:         logger,
 		member:      member,
 		nextIndex:   reader.LastIndex() + 1,
-		entryCh:     make(chan *log.LogEntry),
+		entryCh:     make(chan *log.Entry),
 		appendCh:    make(chan bool),
 		commitCh:    commitCh,
 		failCh:      failCh,
@@ -327,7 +327,7 @@ type memberAppender struct {
 	appending        bool
 	failureCount     int
 	firstFailureTime time.Time
-	entryCh          chan *log.LogEntry
+	entryCh          chan *log.Entry
 	appendCh         chan bool
 	commitCh         chan<- memberCommit
 	failCh           chan<- time.Time
@@ -335,7 +335,7 @@ type memberAppender struct {
 	tickCh           <-chan time.Time
 	tickTicker       *time.Ticker
 	stopped          chan bool
-	reader           log.LogReader
+	reader           log.Reader
 	queue            *list.List
 	mu               sync.Mutex
 }
@@ -561,7 +561,7 @@ func (a *memberAppender) entriesAppendRequest() *raft.AppendRequest {
 		a.mu.Lock()
 		entry := a.queue.Front()
 		if entry != nil {
-			indexed := entry.Value.(*log.LogEntry)
+			indexed := entry.Value.(*log.Entry)
 			if indexed.Index == nextIndex {
 				entriesList.PushBack(indexed.Entry)
 				a.queue.Remove(entry)
