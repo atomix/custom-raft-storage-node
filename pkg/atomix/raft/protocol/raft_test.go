@@ -49,7 +49,7 @@ func TestRaftProtocol(t *testing.T) {
 
 	store := newMemoryMetadataStore()
 	electionTimeout := 10 * time.Second
-	raft := newProtocol(NewCluster(cluster), &config.ProtocolConfig{ElectionTimeout: &electionTimeout}, &UnimplementedClient{}, store)
+	raft := newProtocol(NewCluster(cluster), &config.ProtocolConfig{ElectionTimeout: &electionTimeout}, &unimplementedClient{}, store)
 	assert.Equal(t, StatusStopped, raft.Status())
 	statusCh := make(chan Status, 1)
 	raft.WatchStatus(func(status Status) {
@@ -141,7 +141,7 @@ func TestRaftProtocol(t *testing.T) {
 	assert.Equal(t, StatusStopped, <-statusCh)
 
 	// Verify that the cluster state is reloaded from the metadata store when restarted
-	raft = newProtocol(NewCluster(cluster), &config.ProtocolConfig{}, &UnimplementedClient{}, store)
+	raft = newProtocol(NewCluster(cluster), &config.ProtocolConfig{}, &unimplementedClient{}, store)
 	assert.Equal(t, StatusStopped, raft.Status())
 	raft.Init()
 	assert.Equal(t, StatusRunning, raft.Status())

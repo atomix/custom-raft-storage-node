@@ -18,15 +18,18 @@ import (
 	"context"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol/mock"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
 func TestUpdateTermAndLeader(t *testing.T) {
-	protocol, sm, stores := newTestState(&raft.UnimplementedClient{})
+	ctrl := gomock.NewController(t)
+	protocol, sm, stores := newTestState(mock.NewMockClient(ctrl))
 	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	foo := raft.MemberID("foo")
@@ -40,7 +43,8 @@ func TestUpdateTermAndLeader(t *testing.T) {
 }
 
 func TestPassiveAppend(t *testing.T) {
-	protocol, sm, stores := newTestState(&raft.UnimplementedClient{})
+	ctrl := gomock.NewController(t)
+	protocol, sm, stores := newTestState(mock.NewMockClient(ctrl))
 	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	// Test updating the term/leader
@@ -205,7 +209,8 @@ func TestPassiveAppend(t *testing.T) {
 }
 
 func TestPassiveCommand(t *testing.T) {
-	protocol, sm, stores := newTestState(&raft.UnimplementedClient{})
+	ctrl := gomock.NewController(t)
+	protocol, sm, stores := newTestState(mock.NewMockClient(ctrl))
 	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 
@@ -232,7 +237,10 @@ func TestPassiveCommand(t *testing.T) {
 }
 
 func TestPassiveQuery(t *testing.T) {
-	protocol, sm, stores := newTestState(&queryProtocol{})
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	expectQuery(client).AnyTimes()
+	protocol, sm, stores := newTestState(client)
 	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 
@@ -295,18 +303,19 @@ func TestPassiveQuery(t *testing.T) {
 	assert.Equal(t, raft.ResponseStatus_OK, response.Response.Status)
 }
 
-type queryProtocol struct {
-	*raft.UnimplementedClient
-}
-
-func (p *queryProtocol) Query(ctx context.Context, request *raft.QueryRequest, member raft.MemberID) (<-chan *raft.QueryStreamResponse, error) {
-	ch := make(chan *raft.QueryStreamResponse, 1)
-	ch <- &raft.QueryStreamResponse{
-		StreamMessage: &raft.StreamMessage{},
-		Response: &raft.QueryResponse{
-			Status: raft.ResponseStatus_OK,
-		},
-	}
-	defer close(ch)
-	return ch, nil
+// expectQuery expects a successful query response
+func expectQuery(client *mock.MockClient) *gomock.Call {
+	return client.EXPECT().
+		Query(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, request *raft.QueryRequest, member raft.MemberID) (<-chan *raft.QueryStreamResponse, error) {
+			ch := make(chan *raft.QueryStreamResponse, 1)
+			ch <- &raft.QueryStreamResponse{
+				StreamMessage: &raft.StreamMessage{},
+				Response: &raft.QueryResponse{
+					Status: raft.ResponseStatus_OK,
+				},
+			}
+			defer close(ch)
+			return ch, nil
+		})
 }

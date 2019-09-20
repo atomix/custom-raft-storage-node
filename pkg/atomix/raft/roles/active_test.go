@@ -17,14 +17,17 @@ package roles
 import (
 	"context"
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol/mock"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
 func TestActiveAppend(t *testing.T) {
-	protocol, sm, stores := newTestState(&raft.UnimplementedClient{})
+	ctrl := gomock.NewController(t)
+	protocol, sm, stores := newTestState(mock.NewMockClient(ctrl))
 	role := newActiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	// Test accepting the current term/leader
@@ -67,7 +70,8 @@ func TestActiveAppend(t *testing.T) {
 }
 
 func TestActivePoll(t *testing.T) {
-	protocol, sm, stores := newTestState(&raft.UnimplementedClient{})
+	ctrl := gomock.NewController(t)
+	protocol, sm, stores := newTestState(mock.NewMockClient(ctrl))
 	role := newActiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	// Test rejecting a poll for an old term
@@ -172,7 +176,8 @@ func TestActivePoll(t *testing.T) {
 }
 
 func TestActiveVote(t *testing.T) {
-	protocol, sm, stores := newTestState(&raft.UnimplementedClient{})
+	ctrl := gomock.NewController(t)
+	protocol, sm, stores := newTestState(mock.NewMockClient(ctrl))
 	role := newActiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	// Test rejecting a vote request for an old term

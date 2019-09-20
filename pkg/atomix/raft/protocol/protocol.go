@@ -16,7 +16,6 @@ package protocol
 
 import (
 	"context"
-	"errors"
 	"io"
 )
 
@@ -452,61 +451,7 @@ func (p *gRPCClient) Query(ctx context.Context, request *QueryRequest, member Me
 	return ch, nil
 }
 
-// UnimplementedClient is a Client implementation that supports overrides of individual protocol methods
-type UnimplementedClient struct {
-}
-
-// Join sends a join request to the given member
-func (p *UnimplementedClient) Join(ctx context.Context, request *JoinRequest, member MemberID) (*JoinResponse, error) {
-	return nil, errors.New("not implemented")
-}
-
-// Leave sends a leave request to the given member
-func (p *UnimplementedClient) Leave(ctx context.Context, request *LeaveRequest, member MemberID) (*LeaveResponse, error) {
-	return nil, errors.New("not implemented")
-}
-
-// Configure sends a configure request to the given member
-func (p *UnimplementedClient) Configure(ctx context.Context, request *ConfigureRequest, member MemberID) (*ConfigureResponse, error) {
-	return nil, errors.New("not implemented")
-}
-
-// Reconfigure sends a reconfigure request to the given member
-func (p *UnimplementedClient) Reconfigure(ctx context.Context, request *ReconfigureRequest, member MemberID) (*ReconfigureResponse, error) {
-	return nil, errors.New("not implemented")
-}
-
-// Poll sends a poll request to the given member
-func (p *UnimplementedClient) Poll(ctx context.Context, request *PollRequest, member MemberID) (*PollResponse, error) {
-	return nil, errors.New("not implemented")
-}
-
-// Vote sends a vote request to the given member
-func (p *UnimplementedClient) Vote(ctx context.Context, request *VoteRequest, member MemberID) (*VoteResponse, error) {
-	return nil, errors.New("not implemented")
-}
-
-// Transfer sends a transfer request to the given member
-func (p *UnimplementedClient) Transfer(ctx context.Context, request *TransferRequest, member MemberID) (*TransferResponse, error) {
-	return nil, errors.New("not implemented")
-}
-
-// Append sends an append request to the given member
-func (p *UnimplementedClient) Append(ctx context.Context, request *AppendRequest, member MemberID) (*AppendResponse, error) {
-	return nil, errors.New("not implemented")
-}
-
-// Install sends a stream of install requests to the given member
-func (p *UnimplementedClient) Install(ctx context.Context, member MemberID) (chan<- *InstallRequest, <-chan *InstallStreamResponse, error) {
-	return nil, nil, errors.New("not implemented")
-}
-
-// Command sends a command request to the given member
-func (p *UnimplementedClient) Command(ctx context.Context, request *CommandRequest, member MemberID) (<-chan *CommandStreamResponse, error) {
-	return nil, errors.New("not implemented")
-}
-
-// Query sends a query request to the given member
-func (p *UnimplementedClient) Query(ctx context.Context, request *QueryRequest, member MemberID) (<-chan *QueryStreamResponse, error) {
-	return nil, errors.New("not implemented")
+// unimplementedClient is a Client implementation that supports overrides of individual protocol methods
+type unimplementedClient struct {
+	Client
 }

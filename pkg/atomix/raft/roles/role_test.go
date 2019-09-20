@@ -20,9 +20,11 @@ import (
 	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol/mock"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/state"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -55,7 +57,8 @@ func newTestState(client raft.Client) (raft.Raft, state.Manager, store.Store) {
 }
 
 func TestRole(t *testing.T) {
-	protocol, sm, stores := newTestState(&raft.UnimplementedClient{})
+	ctrl := gomock.NewController(t)
+	protocol, sm, stores := newTestState(mock.NewMockClient(ctrl))
 	role := newRaftRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	joinResponse, err := role.Join(context.TODO(), &raft.JoinRequest{})

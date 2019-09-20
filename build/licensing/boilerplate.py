@@ -124,6 +124,8 @@ def file_passes(filename, refs, regexs):
             (data[i], found) = p.subn('YEAR', d)
             if found != 0:
                 break
+    else:
+        return True
 
     # if we don't match the reference at this point, fail
     if ref != data:
