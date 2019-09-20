@@ -77,7 +77,7 @@ func (s *Server) Start() error {
 	}
 
 	s.server = grpc.NewServer()
-	raft.RegisterRaftServiceServer(s.server, s.raft)
+	raft.RegisterRaftServiceServer(s.server, raft.NewServer(s.raft))
 	s.mu.Unlock()
 	return s.server.Serve(lis)
 }

@@ -25,6 +25,11 @@ func NewClient(cluster Cluster) Client {
 	return &gRPCClient{cluster}
 }
 
+// NewServer creates a new RaftServiceServer for the given Server
+func NewServer(server Server) RaftServiceServer {
+	return &gRPCServer{server}
+}
+
 // Client is an interface for sending messages to Raft nodes
 type Client interface {
 	// Join sends a join request
@@ -174,6 +179,115 @@ func NewQueryStreamResponse(response *QueryResponse, err error) *QueryStreamResp
 type QueryStreamResponse struct {
 	*StreamMessage
 	Response *QueryResponse
+}
+
+// gRPCServer implements the gRPC server interface to proxy calls to Servers
+type gRPCServer struct {
+	server Server
+}
+
+func (s *gRPCServer) Join(ctx context.Context, request *JoinRequest) (*JoinResponse, error) {
+	return s.server.Join(ctx, request)
+}
+
+func (s *gRPCServer) Leave(ctx context.Context, request *LeaveRequest) (*LeaveResponse, error) {
+	return s.server.Leave(ctx, request)
+}
+
+func (s *gRPCServer) Configure(ctx context.Context, request *ConfigureRequest) (*ConfigureResponse, error) {
+	return s.server.Configure(ctx, request)
+}
+
+func (s *gRPCServer) Reconfigure(ctx context.Context, request *ReconfigureRequest) (*ReconfigureResponse, error) {
+	return s.server.Reconfigure(ctx, request)
+}
+
+func (s *gRPCServer) Poll(ctx context.Context, request *PollRequest) (*PollResponse, error) {
+	return s.server.Poll(ctx, request)
+}
+
+func (s *gRPCServer) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
+	return s.server.Vote(ctx, request)
+}
+
+func (s *gRPCServer) Transfer(ctx context.Context, request *TransferRequest) (*TransferResponse, error) {
+	return s.server.Transfer(ctx, request)
+}
+
+func (s *gRPCServer) Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
+	return s.server.Append(ctx, request)
+}
+
+func (s *gRPCServer) Install(stream RaftService_InstallServer) error {
+	ch := make(chan *InstallStreamRequest)
+	go func() {
+		for {
+			request, err := stream.Recv()
+			if err != nil {
+				if err != io.EOF {
+					ch <- NewInstallStreamRequest(nil, err)
+				}
+				close(ch)
+				break
+			} else {
+				ch <- NewInstallStreamRequest(request, nil)
+			}
+		}
+	}()
+
+	response, err := s.server.Install(ch)
+	if err != nil {
+		return err
+	}
+	return stream.SendAndClose(response)
+}
+
+func (s *gRPCServer) Command(request *CommandRequest, stream RaftService_CommandServer) error {
+	responseCh := make(chan *CommandStreamResponse)
+	errCh := make(chan error)
+	go func() {
+		for response := range responseCh {
+			if response.Failed() {
+				errCh <- response.Error
+			} else if err := stream.Send(response.Response); err != nil {
+				errCh <- response.Error
+			}
+		}
+		close(errCh)
+	}()
+	if err := s.server.Command(request, responseCh); err != nil {
+		return err
+	}
+
+	err, ok := <-errCh
+	if ok {
+		return err
+	}
+	return nil
+}
+
+func (s *gRPCServer) Query(request *QueryRequest, stream RaftService_QueryServer) error {
+	responseCh := make(chan *QueryStreamResponse)
+	errCh := make(chan error)
+	go func() {
+		for response := range responseCh {
+			if response.Failed() {
+				errCh <- response.Error
+			} else if err := stream.Send(response.Response); err != nil {
+				errCh <- response.Error
+			}
+		}
+		close(errCh)
+	}()
+	if err := s.server.Query(request, responseCh); err != nil {
+		return err
+	}
+
+	err, ok := <-errCh
+	if ok {
+		return err
+	}
+	return nil
 }
 
 // gRPCClient uses gRPC clients to send messages to remote nodes

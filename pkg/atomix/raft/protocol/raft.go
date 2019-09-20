@@ -16,11 +16,9 @@ package protocol
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
-	"io"
 	"sync"
 )
 
@@ -68,7 +66,7 @@ type Term uint64
 
 // Raft is an interface for managing the state of the Raft consensus protocol
 type Raft interface {
-	RaftServiceServer
+	Server
 
 	// Init initializes the Raft state
 	Init()
@@ -381,114 +379,48 @@ func (r *raft) getRole() Role {
 	return r.role
 }
 
-// Poll handles a poll request
 func (r *raft) Poll(ctx context.Context, request *PollRequest) (*PollResponse, error) {
 	return r.getRole().Poll(ctx, request)
 }
 
-// Vote handles a vote request
 func (r *raft) Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error) {
 	return r.getRole().Vote(ctx, request)
 }
 
-// Append handles an append request
 func (r *raft) Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error) {
 	return r.getRole().Append(ctx, request)
 }
 
-// Install handles an install request
-func (r *raft) Install(server RaftService_InstallServer) error {
-	ch := make(chan *InstallStreamRequest)
-	go func() {
-		for {
-			request, err := server.Recv()
-			if err != nil {
-				if err != io.EOF {
-					ch <- NewInstallStreamRequest(nil, err)
-				}
-				close(ch)
-				break
-			} else {
-				ch <- NewInstallStreamRequest(request, nil)
-			}
-		}
-	}()
-
-	response, err := r.getRole().Install(ch)
-	if err != nil {
-		return err
-	}
-	return server.SendAndClose(response)
+func (r *raft) Install(ch <-chan *InstallStreamRequest) (*InstallResponse, error) {
+	return r.getRole().Install(ch)
 }
 
-// Command handles a client command request
-func (r *raft) Command(request *CommandRequest, server RaftService_CommandServer) error {
-	responseCh := make(chan *CommandStreamResponse)
-	errCh := make(chan error)
-	go func() {
-		for response := range responseCh {
-			if response.Failed() {
-				errCh <- response.Error
-			} else if err := server.Send(response.Response); err != nil {
-				errCh <- response.Error
-			}
-		}
-		close(errCh)
-	}()
-	if err := r.getRole().Command(request, responseCh); err != nil {
-		return err
-	}
-
-	err, ok := <-errCh
-	if ok {
-		return err
-	}
-	return nil
+func (r *raft) Command(request *CommandRequest, ch chan<- *CommandStreamResponse) error {
+	return r.getRole().Command(request, ch)
 }
 
-// Query handles a client query request
-func (r *raft) Query(request *QueryRequest, server RaftService_QueryServer) error {
-	responseCh := make(chan *QueryStreamResponse)
-	errCh := make(chan error)
-	go func() {
-		for response := range responseCh {
-			if response.Failed() {
-				errCh <- response.Error
-			} else if err := server.Send(response.Response); err != nil {
-				errCh <- response.Error
-			}
-		}
-		close(errCh)
-	}()
-	if err := r.getRole().Query(request, responseCh); err != nil {
-		return err
-	}
-
-	err, ok := <-errCh
-	if ok {
-		return err
-	}
-	return nil
+func (r *raft) Query(request *QueryRequest, ch chan<- *QueryStreamResponse) error {
+	return r.getRole().Query(request, ch)
 }
 
-func (r *raft) Join(context.Context, *JoinRequest) (*JoinResponse, error) {
-	return nil, errors.New("not supported")
+func (r *raft) Join(ctx context.Context, request *JoinRequest) (*JoinResponse, error) {
+	return r.getRole().Join(ctx, request)
 }
 
-func (r *raft) Leave(context.Context, *LeaveRequest) (*LeaveResponse, error) {
-	return nil, errors.New("not supported")
+func (r *raft) Leave(ctx context.Context, request *LeaveRequest) (*LeaveResponse, error) {
+	return r.getRole().Leave(ctx, request)
 }
 
-func (r *raft) Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error) {
-	return nil, errors.New("not supported")
+func (r *raft) Configure(ctx context.Context, request *ConfigureRequest) (*ConfigureResponse, error) {
+	return r.getRole().Configure(ctx, request)
 }
 
-func (r *raft) Reconfigure(context.Context, *ReconfigureRequest) (*ReconfigureResponse, error) {
-	return nil, errors.New("not supported")
+func (r *raft) Reconfigure(ctx context.Context, request *ReconfigureRequest) (*ReconfigureResponse, error) {
+	return r.getRole().Reconfigure(ctx, request)
 }
 
-func (r *raft) Transfer(context.Context, *TransferRequest) (*TransferResponse, error) {
-	return nil, errors.New("not supported")
+func (r *raft) Transfer(ctx context.Context, request *TransferRequest) (*TransferResponse, error) {
+	return r.getRole().Transfer(ctx, request)
 }
 
 func (r *raft) Close() error {
