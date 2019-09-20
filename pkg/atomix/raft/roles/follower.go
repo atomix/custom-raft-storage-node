@@ -240,10 +240,10 @@ func (r *FollowerRole) Configure(ctx context.Context, request *raft.ConfigureReq
 }
 
 // Install handles an install request
-func (r *FollowerRole) Install(stream raft.RaftService_InstallServer) error {
-	err := r.PassiveRole.Install(stream)
+func (r *FollowerRole) Install(ch <-chan *raft.InstallStreamRequest) (*raft.InstallResponse, error) {
+	response, err := r.PassiveRole.Install(ch)
 	r.resetHeartbeatTimeout()
-	return err
+	return response, err
 }
 
 // Append handles an append request

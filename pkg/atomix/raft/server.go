@@ -37,7 +37,7 @@ func NewServer(clusterConfig cluster.Cluster, registry *node.Registry, protocolC
 	}
 
 	cluster := raft.NewCluster(clusterConfig)
-	protocol := raft.NewProtocol(cluster)
+	protocol := raft.NewClient(cluster)
 	raft := raft.NewRaft(cluster, protocolConfig, protocol)
 	store := store.NewMemoryStore()
 	state := state.NewManager(raft, store, registry)

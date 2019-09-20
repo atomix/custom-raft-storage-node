@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
+	"io"
 	"sync"
 )
 
@@ -38,12 +39,12 @@ const (
 )
 
 // NewRaft returns a new Raft protocol state struct
-func NewRaft(cluster Cluster, config *config.ProtocolConfig, protocol Protocol) Raft {
+func NewRaft(cluster Cluster, config *config.ProtocolConfig, protocol Client) Raft {
 	return newProtocol(cluster, config, protocol, newMemoryMetadataStore())
 }
 
 // newProtocol returns a new Raft protocol state struct
-func newProtocol(cluster Cluster, config *config.ProtocolConfig, protocol Protocol, store MetadataStore) Raft {
+func newProtocol(cluster Cluster, config *config.ProtocolConfig, protocol Client, store MetadataStore) Raft {
 	return &raft{
 		log:            util.NewNodeLogger(string(cluster.Member())),
 		config:         config,
@@ -96,8 +97,8 @@ type Raft interface {
 	// GetMember returns a RaftMember by ID
 	GetMember(memberID MemberID) *RaftMember
 
-	// Protocol returns the Raft messaging protocol
-	Protocol() Protocol
+	// Client returns the Raft messaging protocol
+	Protocol() Client
 
 	// Term returns the current term
 	Term() Term
@@ -161,7 +162,7 @@ const (
 
 // Role is implemented by server roles to support protocol requests
 type Role interface {
-	RaftServiceServer
+	Server
 
 	// Type is the type of the role
 	Type() RoleType
@@ -178,7 +179,7 @@ type raft struct {
 	log              util.Logger
 	status           Status
 	config           *config.ProtocolConfig
-	protocol         Protocol
+	protocol         Client
 	metadata         MetadataStore
 	roleWatchers     []func(RoleType)
 	statusWatchers   []func(Status)
@@ -224,7 +225,7 @@ func (r *raft) Config() *config.ProtocolConfig {
 	return r.config
 }
 
-func (r *raft) Protocol() Protocol {
+func (r *raft) Protocol() Client {
 	return r.protocol
 }
 
@@ -397,17 +398,77 @@ func (r *raft) Append(ctx context.Context, request *AppendRequest) (*AppendRespo
 
 // Install handles an install request
 func (r *raft) Install(server RaftService_InstallServer) error {
-	return r.getRole().Install(server)
+	ch := make(chan *InstallStreamRequest)
+	go func() {
+		for {
+			request, err := server.Recv()
+			if err != nil {
+				if err != io.EOF {
+					ch <- NewInstallStreamRequest(nil, err)
+				}
+				close(ch)
+				break
+			} else {
+				ch <- NewInstallStreamRequest(request, nil)
+			}
+		}
+	}()
+
+	response, err := r.getRole().Install(ch)
+	if err != nil {
+		return err
+	}
+	return server.SendAndClose(response)
 }
 
 // Command handles a client command request
 func (r *raft) Command(request *CommandRequest, server RaftService_CommandServer) error {
-	return r.getRole().Command(request, server)
+	responseCh := make(chan *CommandStreamResponse)
+	errCh := make(chan error)
+	go func() {
+		for response := range responseCh {
+			if response.Failed() {
+				errCh <- response.Error
+			} else if err := server.Send(response.Response); err != nil {
+				errCh <- response.Error
+			}
+		}
+		close(errCh)
+	}()
+	if err := r.getRole().Command(request, responseCh); err != nil {
+		return err
+	}
+
+	err, ok := <-errCh
+	if ok {
+		return err
+	}
+	return nil
 }
 
 // Query handles a client query request
 func (r *raft) Query(request *QueryRequest, server RaftService_QueryServer) error {
-	return r.getRole().Query(request, server)
+	responseCh := make(chan *QueryStreamResponse)
+	errCh := make(chan error)
+	go func() {
+		for response := range responseCh {
+			if response.Failed() {
+				errCh <- response.Error
+			} else if err := server.Send(response.Response); err != nil {
+				errCh <- response.Error
+			}
+		}
+		close(errCh)
+	}()
+	if err := r.getRole().Query(request, responseCh); err != nil {
+		return err
+	}
+
+	err, ok := <-errCh
+	if ok {
+		return err
+	}
+	return nil
 }
 
 func (r *raft) Join(context.Context, *JoinRequest) (*JoinResponse, error) {

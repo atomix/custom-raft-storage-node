@@ -269,25 +269,17 @@ func (r *PassiveRole) completeAppend(succeeded bool, lastIndex raft.Index) *raft
 }
 
 // Install handles an install request
-func (r *PassiveRole) Install(stream raft.RaftService_InstallServer) error {
+func (r *PassiveRole) Install(ch <-chan *raft.InstallStreamRequest) (*raft.InstallResponse, error) {
 	var writer io.WriteCloser
-	for {
-		request, err := stream.Recv()
+	for message := range ch {
+		if message.Failed() {
+			writer.Close()
+			_ = r.log.Response("InstallResponse", nil, message.Error)
+			return nil, message.Error
+		}
+
+		request := message.Request
 		r.log.Request("InstallRequest", request)
-
-		// If the stream has ended, close the writer and respond successfully.
-		if err == io.EOF {
-			_ = writer.Close()
-			response := &raft.InstallResponse{
-				Status: raft.ResponseStatus_OK,
-			}
-			return r.log.Response("InstallResponse", response, stream.SendAndClose(response))
-		}
-
-		// If an error occurred, return the error.
-		if err != nil {
-			return r.log.Response("InstallResponse", nil, err)
-		}
 
 		// Acquire a write lock to write the snapshot.
 		r.raft.WriteLock()
@@ -301,7 +293,8 @@ func (r *PassiveRole) Install(stream raft.RaftService_InstallServer) error {
 				Status: raft.ResponseStatus_ERROR,
 				Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
 			}
-			return r.log.Response("InstallResponse", response, stream.SendAndClose(response))
+			_ = r.log.Response("InstallResponse", response, nil)
+			return response, nil
 		}
 
 		if writer == nil {
@@ -309,20 +302,30 @@ func (r *PassiveRole) Install(stream raft.RaftService_InstallServer) error {
 			writer = snapshot.Writer()
 		}
 
-		_, err = writer.Write(request.Data)
+		_, err := writer.Write(request.Data)
 		r.raft.WriteUnlock()
 		if err != nil {
 			response := &raft.InstallResponse{
 				Status: raft.ResponseStatus_ERROR,
 				Error:  raft.RaftError_PROTOCOL_ERROR,
 			}
-			return r.log.Response("InstallResponse", response, stream.SendAndClose(response))
+			_ = r.log.Response("InstallResponse", response, nil)
+			return response, nil
 		}
 	}
+
+	writer.Close()
+	response := &raft.InstallResponse{
+		Status: raft.ResponseStatus_OK,
+	}
+	_ = r.log.Response("InstallResponse", response, nil)
+	return response, nil
 }
 
 // Command handles a command request
-func (r *PassiveRole) Command(request *raft.CommandRequest, server raft.RaftService_CommandServer) error {
+func (r *PassiveRole) Command(request *raft.CommandRequest, ch chan<- *raft.CommandStreamResponse) error {
+	defer close(ch)
+
 	r.log.Request("CommandRequest", request)
 	r.raft.ReadLock()
 	leader := raft.MemberID("")
@@ -337,11 +340,15 @@ func (r *PassiveRole) Command(request *raft.CommandRequest, server raft.RaftServ
 		Term:   r.raft.Term(),
 	}
 	r.raft.ReadUnlock()
-	return r.log.Response("CommandResponse", response, server.Send(response))
+	_ = r.log.Response("CommandResponse", response, nil)
+	ch <- raft.NewCommandStreamResponse(response, nil)
+	return nil
 }
 
 // Query handles a query request
-func (r *PassiveRole) Query(request *raft.QueryRequest, server raft.RaftService_QueryServer) error {
+func (r *PassiveRole) Query(request *raft.QueryRequest, ch chan<- *raft.QueryStreamResponse) error {
+	defer close(ch)
+
 	r.log.Request("QueryRequest", request)
 	r.raft.ReadLock()
 	leader := r.raft.Leader()
@@ -352,7 +359,7 @@ func (r *PassiveRole) Query(request *raft.QueryRequest, server raft.RaftService_
 	if r.raft.Status() != raft.StatusReady {
 		r.raft.ReadUnlock()
 		r.log.Trace("State out of sync, forwarding query to leader")
-		return r.forwardQuery(request, leader, server)
+		return r.forwardQuery(request, leader, ch)
 	}
 
 	// If the session's consistency level is SEQUENTIAL, handle the request here, otherwise forward it.
@@ -362,7 +369,7 @@ func (r *PassiveRole) Query(request *raft.QueryRequest, server raft.RaftService_
 		if r.store.Writer().LastIndex() < r.raft.CommitIndex() {
 			r.raft.ReadUnlock()
 			r.log.Trace("State out of sync, forwarding query to leader")
-			return r.forwardQuery(request, leader, server)
+			return r.forwardQuery(request, leader, ch)
 		}
 
 		entry := &log.Entry{
@@ -381,53 +388,51 @@ func (r *PassiveRole) Query(request *raft.QueryRequest, server raft.RaftService_
 		// Release the read lock before applying the entry.
 		r.raft.ReadUnlock()
 
-		return r.applyQuery(entry, server)
+		return r.applyQuery(entry, ch)
 	}
 	r.raft.ReadUnlock()
-	return r.forwardQuery(request, leader, server)
+	return r.forwardQuery(request, leader, ch)
 }
 
 // applyQuery applies a query to the state machine
-func (r *PassiveRole) applyQuery(entry *log.Entry, server raft.RaftService_QueryServer) error {
+func (r *PassiveRole) applyQuery(entry *log.Entry, responseCh chan<- *raft.QueryStreamResponse) error {
 	// Create a result channel
-	ch := make(chan node.Output)
+	outputCh := make(chan node.Output)
 
 	// Apply the entry to the state machine
-	r.state.ApplyEntry(entry, ch)
+	r.state.ApplyEntry(entry, outputCh)
 
 	// Iterate through results and translate them into QueryResponses.
-	for result := range ch {
+	for result := range outputCh {
 		if result.Succeeded() {
 			response := &raft.QueryResponse{
 				Status: raft.ResponseStatus_OK,
 				Output: result.Value,
 			}
-			err := r.log.Response("QueryResponse", response, server.Send(response))
-			if err != nil {
-				return err
-			}
+			_ = r.log.Response("QueryResponse", response, nil)
+			responseCh <- raft.NewQueryStreamResponse(response, nil)
 		} else {
 			response := &raft.QueryResponse{
 				Status:  raft.ResponseStatus_ERROR,
 				Message: result.Error.Error(),
 			}
-			err := r.log.Response("QueryResponse", response, server.Send(response))
-			if err != nil {
-				return err
-			}
+			_ = r.log.Response("QueryResponse", response, nil)
+			responseCh <- raft.NewQueryStreamResponse(response, nil)
 		}
 	}
 	return nil
 }
 
 // forwardQuery forwards a query request to the leader
-func (r *PassiveRole) forwardQuery(request *raft.QueryRequest, leader *raft.MemberID, server raft.RaftService_QueryServer) error {
+func (r *PassiveRole) forwardQuery(request *raft.QueryRequest, leader *raft.MemberID, ch chan<- *raft.QueryStreamResponse) error {
 	if leader == nil {
 		response := &raft.QueryResponse{
 			Status: raft.ResponseStatus_ERROR,
 			Error:  raft.RaftError_NO_LEADER,
 		}
-		return r.log.Response("QueryResponse", response, server.Send(response))
+		_ = r.log.Response("QueryResponse", response, nil)
+		ch <- raft.NewQueryStreamResponse(response, nil)
+		return nil
 	}
 
 	r.log.Trace("Forwarding %v", request)
@@ -437,11 +442,8 @@ func (r *PassiveRole) forwardQuery(request *raft.QueryRequest, leader *raft.Memb
 	}
 
 	for response := range stream {
-		if response.Failed() {
-			_ = r.log.Response("QueryResponse", nil, response.Error)
-		} else {
-			_ = r.log.Response("QueryResponse", response, server.Send(response.Response))
-		}
+		_ = r.log.Response("QueryResponse", response.Response, response.Error)
+		ch <- response
 	}
 	return nil
 }

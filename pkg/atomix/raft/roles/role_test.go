@@ -27,7 +27,7 @@ import (
 	"testing"
 )
 
-func newTestState(protocol raft.Protocol) (raft.Raft, state.Manager, store.Store) {
+func newTestState(client raft.Client) (raft.Raft, state.Manager, store.Store) {
 	members := cluster.Cluster{
 		MemberID: "foo",
 		Members: map[string]cluster.Member{
@@ -48,14 +48,14 @@ func newTestState(protocol raft.Protocol) (raft.Raft, state.Manager, store.Store
 			},
 		},
 	}
-	raft := raft.NewRaft(raft.NewCluster(members), &config.ProtocolConfig{}, protocol)
+	raft := raft.NewRaft(raft.NewCluster(members), &config.ProtocolConfig{}, client)
 	store := store.NewMemoryStore()
 	state := state.NewManager(raft, store, node.GetRegistry())
 	return raft, state, store
 }
 
 func TestRole(t *testing.T) {
-	protocol, sm, stores := newTestState(&raft.UnimplementedProtocol{})
+	protocol, sm, stores := newTestState(&raft.UnimplementedClient{})
 	role := newRaftRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	joinResponse, err := role.Join(context.TODO(), &raft.JoinRequest{})

@@ -49,7 +49,7 @@ func TestRaftProtocol(t *testing.T) {
 
 	store := newMemoryMetadataStore()
 	electionTimeout := 10 * time.Second
-	raft := newProtocol(NewCluster(cluster), &config.ProtocolConfig{ElectionTimeout: &electionTimeout}, &UnimplementedProtocol{}, store)
+	raft := newProtocol(NewCluster(cluster), &config.ProtocolConfig{ElectionTimeout: &electionTimeout}, &UnimplementedClient{}, store)
 	assert.Equal(t, StatusStopped, raft.Status())
 	statusCh := make(chan Status, 1)
 	raft.WatchStatus(func(status Status) {
@@ -141,7 +141,7 @@ func TestRaftProtocol(t *testing.T) {
 	assert.Equal(t, StatusStopped, <-statusCh)
 
 	// Verify that the cluster state is reloaded from the metadata store when restarted
-	raft = newProtocol(NewCluster(cluster), &config.ProtocolConfig{}, &UnimplementedProtocol{}, store)
+	raft = newProtocol(NewCluster(cluster), &config.ProtocolConfig{}, &UnimplementedClient{}, store)
 	assert.Equal(t, StatusStopped, raft.Status())
 	raft.Init()
 	assert.Equal(t, StatusRunning, raft.Status())
@@ -172,7 +172,13 @@ func TestRaftProtocol(t *testing.T) {
 }
 
 type testRole struct {
+	Role
 	appended bool
+}
+
+func (r *testRole) Append(context.Context, *AppendRequest) (*AppendResponse, error) {
+	r.appended = true
+	return &AppendResponse{}, nil
 }
 
 func (r *testRole) Start() error {
@@ -181,51 +187,6 @@ func (r *testRole) Start() error {
 
 func (r *testRole) Stop() error {
 	return nil
-}
-
-func (r *testRole) Join(context.Context, *JoinRequest) (*JoinResponse, error) {
-	panic("implement me")
-}
-
-func (r *testRole) Leave(context.Context, *LeaveRequest) (*LeaveResponse, error) {
-	panic("implement me")
-}
-
-func (r *testRole) Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error) {
-	panic("implement me")
-}
-
-func (r *testRole) Reconfigure(context.Context, *ReconfigureRequest) (*ReconfigureResponse, error) {
-	panic("implement me")
-}
-
-func (r *testRole) Poll(context.Context, *PollRequest) (*PollResponse, error) {
-	panic("implement me")
-}
-
-func (r *testRole) Vote(context.Context, *VoteRequest) (*VoteResponse, error) {
-	panic("implement me")
-}
-
-func (r *testRole) Transfer(context.Context, *TransferRequest) (*TransferResponse, error) {
-	panic("implement me")
-}
-
-func (r *testRole) Append(context.Context, *AppendRequest) (*AppendResponse, error) {
-	r.appended = true
-	return &AppendResponse{}, nil
-}
-
-func (r *testRole) Install(RaftService_InstallServer) error {
-	panic("implement me")
-}
-
-func (r *testRole) Command(*CommandRequest, RaftService_CommandServer) error {
-	panic("implement me")
-}
-
-func (r *testRole) Query(*QueryRequest, RaftService_QueryServer) error {
-	panic("implement me")
 }
 
 type followerRole struct {

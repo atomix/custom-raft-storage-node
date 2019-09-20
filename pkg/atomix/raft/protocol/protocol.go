@@ -20,13 +20,13 @@ import (
 	"io"
 )
 
-// NewProtocol creates a new gRPC protocol
-func NewProtocol(cluster Cluster) Protocol {
-	return &gRPCProtocol{cluster}
+// NewClient creates a new Raft protocol client
+func NewClient(cluster Cluster) Client {
+	return &gRPCClient{cluster}
 }
 
-// Protocol is an interface for sending messages to Raft nodes
-type Protocol interface {
+// Client is an interface for sending messages to Raft nodes
+type Client interface {
 	// Join sends a join request
 	Join(ctx context.Context, request *JoinRequest, member MemberID) (*JoinResponse, error)
 
@@ -51,8 +51,8 @@ type Protocol interface {
 	// Append sends an append request
 	Append(ctx context.Context, request *AppendRequest, member MemberID) (*AppendResponse, error)
 
-	// Install sends an install request
-	Install(ctx context.Context, member MemberID, ch <-chan *InstallRequest) (*InstallResponse, error)
+	// Install sends a stream of install requests
+	Install(ctx context.Context, member MemberID) (chan<- *InstallRequest, <-chan *InstallStreamResponse, error)
 
 	// Command sends a command request
 	Command(ctx context.Context, request *CommandRequest, member MemberID) (<-chan *CommandStreamResponse, error)
@@ -61,39 +61,127 @@ type Protocol interface {
 	Query(ctx context.Context, request *QueryRequest, member MemberID) (<-chan *QueryStreamResponse, error)
 }
 
-// StreamResponse is a stream response/error pair
-type StreamResponse struct {
+// Server is an interface for receiving Raft messages
+type Server interface {
+	// Join handles a join request
+	Join(ctx context.Context, request *JoinRequest) (*JoinResponse, error)
+
+	// Leave handles a leave request
+	Leave(ctx context.Context, request *LeaveRequest) (*LeaveResponse, error)
+
+	// Configure handles a configure request
+	Configure(ctx context.Context, request *ConfigureRequest) (*ConfigureResponse, error)
+
+	// Reconfigure handles a reconfigure request
+	Reconfigure(ctx context.Context, request *ReconfigureRequest) (*ReconfigureResponse, error)
+
+	// Poll handles a poll request
+	Poll(ctx context.Context, request *PollRequest) (*PollResponse, error)
+
+	// Vote handles a vote request
+	Vote(ctx context.Context, request *VoteRequest) (*VoteResponse, error)
+
+	// Transfer handles a leadership transfer request
+	Transfer(ctx context.Context, request *TransferRequest) (*TransferResponse, error)
+
+	// Append handles an append request
+	Append(ctx context.Context, request *AppendRequest) (*AppendResponse, error)
+
+	// Install handles an install request
+	Install(ch <-chan *InstallStreamRequest) (*InstallResponse, error)
+
+	// Command handles a command request
+	Command(request *CommandRequest, ch chan<- *CommandStreamResponse) error
+
+	// Query handles a query request
+	Query(request *QueryRequest, ch chan<- *QueryStreamResponse) error
+}
+
+// StreamMessage is a stream message/error pair
+type StreamMessage struct {
 	Error error
 }
 
 // Succeeded returns a bool indicating whether the request succeeded
-func (r *StreamResponse) Succeeded() bool {
+func (r *StreamMessage) Succeeded() bool {
 	return r.Error == nil
 }
 
 // Failed returns a bool indicating whether the request failed
-func (r *StreamResponse) Failed() bool {
+func (r *StreamMessage) Failed() bool {
 	return r.Error != nil
+}
+
+// NewInstallStreamRequest returns a new InstallStreamRequest with the given request and error
+func NewInstallStreamRequest(request *InstallRequest, err error) *InstallStreamRequest {
+	return &InstallStreamRequest{
+		StreamMessage: &StreamMessage{
+			Error: err,
+		},
+		Request: request,
+	}
+}
+
+// InstallStreamRequest is a stream request for InstallRequest
+type InstallStreamRequest struct {
+	*StreamMessage
+	Request *InstallRequest
+}
+
+// NewInstallStreamResponse returns a new InstallStreamResponse with the given request and error
+func NewInstallStreamResponse(response *InstallResponse, err error) *InstallStreamResponse {
+	return &InstallStreamResponse{
+		StreamMessage: &StreamMessage{
+			Error: err,
+		},
+		Response: response,
+	}
+}
+
+// InstallStreamResponse is a stream request for InstallResponse
+type InstallStreamResponse struct {
+	*StreamMessage
+	Response *InstallResponse
+}
+
+// NewCommandStreamResponse returns a new CommandStreamResponse with the given response and error
+func NewCommandStreamResponse(response *CommandResponse, err error) *CommandStreamResponse {
+	return &CommandStreamResponse{
+		StreamMessage: &StreamMessage{
+			Error: err,
+		},
+		Response: response,
+	}
 }
 
 // CommandStreamResponse is a stream response for CommandRequest
 type CommandStreamResponse struct {
-	*StreamResponse
+	*StreamMessage
 	Response *CommandResponse
+}
+
+// NewQueryStreamResponse returns a new CommandStreamResponse with the given response and error
+func NewQueryStreamResponse(response *QueryResponse, err error) *QueryStreamResponse {
+	return &QueryStreamResponse{
+		StreamMessage: &StreamMessage{
+			Error: err,
+		},
+		Response: response,
+	}
 }
 
 // QueryStreamResponse is a stream response for QueryRequest
 type QueryStreamResponse struct {
-	*StreamResponse
+	*StreamMessage
 	Response *QueryResponse
 }
 
-// gRPCProtocol uses gRPC clients to send messages to remote nodes
-type gRPCProtocol struct {
+// gRPCClient uses gRPC clients to send messages to remote nodes
+type gRPCClient struct {
 	cluster Cluster
 }
 
-func (p *gRPCProtocol) Join(ctx context.Context, request *JoinRequest, member MemberID) (*JoinResponse, error) {
+func (p *gRPCClient) Join(ctx context.Context, request *JoinRequest, member MemberID) (*JoinResponse, error) {
 	client, err := p.cluster.GetClient(member)
 	if err != nil {
 		return nil, err
@@ -101,7 +189,7 @@ func (p *gRPCProtocol) Join(ctx context.Context, request *JoinRequest, member Me
 	return client.Join(ctx, request)
 }
 
-func (p *gRPCProtocol) Leave(ctx context.Context, request *LeaveRequest, member MemberID) (*LeaveResponse, error) {
+func (p *gRPCClient) Leave(ctx context.Context, request *LeaveRequest, member MemberID) (*LeaveResponse, error) {
 	client, err := p.cluster.GetClient(member)
 	if err != nil {
 		return nil, err
@@ -109,7 +197,7 @@ func (p *gRPCProtocol) Leave(ctx context.Context, request *LeaveRequest, member 
 	return client.Leave(ctx, request)
 }
 
-func (p *gRPCProtocol) Configure(ctx context.Context, request *ConfigureRequest, member MemberID) (*ConfigureResponse, error) {
+func (p *gRPCClient) Configure(ctx context.Context, request *ConfigureRequest, member MemberID) (*ConfigureResponse, error) {
 	client, err := p.cluster.GetClient(member)
 	if err != nil {
 		return nil, err
@@ -117,7 +205,7 @@ func (p *gRPCProtocol) Configure(ctx context.Context, request *ConfigureRequest,
 	return client.Configure(ctx, request)
 }
 
-func (p *gRPCProtocol) Reconfigure(ctx context.Context, request *ReconfigureRequest, member MemberID) (*ReconfigureResponse, error) {
+func (p *gRPCClient) Reconfigure(ctx context.Context, request *ReconfigureRequest, member MemberID) (*ReconfigureResponse, error) {
 	client, err := p.cluster.GetClient(member)
 	if err != nil {
 		return nil, err
@@ -125,7 +213,7 @@ func (p *gRPCProtocol) Reconfigure(ctx context.Context, request *ReconfigureRequ
 	return client.Reconfigure(ctx, request)
 }
 
-func (p *gRPCProtocol) Poll(ctx context.Context, request *PollRequest, member MemberID) (*PollResponse, error) {
+func (p *gRPCClient) Poll(ctx context.Context, request *PollRequest, member MemberID) (*PollResponse, error) {
 	client, err := p.cluster.GetClient(member)
 	if err != nil {
 		return nil, err
@@ -133,7 +221,7 @@ func (p *gRPCProtocol) Poll(ctx context.Context, request *PollRequest, member Me
 	return client.Poll(ctx, request)
 }
 
-func (p *gRPCProtocol) Vote(ctx context.Context, request *VoteRequest, member MemberID) (*VoteResponse, error) {
+func (p *gRPCClient) Vote(ctx context.Context, request *VoteRequest, member MemberID) (*VoteResponse, error) {
 	client, err := p.cluster.GetClient(member)
 	if err != nil {
 		return nil, err
@@ -141,7 +229,7 @@ func (p *gRPCProtocol) Vote(ctx context.Context, request *VoteRequest, member Me
 	return client.Vote(ctx, request)
 }
 
-func (p *gRPCProtocol) Transfer(ctx context.Context, request *TransferRequest, member MemberID) (*TransferResponse, error) {
+func (p *gRPCClient) Transfer(ctx context.Context, request *TransferRequest, member MemberID) (*TransferResponse, error) {
 	client, err := p.cluster.GetClient(member)
 	if err != nil {
 		return nil, err
@@ -149,7 +237,7 @@ func (p *gRPCProtocol) Transfer(ctx context.Context, request *TransferRequest, m
 	return client.Transfer(ctx, request)
 }
 
-func (p *gRPCProtocol) Append(ctx context.Context, request *AppendRequest, member MemberID) (*AppendResponse, error) {
+func (p *gRPCClient) Append(ctx context.Context, request *AppendRequest, member MemberID) (*AppendResponse, error) {
 	client, err := p.cluster.GetClient(member)
 	if err != nil {
 		return nil, err
@@ -157,25 +245,34 @@ func (p *gRPCProtocol) Append(ctx context.Context, request *AppendRequest, membe
 	return client.Append(ctx, request)
 }
 
-func (p *gRPCProtocol) Install(ctx context.Context, member MemberID, ch <-chan *InstallRequest) (*InstallResponse, error) {
+func (p *gRPCClient) Install(ctx context.Context, member MemberID) (chan<- *InstallRequest, <-chan *InstallStreamResponse, error) {
 	client, err := p.cluster.GetClient(member)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	stream, err := client.Install(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	for request := range ch {
-		if err := stream.Send(request); err != nil {
-			return nil, err
+	requestCh := make(chan *InstallRequest)
+	responseCh := make(chan *InstallStreamResponse)
+	go func() {
+		for request := range requestCh {
+			if err := stream.Send(request); err != nil {
+				responseCh <- NewInstallStreamResponse(nil, err)
+				close(responseCh)
+				return
+			}
 		}
-	}
-	return stream.CloseAndRecv()
+
+		responseCh <- NewInstallStreamResponse(stream.CloseAndRecv())
+		close(responseCh)
+	}()
+	return requestCh, responseCh, nil
 }
 
-func (p *gRPCProtocol) Command(ctx context.Context, request *CommandRequest, member MemberID) (<-chan *CommandStreamResponse, error) {
+func (p *gRPCClient) Command(ctx context.Context, request *CommandRequest, member MemberID) (<-chan *CommandStreamResponse, error) {
 	client, err := p.cluster.GetClient(member)
 	if err != nil {
 		return nil, err
@@ -195,7 +292,7 @@ func (p *gRPCProtocol) Command(ctx context.Context, request *CommandRequest, mem
 				break
 			} else if err != nil {
 				ch <- &CommandStreamResponse{
-					StreamResponse: &StreamResponse{Error: err},
+					StreamMessage: &StreamMessage{Error: err},
 				}
 				break
 			}
@@ -208,7 +305,7 @@ func (p *gRPCProtocol) Command(ctx context.Context, request *CommandRequest, mem
 	return ch, nil
 }
 
-func (p *gRPCProtocol) Query(ctx context.Context, request *QueryRequest, member MemberID) (<-chan *QueryStreamResponse, error) {
+func (p *gRPCClient) Query(ctx context.Context, request *QueryRequest, member MemberID) (<-chan *QueryStreamResponse, error) {
 	client, err := p.cluster.GetClient(member)
 	if err != nil {
 		return nil, err
@@ -228,7 +325,7 @@ func (p *gRPCProtocol) Query(ctx context.Context, request *QueryRequest, member 
 				break
 			} else if err != nil {
 				ch <- &QueryStreamResponse{
-					StreamResponse: &StreamResponse{Error: err},
+					StreamMessage: &StreamMessage{Error: err},
 				}
 				break
 			}
@@ -241,61 +338,61 @@ func (p *gRPCProtocol) Query(ctx context.Context, request *QueryRequest, member 
 	return ch, nil
 }
 
-// UnimplementedProtocol is a Protocol implementation that supports overrides of individual protocol methods
-type UnimplementedProtocol struct {
+// UnimplementedClient is a Client implementation that supports overrides of individual protocol methods
+type UnimplementedClient struct {
 }
 
 // Join sends a join request to the given member
-func (p *UnimplementedProtocol) Join(ctx context.Context, request *JoinRequest, member MemberID) (*JoinResponse, error) {
+func (p *UnimplementedClient) Join(ctx context.Context, request *JoinRequest, member MemberID) (*JoinResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
 // Leave sends a leave request to the given member
-func (p *UnimplementedProtocol) Leave(ctx context.Context, request *LeaveRequest, member MemberID) (*LeaveResponse, error) {
+func (p *UnimplementedClient) Leave(ctx context.Context, request *LeaveRequest, member MemberID) (*LeaveResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
 // Configure sends a configure request to the given member
-func (p *UnimplementedProtocol) Configure(ctx context.Context, request *ConfigureRequest, member MemberID) (*ConfigureResponse, error) {
+func (p *UnimplementedClient) Configure(ctx context.Context, request *ConfigureRequest, member MemberID) (*ConfigureResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
 // Reconfigure sends a reconfigure request to the given member
-func (p *UnimplementedProtocol) Reconfigure(ctx context.Context, request *ReconfigureRequest, member MemberID) (*ReconfigureResponse, error) {
+func (p *UnimplementedClient) Reconfigure(ctx context.Context, request *ReconfigureRequest, member MemberID) (*ReconfigureResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
 // Poll sends a poll request to the given member
-func (p *UnimplementedProtocol) Poll(ctx context.Context, request *PollRequest, member MemberID) (*PollResponse, error) {
+func (p *UnimplementedClient) Poll(ctx context.Context, request *PollRequest, member MemberID) (*PollResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
 // Vote sends a vote request to the given member
-func (p *UnimplementedProtocol) Vote(ctx context.Context, request *VoteRequest, member MemberID) (*VoteResponse, error) {
+func (p *UnimplementedClient) Vote(ctx context.Context, request *VoteRequest, member MemberID) (*VoteResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
 // Transfer sends a transfer request to the given member
-func (p *UnimplementedProtocol) Transfer(ctx context.Context, request *TransferRequest, member MemberID) (*TransferResponse, error) {
+func (p *UnimplementedClient) Transfer(ctx context.Context, request *TransferRequest, member MemberID) (*TransferResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
 // Append sends an append request to the given member
-func (p *UnimplementedProtocol) Append(ctx context.Context, request *AppendRequest, member MemberID) (*AppendResponse, error) {
+func (p *UnimplementedClient) Append(ctx context.Context, request *AppendRequest, member MemberID) (*AppendResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
-// Install sends an install request to the given member
-func (p *UnimplementedProtocol) Install(ctx context.Context, member MemberID, ch <-chan *InstallRequest) (*InstallResponse, error) {
-	return nil, errors.New("not implemented")
+// Install sends a stream of install requests to the given member
+func (p *UnimplementedClient) Install(ctx context.Context, member MemberID) (chan<- *InstallRequest, <-chan *InstallStreamResponse, error) {
+	return nil, nil, errors.New("not implemented")
 }
 
 // Command sends a command request to the given member
-func (p *UnimplementedProtocol) Command(ctx context.Context, request *CommandRequest, member MemberID) (<-chan *CommandStreamResponse, error) {
+func (p *UnimplementedClient) Command(ctx context.Context, request *CommandRequest, member MemberID) (<-chan *CommandStreamResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
 // Query sends a query request to the given member
-func (p *UnimplementedProtocol) Query(ctx context.Context, request *QueryRequest, member MemberID) (<-chan *QueryStreamResponse, error) {
+func (p *UnimplementedClient) Query(ctx context.Context, request *QueryRequest, member MemberID) (<-chan *QueryStreamResponse, error) {
 	return nil, errors.New("not implemented")
 }

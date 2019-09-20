@@ -34,7 +34,7 @@ func TestFollowerHeartbeatTimeout(t *testing.T) {
 }
 
 type voteProtocol struct {
-	raft.UnimplementedProtocol
+	raft.UnimplementedClient
 }
 
 func (p *voteProtocol) Poll(ctx context.Context, request *raft.PollRequest, member raft.MemberID) (*raft.PollResponse, error) {

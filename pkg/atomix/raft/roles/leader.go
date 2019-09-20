@@ -166,7 +166,7 @@ func (r *LeaderRole) Append(ctx context.Context, request *raft.AppendRequest) (*
 }
 
 // Command handles a command request
-func (r *LeaderRole) Command(request *raft.CommandRequest, server raft.RaftService_CommandServer) error {
+func (r *LeaderRole) Command(request *raft.CommandRequest, responseCh chan<- *raft.CommandStreamResponse) error {
 	r.log.Request("CommandRequest", request)
 
 	// Acquire the write lock to write the entry to the log.
@@ -190,9 +190,9 @@ func (r *LeaderRole) Command(request *raft.CommandRequest, server raft.RaftServi
 	// Create a function to apply the entry to the state machine once committed.
 	// This is done in a function to ensure entries are applied in the order in which they
 	// are committed by the appender.
-	ch := make(chan node.Output)
+	outputCh := make(chan node.Output)
 	f := func() {
-		r.state.ApplyEntry(indexed, ch)
+		r.state.ApplyEntry(indexed, outputCh)
 	}
 
 	// Pass the apply function to the appender to be called when the change is committed.
@@ -201,46 +201,39 @@ func (r *LeaderRole) Command(request *raft.CommandRequest, server raft.RaftServi
 			Status: raft.ResponseStatus_ERROR,
 			Error:  raft.RaftError_PROTOCOL_ERROR,
 		}
-		return r.log.Response("CommandResponse", response, server.Send(response))
+		_ = r.log.Response("CommandResponse", response, nil)
+		responseCh <- raft.NewCommandStreamResponse(response, nil)
+		return nil
 	}
 
-	for output := range ch {
+	for output := range outputCh {
+		var status raft.ResponseStatus
+		var err raft.RaftError
 		if output.Succeeded() {
-			r.raft.ReadLock()
-			response := &raft.CommandResponse{
-				Status:  raft.ResponseStatus_OK,
-				Leader:  r.raft.Member(),
-				Term:    r.raft.Term(),
-				Members: r.raft.Members(),
-				Output:  output.Value,
-			}
-			r.raft.ReadUnlock()
-			err := r.log.Response("CommandResponse", response, server.Send(response))
-			if err != nil {
-				return err
-			}
+			status = raft.ResponseStatus_OK
 		} else {
-			r.raft.ReadLock()
-			response := &raft.CommandResponse{
-				Status:  raft.ResponseStatus_ERROR,
-				Error:   raft.RaftError_APPLICATION_ERROR,
-				Message: output.Error.Error(),
-				Leader:  r.raft.Member(),
-				Term:    r.raft.Term(),
-				Members: r.raft.Members(),
-			}
-			r.raft.ReadUnlock()
-			err := r.log.Response("CommandResponse", response, server.Send(response))
-			if err != nil {
-				return err
-			}
+			status = raft.ResponseStatus_ERROR
+			err = raft.RaftError_APPLICATION_ERROR
 		}
+
+		r.raft.ReadLock()
+		response := &raft.CommandResponse{
+			Status:  status,
+			Error:   err,
+			Leader:  r.raft.Member(),
+			Term:    r.raft.Term(),
+			Members: r.raft.Members(),
+			Output:  output.Value,
+		}
+		r.raft.ReadUnlock()
+		_ = r.log.Response("CommandResponse", response, nil)
+		responseCh <- raft.NewCommandStreamResponse(response, nil)
 	}
 	return nil
 }
 
 // Query handles a query request
-func (r *LeaderRole) Query(request *raft.QueryRequest, server raft.RaftService_QueryServer) error {
+func (r *LeaderRole) Query(request *raft.QueryRequest, responseCh chan<- *raft.QueryStreamResponse) error {
 	r.log.Request("QueryRequest", request)
 
 	// Acquire a read lock before creating the entry.
@@ -265,18 +258,18 @@ func (r *LeaderRole) Query(request *raft.QueryRequest, server raft.RaftService_Q
 
 	switch request.ReadConsistency {
 	case raft.ReadConsistency_LINEARIZABLE:
-		return r.queryLinearizable(entry, server)
+		return r.queryLinearizable(entry, responseCh)
 	case raft.ReadConsistency_LINEARIZABLE_LEASE:
-		return r.queryLinearizableLease(entry, server)
+		return r.queryLinearizableLease(entry, responseCh)
 	case raft.ReadConsistency_SEQUENTIAL:
-		return r.querySequential(entry, server)
+		return r.querySequential(entry, responseCh)
 	default:
-		return r.queryLinearizable(entry, server)
+		return r.queryLinearizable(entry, responseCh)
 	}
 }
 
 // queryLinearizable performs a linearizable query
-func (r *LeaderRole) queryLinearizable(entry *log.Entry, server raft.RaftService_QueryServer) error {
+func (r *LeaderRole) queryLinearizable(entry *log.Entry, responseCh chan<- *raft.QueryStreamResponse) error {
 	// Create a result channel
 	ch := make(chan node.Output)
 
@@ -294,32 +287,28 @@ func (r *LeaderRole) queryLinearizable(entry *log.Entry, server raft.RaftService
 				Status: raft.ResponseStatus_OK,
 				Output: result.Value,
 			}
-			err := r.log.Response("QueryResponse", response, server.Send(response))
-			if err != nil {
-				return err
-			}
+			_ = r.log.Response("QueryResponse", response, nil)
+			responseCh <- raft.NewQueryStreamResponse(response, nil)
 		} else {
 			response := &raft.QueryResponse{
 				Status:  raft.ResponseStatus_ERROR,
 				Message: result.Error.Error(),
 			}
-			err := r.log.Response("QueryResponse", response, server.Send(response))
-			if err != nil {
-				return err
-			}
+			_ = r.log.Response("QueryResponse", response, nil)
+			responseCh <- raft.NewQueryStreamResponse(response, nil)
 		}
 	}
 	return nil
 }
 
 // queryLinearizableLease performs a lease query
-func (r *LeaderRole) queryLinearizableLease(entry *log.Entry, server raft.RaftService_QueryServer) error {
-	return r.applyQuery(entry, server)
+func (r *LeaderRole) queryLinearizableLease(entry *log.Entry, responseCh chan<- *raft.QueryStreamResponse) error {
+	return r.applyQuery(entry, responseCh)
 }
 
 // querySequential performs a sequential query
-func (r *LeaderRole) querySequential(entry *log.Entry, server raft.RaftService_QueryServer) error {
-	return r.applyQuery(entry, server)
+func (r *LeaderRole) querySequential(entry *log.Entry, responseCh chan<- *raft.QueryStreamResponse) error {
+	return r.applyQuery(entry, responseCh)
 }
 
 // stepDown unsets the leader

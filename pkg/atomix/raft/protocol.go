@@ -29,7 +29,7 @@ func NewProtocol(config *config.ProtocolConfig) *Protocol {
 	}
 }
 
-// Protocol is an implementation of the Protocol interface providing the Raft consensus protocol
+// Protocol is an implementation of the Client interface providing the Raft consensus protocol
 type Protocol struct {
 	node.Protocol
 	config *config.ProtocolConfig

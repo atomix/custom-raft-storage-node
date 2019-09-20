@@ -21,13 +21,12 @@ import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc/metadata"
 	"testing"
 	"time"
 )
 
 func TestUpdateTermAndLeader(t *testing.T) {
-	protocol, sm, stores := newTestState(&raft.UnimplementedProtocol{})
+	protocol, sm, stores := newTestState(&raft.UnimplementedClient{})
 	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	foo := raft.MemberID("foo")
@@ -41,7 +40,7 @@ func TestUpdateTermAndLeader(t *testing.T) {
 }
 
 func TestPassiveAppend(t *testing.T) {
-	protocol, sm, stores := newTestState(&raft.UnimplementedProtocol{})
+	protocol, sm, stores := newTestState(&raft.UnimplementedClient{})
 	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	// Test updating the term/leader
@@ -206,27 +205,30 @@ func TestPassiveAppend(t *testing.T) {
 }
 
 func TestPassiveCommand(t *testing.T) {
-	protocol, sm, stores := newTestState(&raft.UnimplementedProtocol{})
+	protocol, sm, stores := newTestState(&raft.UnimplementedClient{})
 	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 
-	server := newCommandServer()
-	err := role.Command(&raft.CommandRequest{}, server)
+	ch := make(chan *raft.CommandStreamResponse, 1)
+	err := role.Command(&raft.CommandRequest{}, ch)
 	assert.NoError(t, err)
-	response := server.NextResponse()
-	assert.Equal(t, raft.ResponseStatus_ERROR, response.Status)
-	assert.Equal(t, raft.RaftError_ILLEGAL_MEMBER_STATE, response.Error)
-	assert.Equal(t, raft.Term(1), response.Term)
-	assert.Equal(t, raft.MemberID(""), response.Leader)
+	response := <-ch
+	assert.True(t, response.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_ERROR, response.Response.Status)
+	assert.Equal(t, raft.RaftError_ILLEGAL_MEMBER_STATE, response.Response.Error)
+	assert.Equal(t, raft.Term(1), response.Response.Term)
+	assert.Equal(t, raft.MemberID(""), response.Response.Leader)
 
 	assert.NoError(t, role.raft.SetLeader(&role.raft.Members()[1]))
-	err = role.Command(&raft.CommandRequest{}, server)
+	ch = make(chan *raft.CommandStreamResponse, 1)
+	err = role.Command(&raft.CommandRequest{}, ch)
 	assert.NoError(t, err)
-	response = server.NextResponse()
-	assert.Equal(t, raft.ResponseStatus_ERROR, response.Status)
-	assert.Equal(t, raft.RaftError_ILLEGAL_MEMBER_STATE, response.Error)
-	assert.Equal(t, raft.Term(1), response.Term)
-	assert.Equal(t, role.raft.Members()[1], response.Leader)
+	response = <-ch
+	assert.True(t, response.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_ERROR, response.Response.Status)
+	assert.Equal(t, raft.RaftError_ILLEGAL_MEMBER_STATE, response.Response.Error)
+	assert.Equal(t, raft.Term(1), response.Response.Term)
+	assert.Equal(t, role.raft.Members()[1], response.Response.Leader)
 }
 
 func TestPassiveQuery(t *testing.T) {
@@ -234,21 +236,23 @@ func TestPassiveQuery(t *testing.T) {
 	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 
-	server := newQueryServer()
-
 	// With no leader and no commits, the role should return an error
-	err := role.Query(&raft.QueryRequest{}, server)
+	ch := make(chan *raft.QueryStreamResponse, 1)
+	err := role.Query(&raft.QueryRequest{}, ch)
 	assert.NoError(t, err)
-	response := server.NextResponse()
-	assert.Equal(t, raft.ResponseStatus_ERROR, response.Status)
-	assert.Equal(t, raft.RaftError_NO_LEADER, response.Error)
+	response := <-ch
+	assert.True(t, response.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_ERROR, response.Response.Status)
+	assert.Equal(t, raft.RaftError_NO_LEADER, response.Response.Error)
 
 	// With no commits and a leader, the role should forward the request
 	assert.NoError(t, role.raft.SetLeader(&role.raft.Members()[1]))
-	err = role.Query(&raft.QueryRequest{}, server)
+	ch = make(chan *raft.QueryStreamResponse, 1)
+	err = role.Query(&raft.QueryRequest{}, ch)
 	assert.NoError(t, err)
-	response = server.NextResponse()
-	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+	response = <-ch
+	assert.True(t, response.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, response.Response.Status)
 
 	bytes, _ := proto.Marshal(&service.ServiceRequest{
 		Request: &service.ServiceRequest_Metadata{
@@ -266,123 +270,43 @@ func TestPassiveQuery(t *testing.T) {
 	})
 	role.raft.SetCommitIndex(raft.Index(1))
 	role.raft.Commit(raft.Index(1))
+	ch = make(chan *raft.QueryStreamResponse, 1)
 	err = role.Query(&raft.QueryRequest{
 		Value:           bytes,
 		ReadConsistency: raft.ReadConsistency_SEQUENTIAL,
-	}, server)
+	}, ch)
 	assert.NoError(t, err)
-	response = server.NextResponse()
-	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+	response = <-ch
+	assert.True(t, response.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, response.Response.Status)
 
 	// Requests with stronger consistency requirements should be forwarded to the leader
-	err = role.Query(&raft.QueryRequest{ReadConsistency: raft.ReadConsistency_LINEARIZABLE_LEASE}, server)
+	ch = make(chan *raft.QueryStreamResponse, 1)
+	err = role.Query(&raft.QueryRequest{ReadConsistency: raft.ReadConsistency_LINEARIZABLE_LEASE}, ch)
 	assert.NoError(t, err)
-	response = server.NextResponse()
-	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
-	err = role.Query(&raft.QueryRequest{ReadConsistency: raft.ReadConsistency_LINEARIZABLE}, server)
+	response = <-ch
+	assert.True(t, response.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, response.Response.Status)
+	ch = make(chan *raft.QueryStreamResponse, 1)
+	err = role.Query(&raft.QueryRequest{ReadConsistency: raft.ReadConsistency_LINEARIZABLE}, ch)
 	assert.NoError(t, err)
-	response = server.NextResponse()
-	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+	response = <-ch
+	assert.True(t, response.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, response.Response.Status)
 }
 
 type queryProtocol struct {
-	*raft.UnimplementedProtocol
+	*raft.UnimplementedClient
 }
 
 func (p *queryProtocol) Query(ctx context.Context, request *raft.QueryRequest, member raft.MemberID) (<-chan *raft.QueryStreamResponse, error) {
 	ch := make(chan *raft.QueryStreamResponse, 1)
 	ch <- &raft.QueryStreamResponse{
-		StreamResponse: &raft.StreamResponse{},
+		StreamMessage: &raft.StreamMessage{},
 		Response: &raft.QueryResponse{
 			Status: raft.ResponseStatus_OK,
 		},
 	}
 	defer close(ch)
 	return ch, nil
-}
-
-func newCommandServer() *commandServer {
-	return &commandServer{
-		responses: make(chan *raft.CommandResponse, 1),
-	}
-}
-
-type commandServer struct {
-	responses chan *raft.CommandResponse
-}
-
-func (s *commandServer) NextResponse() *raft.CommandResponse {
-	return <-s.responses
-}
-
-func (s *commandServer) Send(response *raft.CommandResponse) error {
-	s.responses <- response
-	return nil
-}
-
-func (s *commandServer) SetHeader(metadata.MD) error {
-	panic("implement me")
-}
-
-func (s *commandServer) SendHeader(metadata.MD) error {
-	panic("implement me")
-}
-
-func (s *commandServer) SetTrailer(metadata.MD) {
-	panic("implement me")
-}
-
-func (s *commandServer) Context() context.Context {
-	panic("implement me")
-}
-
-func (s *commandServer) SendMsg(m interface{}) error {
-	panic("implement me")
-}
-
-func (s *commandServer) RecvMsg(m interface{}) error {
-	panic("implement me")
-}
-
-func newQueryServer() *queryServer {
-	return &queryServer{
-		responses: make(chan *raft.QueryResponse, 1),
-	}
-}
-
-type queryServer struct {
-	responses chan *raft.QueryResponse
-}
-
-func (s *queryServer) NextResponse() *raft.QueryResponse {
-	return <-s.responses
-}
-
-func (s *queryServer) Send(response *raft.QueryResponse) error {
-	s.responses <- response
-	return nil
-}
-
-func (s *queryServer) SetHeader(metadata.MD) error {
-	panic("implement me")
-}
-
-func (s *queryServer) SendHeader(metadata.MD) error {
-	panic("implement me")
-}
-
-func (s *queryServer) SetTrailer(metadata.MD) {
-	panic("implement me")
-}
-
-func (s *queryServer) Context() context.Context {
-	panic("implement me")
-}
-
-func (s *queryServer) SendMsg(m interface{}) error {
-	panic("implement me")
-}
-
-func (s *queryServer) RecvMsg(m interface{}) error {
-	panic("implement me")
 }

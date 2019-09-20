@@ -146,30 +146,37 @@ func (r *raftRole) Append(ctx context.Context, request *raft.AppendRequest) (*ra
 }
 
 // Install handles an install request
-func (r *raftRole) Install(server raft.RaftService_InstallServer) error {
+func (r *raftRole) Install(ch <-chan *raft.InstallStreamRequest) (*raft.InstallResponse, error) {
 	response := &raft.InstallResponse{
 		Status: raft.ResponseStatus_ERROR,
 		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
 	}
-	return r.log.Response("InstallResponse", response, server.SendAndClose(response))
+	_ = r.log.Response("InstallResponse", response, nil)
+	return response, nil
 }
 
 // Command handles a command request
-func (r *raftRole) Command(request *raft.CommandRequest, server raft.RaftService_CommandServer) error {
+func (r *raftRole) Command(request *raft.CommandRequest, ch chan<- *raft.CommandStreamResponse) error {
+	defer close(ch)
 	r.log.Request("CommandRequest", request)
 	response := &raft.CommandResponse{
 		Status: raft.ResponseStatus_ERROR,
 		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
 	}
-	return r.log.Response("CommandResponse", response, server.Send(response))
+	_ = r.log.Response("CommandResponse", response, nil)
+	ch <- raft.NewCommandStreamResponse(response, nil)
+	return nil
 }
 
 // Query handles a query request
-func (r *raftRole) Query(request *raft.QueryRequest, server raft.RaftService_QueryServer) error {
+func (r *raftRole) Query(request *raft.QueryRequest, ch chan<- *raft.QueryStreamResponse) error {
+	defer close(ch)
 	r.log.Request("QueryRequest", request)
 	response := &raft.QueryResponse{
 		Status: raft.ResponseStatus_ERROR,
 		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
 	}
-	return r.log.Response("QueryResponse", response, server.Send(response))
+	_ = r.log.Response("QueryResponse", response, nil)
+	ch <- raft.NewQueryStreamResponse(response, nil)
+	return nil
 }

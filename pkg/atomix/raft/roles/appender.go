@@ -444,35 +444,39 @@ func (a *memberAppender) sendInstallRequests(snapshot snapshot.Snapshot) {
 	ctx, cancel := context.WithTimeout(context.Background(), a.raft.Config().GetElectionTimeoutOrDefault())
 	defer cancel()
 
-	stream := make(chan *raft.InstallRequest)
-	go func() {
-		reader := snapshot.Reader()
-		defer func() {
-			_ = reader.Close()
-		}()
-		bytes := make([]byte, maxBatchSize)
-		n, err := reader.Read(bytes)
-		for n > 0 && err == nil {
-			request := a.newInstallRequest(snapshot, bytes[:n])
-			a.log.SendTo("InstallRequest", request, a.member.MemberID)
-			stream <- request
-			n, err = reader.Read(bytes)
-		}
-		if err != nil {
-			a.log.Warn("Failed to read snapshot", err)
-		}
-	}()
-
-	response, err := a.raft.Protocol().Install(ctx, a.member.MemberID, stream)
+	stream, future, err := a.raft.Protocol().Install(ctx, a.member.MemberID)
 	if err != nil {
 		a.log.ErrorFrom("InstallRequest", err, a.member.MemberID)
 		a.handleInstallError(snapshot, err, startTime)
+		return
+	}
+
+	reader := snapshot.Reader()
+	defer func() {
+		_ = reader.Close()
+	}()
+	bytes := make([]byte, maxBatchSize)
+	n, err := reader.Read(bytes)
+	for n > 0 && err == nil {
+		request := a.newInstallRequest(snapshot, bytes[:n])
+		a.log.SendTo("InstallRequest", request, a.member.MemberID)
+		stream <- request
+		n, err = reader.Read(bytes)
+	}
+	if err != nil {
+		a.log.Warn("Failed to read snapshot", err)
+	}
+
+	response := <-future
+	if response.Failed() {
+		a.log.ErrorFrom("InstallRequest", response.Error, a.member.MemberID)
+		a.handleInstallError(snapshot, err, startTime)
 	} else {
 		a.log.ReceiveFrom("InstallResponse", response, a.member.MemberID)
-		if response.Status == raft.ResponseStatus_OK {
-			a.handleInstallResponse(snapshot, response, startTime)
+		if response.Response.Status == raft.ResponseStatus_OK {
+			a.handleInstallResponse(snapshot, response.Response, startTime)
 		} else {
-			a.handleInstallFailure(snapshot, response, startTime)
+			a.handleInstallFailure(snapshot, response.Response, startTime)
 		}
 	}
 }
