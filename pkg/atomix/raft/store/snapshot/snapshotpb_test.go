@@ -21,15 +21,15 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-func TestSnapshotDescriptorProto(t *testing.T) {
+func TestDescriptorProto(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedSnapshotDescriptor(popr, false)
+	p := NewPopulatedDescriptor(popr, false)
 	dAtA, err := github_com_gogo_protobuf_proto.Marshal(p)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &SnapshotDescriptor{}
+	msg := &Descriptor{}
 	if err := github_com_gogo_protobuf_proto.Unmarshal(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -52,10 +52,10 @@ func TestSnapshotDescriptorProto(t *testing.T) {
 	}
 }
 
-func TestSnapshotDescriptorMarshalTo(t *testing.T) {
+func TestDescriptorMarshalTo(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedSnapshotDescriptor(popr, false)
+	p := NewPopulatedDescriptor(popr, false)
 	size := p.Size()
 	dAtA := make([]byte, size)
 	for i := range dAtA {
@@ -65,7 +65,7 @@ func TestSnapshotDescriptorMarshalTo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &SnapshotDescriptor{}
+	msg := &Descriptor{}
 	if err := github_com_gogo_protobuf_proto.Unmarshal(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -77,16 +77,16 @@ func TestSnapshotDescriptorMarshalTo(t *testing.T) {
 	}
 }
 
-func TestSnapshotDescriptorJSON(t *testing.T) {
+func TestDescriptorJSON(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedSnapshotDescriptor(popr, true)
+	p := NewPopulatedDescriptor(popr, true)
 	marshaler := github_com_gogo_protobuf_jsonpb.Marshaler{}
 	jsondata, err := marshaler.MarshalToString(p)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &SnapshotDescriptor{}
+	msg := &Descriptor{}
 	err = github_com_gogo_protobuf_jsonpb.UnmarshalString(jsondata, msg)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
@@ -95,12 +95,12 @@ func TestSnapshotDescriptorJSON(t *testing.T) {
 		t.Fatalf("seed = %d, %#v !Json Equal %#v", seed, msg, p)
 	}
 }
-func TestSnapshotDescriptorProtoText(t *testing.T) {
+func TestDescriptorProtoText(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedSnapshotDescriptor(popr, true)
+	p := NewPopulatedDescriptor(popr, true)
 	dAtA := github_com_gogo_protobuf_proto.MarshalTextString(p)
-	msg := &SnapshotDescriptor{}
+	msg := &Descriptor{}
 	if err := github_com_gogo_protobuf_proto.UnmarshalText(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -109,12 +109,12 @@ func TestSnapshotDescriptorProtoText(t *testing.T) {
 	}
 }
 
-func TestSnapshotDescriptorProtoCompactText(t *testing.T) {
+func TestDescriptorProtoCompactText(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedSnapshotDescriptor(popr, true)
+	p := NewPopulatedDescriptor(popr, true)
 	dAtA := github_com_gogo_protobuf_proto.CompactTextString(p)
-	msg := &SnapshotDescriptor{}
+	msg := &Descriptor{}
 	if err := github_com_gogo_protobuf_proto.UnmarshalText(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -123,10 +123,10 @@ func TestSnapshotDescriptorProtoCompactText(t *testing.T) {
 	}
 }
 
-func TestSnapshotDescriptorSize(t *testing.T) {
+func TestDescriptorSize(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedSnapshotDescriptor(popr, true)
+	p := NewPopulatedDescriptor(popr, true)
 	size2 := github_com_gogo_protobuf_proto.Size(p)
 	dAtA, err := github_com_gogo_protobuf_proto.Marshal(p)
 	if err != nil {

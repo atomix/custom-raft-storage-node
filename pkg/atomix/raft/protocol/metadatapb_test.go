@@ -21,15 +21,15 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-func TestRaftMetadataProto(t *testing.T) {
+func TestMetadataProto(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftMetadata(popr, false)
+	p := NewPopulatedMetadata(popr, false)
 	dAtA, err := github_com_gogo_protobuf_proto.Marshal(p)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &RaftMetadata{}
+	msg := &Metadata{}
 	if err := github_com_gogo_protobuf_proto.Unmarshal(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -52,10 +52,10 @@ func TestRaftMetadataProto(t *testing.T) {
 	}
 }
 
-func TestRaftMetadataMarshalTo(t *testing.T) {
+func TestMetadataMarshalTo(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftMetadata(popr, false)
+	p := NewPopulatedMetadata(popr, false)
 	size := p.Size()
 	dAtA := make([]byte, size)
 	for i := range dAtA {
@@ -65,7 +65,7 @@ func TestRaftMetadataMarshalTo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &RaftMetadata{}
+	msg := &Metadata{}
 	if err := github_com_gogo_protobuf_proto.Unmarshal(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -77,15 +77,15 @@ func TestRaftMetadataMarshalTo(t *testing.T) {
 	}
 }
 
-func TestRaftConfigurationProto(t *testing.T) {
+func TestConfigurationProto(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftConfiguration(popr, false)
+	p := NewPopulatedConfiguration(popr, false)
 	dAtA, err := github_com_gogo_protobuf_proto.Marshal(p)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &RaftConfiguration{}
+	msg := &Configuration{}
 	if err := github_com_gogo_protobuf_proto.Unmarshal(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -108,10 +108,10 @@ func TestRaftConfigurationProto(t *testing.T) {
 	}
 }
 
-func TestRaftConfigurationMarshalTo(t *testing.T) {
+func TestConfigurationMarshalTo(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftConfiguration(popr, false)
+	p := NewPopulatedConfiguration(popr, false)
 	size := p.Size()
 	dAtA := make([]byte, size)
 	for i := range dAtA {
@@ -121,7 +121,7 @@ func TestRaftConfigurationMarshalTo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &RaftConfiguration{}
+	msg := &Configuration{}
 	if err := github_com_gogo_protobuf_proto.Unmarshal(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -133,16 +133,16 @@ func TestRaftConfigurationMarshalTo(t *testing.T) {
 	}
 }
 
-func TestRaftMetadataJSON(t *testing.T) {
+func TestMetadataJSON(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftMetadata(popr, true)
+	p := NewPopulatedMetadata(popr, true)
 	marshaler := github_com_gogo_protobuf_jsonpb.Marshaler{}
 	jsondata, err := marshaler.MarshalToString(p)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &RaftMetadata{}
+	msg := &Metadata{}
 	err = github_com_gogo_protobuf_jsonpb.UnmarshalString(jsondata, msg)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
@@ -151,16 +151,16 @@ func TestRaftMetadataJSON(t *testing.T) {
 		t.Fatalf("seed = %d, %#v !Json Equal %#v", seed, msg, p)
 	}
 }
-func TestRaftConfigurationJSON(t *testing.T) {
+func TestConfigurationJSON(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftConfiguration(popr, true)
+	p := NewPopulatedConfiguration(popr, true)
 	marshaler := github_com_gogo_protobuf_jsonpb.Marshaler{}
 	jsondata, err := marshaler.MarshalToString(p)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &RaftConfiguration{}
+	msg := &Configuration{}
 	err = github_com_gogo_protobuf_jsonpb.UnmarshalString(jsondata, msg)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
@@ -169,12 +169,12 @@ func TestRaftConfigurationJSON(t *testing.T) {
 		t.Fatalf("seed = %d, %#v !Json Equal %#v", seed, msg, p)
 	}
 }
-func TestRaftMetadataProtoText(t *testing.T) {
+func TestMetadataProtoText(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftMetadata(popr, true)
+	p := NewPopulatedMetadata(popr, true)
 	dAtA := github_com_gogo_protobuf_proto.MarshalTextString(p)
-	msg := &RaftMetadata{}
+	msg := &Metadata{}
 	if err := github_com_gogo_protobuf_proto.UnmarshalText(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -183,12 +183,12 @@ func TestRaftMetadataProtoText(t *testing.T) {
 	}
 }
 
-func TestRaftMetadataProtoCompactText(t *testing.T) {
+func TestMetadataProtoCompactText(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftMetadata(popr, true)
+	p := NewPopulatedMetadata(popr, true)
 	dAtA := github_com_gogo_protobuf_proto.CompactTextString(p)
-	msg := &RaftMetadata{}
+	msg := &Metadata{}
 	if err := github_com_gogo_protobuf_proto.UnmarshalText(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -197,12 +197,12 @@ func TestRaftMetadataProtoCompactText(t *testing.T) {
 	}
 }
 
-func TestRaftConfigurationProtoText(t *testing.T) {
+func TestConfigurationProtoText(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftConfiguration(popr, true)
+	p := NewPopulatedConfiguration(popr, true)
 	dAtA := github_com_gogo_protobuf_proto.MarshalTextString(p)
-	msg := &RaftConfiguration{}
+	msg := &Configuration{}
 	if err := github_com_gogo_protobuf_proto.UnmarshalText(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -211,12 +211,12 @@ func TestRaftConfigurationProtoText(t *testing.T) {
 	}
 }
 
-func TestRaftConfigurationProtoCompactText(t *testing.T) {
+func TestConfigurationProtoCompactText(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftConfiguration(popr, true)
+	p := NewPopulatedConfiguration(popr, true)
 	dAtA := github_com_gogo_protobuf_proto.CompactTextString(p)
-	msg := &RaftConfiguration{}
+	msg := &Configuration{}
 	if err := github_com_gogo_protobuf_proto.UnmarshalText(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -225,10 +225,10 @@ func TestRaftConfigurationProtoCompactText(t *testing.T) {
 	}
 }
 
-func TestRaftMetadataSize(t *testing.T) {
+func TestMetadataSize(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftMetadata(popr, true)
+	p := NewPopulatedMetadata(popr, true)
 	size2 := github_com_gogo_protobuf_proto.Size(p)
 	dAtA, err := github_com_gogo_protobuf_proto.Marshal(p)
 	if err != nil {
@@ -247,10 +247,10 @@ func TestRaftMetadataSize(t *testing.T) {
 	}
 }
 
-func TestRaftConfigurationSize(t *testing.T) {
+func TestConfigurationSize(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftConfiguration(popr, true)
+	p := NewPopulatedConfiguration(popr, true)
 	size2 := github_com_gogo_protobuf_proto.Size(p)
 	dAtA, err := github_com_gogo_protobuf_proto.Marshal(p)
 	if err != nil {

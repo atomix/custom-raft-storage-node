@@ -93,7 +93,7 @@ type Raft interface {
 	Members() []MemberID
 
 	// GetMember returns a RaftMember by ID
-	GetMember(memberID MemberID) *RaftMember
+	GetMember(memberID MemberID) *Member
 
 	// Client returns the Raft messaging protocol
 	Protocol() Client
@@ -235,7 +235,7 @@ func (r *raft) Members() []MemberID {
 	return r.cluster.Members()
 }
 
-func (r *raft) GetMember(memberID MemberID) *RaftMember {
+func (r *raft) GetMember(memberID MemberID) *Member {
 	return r.cluster.GetMember(memberID)
 }
 

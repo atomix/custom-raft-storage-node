@@ -25,7 +25,7 @@ option (gogoproto.testgen_all) = true;
 option (gogoproto.populate_all) = true;
 option (gogoproto.equal_all) = true;
 
-message RaftMember {
+message Member {
     string member_id = 1 [(gogoproto.casttype) = "MemberID", (gogoproto.customname) = "MemberID"];
     Type type = 2;
     google.protobuf.Timestamp updated = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];

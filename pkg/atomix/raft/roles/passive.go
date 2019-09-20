@@ -291,7 +291,7 @@ func (r *PassiveRole) Install(ch <-chan *raft.InstallStreamRequest) (*raft.Insta
 		if request.Term < r.raft.Term() {
 			response := &raft.InstallResponse{
 				Status: raft.ResponseStatus_ERROR,
-				Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
+				Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
 			}
 			_ = r.log.Response("InstallResponse", response, nil)
 			return response, nil
@@ -307,7 +307,7 @@ func (r *PassiveRole) Install(ch <-chan *raft.InstallStreamRequest) (*raft.Insta
 		if err != nil {
 			response := &raft.InstallResponse{
 				Status: raft.ResponseStatus_ERROR,
-				Error:  raft.RaftError_PROTOCOL_ERROR,
+				Error:  raft.ResponseError_PROTOCOL_ERROR,
 			}
 			_ = r.log.Response("InstallResponse", response, nil)
 			return response, nil
@@ -335,7 +335,7 @@ func (r *PassiveRole) Command(request *raft.CommandRequest, ch chan<- *raft.Comm
 
 	response := &raft.CommandResponse{
 		Status: raft.ResponseStatus_ERROR,
-		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
+		Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
 		Leader: leader,
 		Term:   r.raft.Term(),
 	}
@@ -374,10 +374,10 @@ func (r *PassiveRole) Query(request *raft.QueryRequest, ch chan<- *raft.QueryStr
 
 		entry := &log.Entry{
 			Index: r.store.Writer().LastIndex(),
-			Entry: &raft.RaftLogEntry{
+			Entry: &raft.LogEntry{
 				Term:      r.raft.Term(),
 				Timestamp: time.Now(),
-				Entry: &raft.RaftLogEntry_Query{
+				Entry: &raft.LogEntry_Query{
 					Query: &raft.QueryEntry{
 						Value: request.Value,
 					},
@@ -428,7 +428,7 @@ func (r *PassiveRole) forwardQuery(request *raft.QueryRequest, leader *raft.Memb
 	if leader == nil {
 		response := &raft.QueryResponse{
 			Status: raft.ResponseStatus_ERROR,
-			Error:  raft.RaftError_NO_LEADER,
+			Error:  raft.ResponseError_NO_LEADER,
 		}
 		_ = r.log.Response("QueryResponse", response, nil)
 		ch <- raft.NewQueryStreamResponse(response, nil)

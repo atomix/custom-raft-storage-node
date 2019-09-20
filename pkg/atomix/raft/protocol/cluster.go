@@ -30,8 +30,8 @@ type Cluster interface {
 	// Members returns a list of all members in the Raft cluster
 	Members() []MemberID
 
-	// GetMember returns a RaftMember by ID
-	GetMember(memberID MemberID) *RaftMember
+	// GetMember returns a Member by ID
+	GetMember(memberID MemberID) *Member
 
 	// GetClient gets a RaftServiceClient connection for the given member
 	GetClient(memberID MemberID) (RaftServiceClient, error)
@@ -39,13 +39,13 @@ type Cluster interface {
 
 // NewCluster returns a new Cluster with the given configuration
 func NewCluster(config node.Cluster) Cluster {
-	members := make(map[MemberID]*RaftMember)
+	members := make(map[MemberID]*Member)
 	locations := make(map[MemberID]node.Member)
 	memberIDs := make([]MemberID, 0, len(config.Members))
 	for id, member := range config.Members {
-		members[MemberID(id)] = &RaftMember{
+		members[MemberID(id)] = &Member{
 			MemberID: MemberID(member.ID),
-			Type:     RaftMember_ACTIVE,
+			Type:     Member_ACTIVE,
 			Updated:  time.Now(),
 		}
 		locations[MemberID(id)] = member
@@ -64,7 +64,7 @@ func NewCluster(config node.Cluster) Cluster {
 // Cluster manages the Raft cluster configuration
 type cluster struct {
 	member    MemberID
-	members   map[MemberID]*RaftMember
+	members   map[MemberID]*Member
 	memberIDs []MemberID
 	locations map[MemberID]node.Member
 	conns     map[MemberID]*grpc.ClientConn
@@ -80,7 +80,7 @@ func (c *cluster) Members() []MemberID {
 	return c.memberIDs
 }
 
-func (c *cluster) GetMember(memberID MemberID) *RaftMember {
+func (c *cluster) GetMember(memberID MemberID) *Member {
 	return c.members[memberID]
 }
 

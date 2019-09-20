@@ -21,15 +21,15 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-func TestRaftMemberProto(t *testing.T) {
+func TestMemberProto(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftMember(popr, false)
+	p := NewPopulatedMember(popr, false)
 	dAtA, err := github_com_gogo_protobuf_proto.Marshal(p)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &RaftMember{}
+	msg := &Member{}
 	if err := github_com_gogo_protobuf_proto.Unmarshal(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -52,10 +52,10 @@ func TestRaftMemberProto(t *testing.T) {
 	}
 }
 
-func TestRaftMemberMarshalTo(t *testing.T) {
+func TestMemberMarshalTo(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftMember(popr, false)
+	p := NewPopulatedMember(popr, false)
 	size := p.Size()
 	dAtA := make([]byte, size)
 	for i := range dAtA {
@@ -65,7 +65,7 @@ func TestRaftMemberMarshalTo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &RaftMember{}
+	msg := &Member{}
 	if err := github_com_gogo_protobuf_proto.Unmarshal(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -77,16 +77,16 @@ func TestRaftMemberMarshalTo(t *testing.T) {
 	}
 }
 
-func TestRaftMemberJSON(t *testing.T) {
+func TestMemberJSON(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftMember(popr, true)
+	p := NewPopulatedMember(popr, true)
 	marshaler := github_com_gogo_protobuf_jsonpb.Marshaler{}
 	jsondata, err := marshaler.MarshalToString(p)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &RaftMember{}
+	msg := &Member{}
 	err = github_com_gogo_protobuf_jsonpb.UnmarshalString(jsondata, msg)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
@@ -95,12 +95,12 @@ func TestRaftMemberJSON(t *testing.T) {
 		t.Fatalf("seed = %d, %#v !Json Equal %#v", seed, msg, p)
 	}
 }
-func TestRaftMemberProtoText(t *testing.T) {
+func TestMemberProtoText(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftMember(popr, true)
+	p := NewPopulatedMember(popr, true)
 	dAtA := github_com_gogo_protobuf_proto.MarshalTextString(p)
-	msg := &RaftMember{}
+	msg := &Member{}
 	if err := github_com_gogo_protobuf_proto.UnmarshalText(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -109,12 +109,12 @@ func TestRaftMemberProtoText(t *testing.T) {
 	}
 }
 
-func TestRaftMemberProtoCompactText(t *testing.T) {
+func TestMemberProtoCompactText(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftMember(popr, true)
+	p := NewPopulatedMember(popr, true)
 	dAtA := github_com_gogo_protobuf_proto.CompactTextString(p)
-	msg := &RaftMember{}
+	msg := &Member{}
 	if err := github_com_gogo_protobuf_proto.UnmarshalText(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -123,10 +123,10 @@ func TestRaftMemberProtoCompactText(t *testing.T) {
 	}
 }
 
-func TestRaftMemberSize(t *testing.T) {
+func TestMemberSize(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftMember(popr, true)
+	p := NewPopulatedMember(popr, true)
 	size2 := github_com_gogo_protobuf_proto.Size(p)
 	dAtA, err := github_com_gogo_protobuf_proto.Marshal(p)
 	if err != nil {

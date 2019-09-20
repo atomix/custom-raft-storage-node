@@ -107,7 +107,7 @@ func (m *manager) start() {
 func (m *manager) execChange(change *change) {
 	if change.entry.Entry != nil {
 		// If the entry is a query, apply it without incrementing the lastApplied index
-		if query, ok := change.entry.Entry.Entry.(*raft.RaftLogEntry_Query); ok {
+		if query, ok := change.entry.Entry.Entry.(*raft.LogEntry_Query); ok {
 			m.execQuery(change.entry.Index, change.entry.Entry.Timestamp, query.Query, change.result)
 		} else {
 			m.execPendingChanges(change.entry.Index - 1)
@@ -145,13 +145,13 @@ func (m *manager) execEntry(entry *log.Entry, ch chan<- node.Output) {
 	}
 
 	switch e := entry.Entry.Entry.(type) {
-	case *raft.RaftLogEntry_Query:
+	case *raft.LogEntry_Query:
 		m.execQuery(entry.Index, entry.Entry.Timestamp, e.Query, ch)
-	case *raft.RaftLogEntry_Command:
+	case *raft.LogEntry_Command:
 		m.execCommand(entry.Index, entry.Entry.Timestamp, e.Command, ch)
-	case *raft.RaftLogEntry_Configuration:
+	case *raft.LogEntry_Configuration:
 		m.execConfig(entry.Index, entry.Entry.Timestamp, e.Configuration, ch)
-	case *raft.RaftLogEntry_Initialize:
+	case *raft.LogEntry_Initialize:
 		m.execInit(entry.Index, entry.Entry.Timestamp, e.Initialize, ch)
 	}
 }

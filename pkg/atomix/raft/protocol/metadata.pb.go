@@ -28,23 +28,23 @@ var _ = time.Kitchen
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Raft system metadata
-type RaftMetadata struct {
+type Metadata struct {
 	Term Term     `protobuf:"varint,1,opt,name=term,proto3,casttype=Term" json:"term,omitempty"`
 	Vote MemberID `protobuf:"bytes,2,opt,name=vote,proto3,casttype=MemberID" json:"vote,omitempty"`
 }
 
-func (m *RaftMetadata) Reset()         { *m = RaftMetadata{} }
-func (m *RaftMetadata) String() string { return proto.CompactTextString(m) }
-func (*RaftMetadata) ProtoMessage()    {}
-func (*RaftMetadata) Descriptor() ([]byte, []int) {
+func (m *Metadata) Reset()         { *m = Metadata{} }
+func (m *Metadata) String() string { return proto.CompactTextString(m) }
+func (*Metadata) ProtoMessage()    {}
+func (*Metadata) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b1c93df0fbe03b7c, []int{0}
 }
-func (m *RaftMetadata) XXX_Unmarshal(b []byte) error {
+func (m *Metadata) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *RaftMetadata) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *Metadata) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_RaftMetadata.Marshal(b, m, deterministic)
+		return xxx_messageInfo_Metadata.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -54,26 +54,26 @@ func (m *RaftMetadata) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return b[:n], nil
 	}
 }
-func (m *RaftMetadata) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RaftMetadata.Merge(m, src)
+func (m *Metadata) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Metadata.Merge(m, src)
 }
-func (m *RaftMetadata) XXX_Size() int {
+func (m *Metadata) XXX_Size() int {
 	return m.Size()
 }
-func (m *RaftMetadata) XXX_DiscardUnknown() {
-	xxx_messageInfo_RaftMetadata.DiscardUnknown(m)
+func (m *Metadata) XXX_DiscardUnknown() {
+	xxx_messageInfo_Metadata.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RaftMetadata proto.InternalMessageInfo
+var xxx_messageInfo_Metadata proto.InternalMessageInfo
 
-func (m *RaftMetadata) GetTerm() Term {
+func (m *Metadata) GetTerm() Term {
 	if m != nil {
 		return m.Term
 	}
 	return 0
 }
 
-func (m *RaftMetadata) GetVote() MemberID {
+func (m *Metadata) GetVote() MemberID {
 	if m != nil {
 		return m.Vote
 	}
@@ -81,25 +81,25 @@ func (m *RaftMetadata) GetVote() MemberID {
 }
 
 // Raft system configuration
-type RaftConfiguration struct {
-	Index     Index         `protobuf:"varint,1,opt,name=index,proto3,casttype=Index" json:"index,omitempty"`
-	Term      Term          `protobuf:"varint,2,opt,name=term,proto3,casttype=Term" json:"term,omitempty"`
-	Timestamp *time.Time    `protobuf:"bytes,3,opt,name=timestamp,proto3,stdtime" json:"timestamp,omitempty"`
-	Members   []*RaftMember `protobuf:"bytes,4,rep,name=members,proto3" json:"members,omitempty"`
+type Configuration struct {
+	Index     Index      `protobuf:"varint,1,opt,name=index,proto3,casttype=Index" json:"index,omitempty"`
+	Term      Term       `protobuf:"varint,2,opt,name=term,proto3,casttype=Term" json:"term,omitempty"`
+	Timestamp *time.Time `protobuf:"bytes,3,opt,name=timestamp,proto3,stdtime" json:"timestamp,omitempty"`
+	Members   []*Member  `protobuf:"bytes,4,rep,name=members,proto3" json:"members,omitempty"`
 }
 
-func (m *RaftConfiguration) Reset()         { *m = RaftConfiguration{} }
-func (m *RaftConfiguration) String() string { return proto.CompactTextString(m) }
-func (*RaftConfiguration) ProtoMessage()    {}
-func (*RaftConfiguration) Descriptor() ([]byte, []int) {
+func (m *Configuration) Reset()         { *m = Configuration{} }
+func (m *Configuration) String() string { return proto.CompactTextString(m) }
+func (*Configuration) ProtoMessage()    {}
+func (*Configuration) Descriptor() ([]byte, []int) {
 	return fileDescriptor_b1c93df0fbe03b7c, []int{1}
 }
-func (m *RaftConfiguration) XXX_Unmarshal(b []byte) error {
+func (m *Configuration) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *RaftConfiguration) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *Configuration) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_RaftConfiguration.Marshal(b, m, deterministic)
+		return xxx_messageInfo_Configuration.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -109,40 +109,40 @@ func (m *RaftConfiguration) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return b[:n], nil
 	}
 }
-func (m *RaftConfiguration) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RaftConfiguration.Merge(m, src)
+func (m *Configuration) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Configuration.Merge(m, src)
 }
-func (m *RaftConfiguration) XXX_Size() int {
+func (m *Configuration) XXX_Size() int {
 	return m.Size()
 }
-func (m *RaftConfiguration) XXX_DiscardUnknown() {
-	xxx_messageInfo_RaftConfiguration.DiscardUnknown(m)
+func (m *Configuration) XXX_DiscardUnknown() {
+	xxx_messageInfo_Configuration.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RaftConfiguration proto.InternalMessageInfo
+var xxx_messageInfo_Configuration proto.InternalMessageInfo
 
-func (m *RaftConfiguration) GetIndex() Index {
+func (m *Configuration) GetIndex() Index {
 	if m != nil {
 		return m.Index
 	}
 	return 0
 }
 
-func (m *RaftConfiguration) GetTerm() Term {
+func (m *Configuration) GetTerm() Term {
 	if m != nil {
 		return m.Term
 	}
 	return 0
 }
 
-func (m *RaftConfiguration) GetTimestamp() *time.Time {
+func (m *Configuration) GetTimestamp() *time.Time {
 	if m != nil {
 		return m.Timestamp
 	}
 	return nil
 }
 
-func (m *RaftConfiguration) GetMembers() []*RaftMember {
+func (m *Configuration) GetMembers() []*Member {
 	if m != nil {
 		return m.Members
 	}
@@ -150,8 +150,8 @@ func (m *RaftConfiguration) GetMembers() []*RaftMember {
 }
 
 func init() {
-	proto.RegisterType((*RaftMetadata)(nil), "atomix.raft.protocol.RaftMetadata")
-	proto.RegisterType((*RaftConfiguration)(nil), "atomix.raft.protocol.RaftConfiguration")
+	proto.RegisterType((*Metadata)(nil), "atomix.raft.protocol.Metadata")
+	proto.RegisterType((*Configuration)(nil), "atomix.raft.protocol.Configuration")
 }
 
 func init() {
@@ -159,38 +159,38 @@ func init() {
 }
 
 var fileDescriptor_b1c93df0fbe03b7c = []byte{
-	// 333 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x90, 0x31, 0x6e, 0xc2, 0x40,
-	0x10, 0x45, 0x19, 0x30, 0x09, 0x2c, 0x34, 0xb1, 0x28, 0x2c, 0x14, 0xad, 0x2d, 0x92, 0xc2, 0xd5,
-	0x5a, 0x22, 0x5d, 0x8a, 0x14, 0x4e, 0x1a, 0x0a, 0x52, 0x58, 0x5c, 0x60, 0x81, 0xb5, 0x65, 0x89,
-	0x65, 0xd1, 0x32, 0x44, 0x1c, 0x83, 0x63, 0xe4, 0x08, 0x39, 0x42, 0xaa, 0x88, 0x32, 0x15, 0x49,
-	0xcc, 0x25, 0x22, 0xaa, 0xc8, 0x5e, 0x4c, 0x1a, 0xba, 0xd1, 0x9f, 0x37, 0x7f, 0xe6, 0x0f, 0xb9,
-	0xe1, 0xa8, 0x64, 0xba, 0x0e, 0x34, 0x8f, 0x31, 0x58, 0x68, 0x85, 0x6a, 0xa2, 0x66, 0x81, 0x14,
-	0xc8, 0xa7, 0x1c, 0x39, 0x2b, 0x14, 0xbb, 0x63, 0x20, 0x96, 0x43, 0xac, 0x84, 0xba, 0xbd, 0xb3,
-	0xa3, 0x93, 0xd9, 0x6a, 0x89, 0x42, 0x1b, 0xac, 0xeb, 0x26, 0x4a, 0x25, 0x33, 0x61, 0xda, 0xe3,
-	0x55, 0x1c, 0x60, 0x2a, 0xc5, 0x12, 0xb9, 0x5c, 0x1c, 0x81, 0x4e, 0xa2, 0x12, 0x55, 0x94, 0x41,
-	0x5e, 0x19, 0xb5, 0xf7, 0x4c, 0xda, 0x11, 0x8f, 0x71, 0x78, 0x3c, 0xc3, 0xbe, 0x26, 0x16, 0x0a,
-	0x2d, 0x1d, 0xf0, 0xc0, 0xb7, 0xc2, 0xc6, 0x61, 0xe7, 0x5a, 0x23, 0xa1, 0x65, 0x54, 0xa8, 0xb6,
-	0x47, 0xac, 0x17, 0x85, 0xc2, 0xa9, 0x7a, 0xe0, 0x37, 0xc3, 0xf6, 0x61, 0xe7, 0x36, 0x86, 0x42,
-	0x8e, 0x85, 0x1e, 0x3c, 0x45, 0x45, 0xa7, 0xf7, 0x01, 0xe4, 0x2a, 0x37, 0x7c, 0x54, 0xf3, 0x38,
-	0x4d, 0x56, 0x9a, 0x63, 0xaa, 0xe6, 0xb6, 0x4b, 0xea, 0xe9, 0x7c, 0x2a, 0xd6, 0x47, 0xdb, 0xe6,
-	0x61, 0xe7, 0xd6, 0x07, 0xb9, 0x10, 0x19, 0xfd, 0xb4, 0xb6, 0x7a, 0x76, 0xed, 0x03, 0x69, 0x9e,
-	0xd2, 0x38, 0x35, 0x0f, 0xfc, 0x56, 0xbf, 0xcb, 0x4c, 0x5e, 0x56, 0xe6, 0x65, 0xa3, 0x92, 0x08,
-	0xad, 0xcd, 0x97, 0x0b, 0xd1, 0xff, 0x88, 0x7d, 0x4f, 0x2e, 0x65, 0x71, 0xe6, 0xd2, 0xb1, 0xbc,
-	0x9a, 0xdf, 0xea, 0x7b, 0xec, 0xdc, 0x9f, 0x99, 0xf9, 0x44, 0x0e, 0x46, 0xe5, 0x40, 0x78, 0xfb,
-	0xfb, 0x43, 0xe1, 0x35, 0xa3, 0xf0, 0x96, 0x51, 0x78, 0xcf, 0x28, 0x6c, 0x33, 0x0a, 0xdf, 0x19,
-	0x85, 0xcd, 0x9e, 0x56, 0xb6, 0x7b, 0x5a, 0xf9, 0xdc, 0xd3, 0xca, 0xf8, 0xa2, 0xf0, 0xb8, 0xfb,
-	0x0b, 0x00, 0x00, 0xff, 0xff, 0x5e, 0xcf, 0x2a, 0xa8, 0xe5, 0x01, 0x00, 0x00,
+	// 326 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x90, 0x31, 0x6e, 0xc2, 0x30,
+	0x14, 0x86, 0x79, 0x60, 0x5a, 0x30, 0xed, 0x12, 0x31, 0x44, 0x08, 0xd9, 0x11, 0xed, 0x90, 0xc9,
+	0x91, 0xa8, 0xd4, 0xb1, 0x43, 0xda, 0x85, 0x4a, 0x2c, 0x11, 0x17, 0x30, 0x60, 0xa2, 0x48, 0x18,
+	0x23, 0x63, 0x2a, 0x8e, 0xc1, 0x31, 0x7a, 0x84, 0x9e, 0xa0, 0xea, 0xc8, 0xd8, 0x89, 0xb6, 0xe1,
+	0x12, 0x15, 0x53, 0x85, 0x4d, 0xe8, 0xc2, 0xf6, 0xf4, 0xbd, 0xef, 0xf9, 0xbd, 0xdf, 0xf8, 0x86,
+	0x1b, 0x25, 0xb3, 0x55, 0xa4, 0xf9, 0xc4, 0x44, 0x73, 0xad, 0x8c, 0x1a, 0xa9, 0x69, 0x24, 0x85,
+	0xe1, 0x63, 0x6e, 0x38, 0xb3, 0xc4, 0x6b, 0x3a, 0x89, 0x1d, 0x24, 0x56, 0x48, 0xad, 0xce, 0xd9,
+	0xd1, 0xd1, 0x74, 0xb9, 0x30, 0x42, 0x3b, 0xad, 0x45, 0x53, 0xa5, 0xd2, 0xa9, 0x70, 0xed, 0xe1,
+	0x72, 0x12, 0x99, 0x4c, 0x8a, 0x85, 0xe1, 0x72, 0x7e, 0x14, 0x9a, 0xa9, 0x4a, 0x95, 0x2d, 0xa3,
+	0x43, 0xe5, 0x68, 0xe7, 0x19, 0xd7, 0xfa, 0xc7, 0x13, 0xbc, 0x36, 0x46, 0x46, 0x68, 0xe9, 0x43,
+	0x00, 0x21, 0x8a, 0x6b, 0xfb, 0x2d, 0x45, 0x03, 0xa1, 0x65, 0x62, 0xa9, 0x17, 0x60, 0xf4, 0xa2,
+	0x8c, 0xf0, 0xcb, 0x01, 0x84, 0xf5, 0xf8, 0x6a, 0xbf, 0xa5, 0xb5, 0xbe, 0x90, 0x43, 0xa1, 0x7b,
+	0x4f, 0x89, 0xed, 0x74, 0xde, 0x01, 0x5f, 0x3f, 0xaa, 0xd9, 0x24, 0x4b, 0x97, 0x9a, 0x9b, 0x4c,
+	0xcd, 0x3c, 0x8a, 0xab, 0xd9, 0x6c, 0x2c, 0x56, 0xc7, 0x27, 0xeb, 0xfb, 0x2d, 0xad, 0xf6, 0x0e,
+	0x20, 0x71, 0xfc, 0xb4, 0xb2, 0x7c, 0x76, 0xe5, 0x03, 0xae, 0x9f, 0x52, 0xf8, 0x95, 0x00, 0xc2,
+	0x46, 0xb7, 0xc5, 0x5c, 0x4e, 0x56, 0xe4, 0x64, 0x83, 0xc2, 0x88, 0xd1, 0xfa, 0x8b, 0x42, 0xf2,
+	0x3f, 0xe2, 0xdd, 0xe3, 0x4b, 0x69, 0x4f, 0x5c, 0xf8, 0x28, 0xa8, 0x84, 0x8d, 0x6e, 0x9b, 0x9d,
+	0xfb, 0x5f, 0xe6, 0x72, 0x24, 0x85, 0x1c, 0xdf, 0xfe, 0xfe, 0x10, 0x78, 0xcd, 0x09, 0xbc, 0xe5,
+	0x04, 0x3e, 0x72, 0x02, 0x9b, 0x9c, 0xc0, 0x77, 0x4e, 0x60, 0xbd, 0x23, 0xa5, 0xcd, 0x8e, 0x94,
+	0x3e, 0x77, 0xa4, 0x34, 0xbc, 0xb0, 0xf3, 0x77, 0x7f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x45, 0xc7,
+	0x59, 0xe1, 0xd9, 0x01, 0x00, 0x00,
 }
 
-func (this *RaftMetadata) Equal(that interface{}) bool {
+func (this *Metadata) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
 	}
 
-	that1, ok := that.(*RaftMetadata)
+	that1, ok := that.(*Metadata)
 	if !ok {
-		that2, ok := that.(RaftMetadata)
+		that2, ok := that.(Metadata)
 		if ok {
 			that1 = &that2
 		} else {
@@ -210,14 +210,14 @@ func (this *RaftMetadata) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (this *RaftConfiguration) Equal(that interface{}) bool {
+func (this *Configuration) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
 	}
 
-	that1, ok := that.(*RaftConfiguration)
+	that1, ok := that.(*Configuration)
 	if !ok {
-		that2, ok := that.(RaftConfiguration)
+		that2, ok := that.(Configuration)
 		if ok {
 			that1 = &that2
 		} else {
@@ -252,7 +252,7 @@ func (this *RaftConfiguration) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (m *RaftMetadata) Marshal() (dAtA []byte, err error) {
+func (m *Metadata) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -262,12 +262,12 @@ func (m *RaftMetadata) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *RaftMetadata) MarshalTo(dAtA []byte) (int, error) {
+func (m *Metadata) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *RaftMetadata) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *Metadata) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -287,7 +287,7 @@ func (m *RaftMetadata) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *RaftConfiguration) Marshal() (dAtA []byte, err error) {
+func (m *Configuration) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -297,12 +297,12 @@ func (m *RaftConfiguration) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *RaftConfiguration) MarshalTo(dAtA []byte) (int, error) {
+func (m *Configuration) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *RaftConfiguration) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *Configuration) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -355,8 +355,8 @@ func encodeVarintMetadata(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func NewPopulatedRaftMetadata(r randyMetadata, easy bool) *RaftMetadata {
-	this := &RaftMetadata{}
+func NewPopulatedMetadata(r randyMetadata, easy bool) *Metadata {
+	this := &Metadata{}
 	this.Term = Term(uint64(r.Uint32()))
 	this.Vote = MemberID(randStringMetadata(r))
 	if !easy && r.Intn(10) != 0 {
@@ -364,8 +364,8 @@ func NewPopulatedRaftMetadata(r randyMetadata, easy bool) *RaftMetadata {
 	return this
 }
 
-func NewPopulatedRaftConfiguration(r randyMetadata, easy bool) *RaftConfiguration {
-	this := &RaftConfiguration{}
+func NewPopulatedConfiguration(r randyMetadata, easy bool) *Configuration {
+	this := &Configuration{}
 	this.Index = Index(uint64(r.Uint32()))
 	this.Term = Term(uint64(r.Uint32()))
 	if r.Intn(5) != 0 {
@@ -373,9 +373,9 @@ func NewPopulatedRaftConfiguration(r randyMetadata, easy bool) *RaftConfiguratio
 	}
 	if r.Intn(5) != 0 {
 		v1 := r.Intn(5)
-		this.Members = make([]*RaftMember, v1)
+		this.Members = make([]*Member, v1)
 		for i := 0; i < v1; i++ {
-			this.Members[i] = NewPopulatedRaftMember(r, easy)
+			this.Members[i] = NewPopulatedMember(r, easy)
 		}
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -455,7 +455,7 @@ func encodeVarintPopulateMetadata(dAtA []byte, v uint64) []byte {
 	dAtA = append(dAtA, uint8(v))
 	return dAtA
 }
-func (m *RaftMetadata) Size() (n int) {
+func (m *Metadata) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -471,7 +471,7 @@ func (m *RaftMetadata) Size() (n int) {
 	return n
 }
 
-func (m *RaftConfiguration) Size() (n int) {
+func (m *Configuration) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -502,7 +502,7 @@ func sovMetadata(x uint64) (n int) {
 func sozMetadata(x uint64) (n int) {
 	return sovMetadata(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *RaftMetadata) Unmarshal(dAtA []byte) error {
+func (m *Metadata) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -525,10 +525,10 @@ func (m *RaftMetadata) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: RaftMetadata: wiretype end group for non-group")
+			return fmt.Errorf("proto: Metadata: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: RaftMetadata: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Metadata: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -606,7 +606,7 @@ func (m *RaftMetadata) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *RaftConfiguration) Unmarshal(dAtA []byte) error {
+func (m *Configuration) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -629,10 +629,10 @@ func (m *RaftConfiguration) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: RaftConfiguration: wiretype end group for non-group")
+			return fmt.Errorf("proto: Configuration: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: RaftConfiguration: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Configuration: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -738,7 +738,7 @@ func (m *RaftConfiguration) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Members = append(m.Members, &RaftMember{})
+			m.Members = append(m.Members, &Member{})
 			if err := m.Members[len(m.Members)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}

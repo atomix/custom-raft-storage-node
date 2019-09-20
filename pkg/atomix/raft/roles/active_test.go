@@ -37,7 +37,7 @@ func TestActiveAppend(t *testing.T) {
 		Leader:       "bar",
 		PrevLogIndex: 0,
 		PrevLogTerm:  0,
-		Entries:      []*raft.RaftLogEntry{},
+		Entries:      []*raft.LogEntry{},
 		CommitIndex:  0,
 	})
 
@@ -54,7 +54,7 @@ func TestActiveAppend(t *testing.T) {
 		Leader:       "baz",
 		PrevLogIndex: 0,
 		PrevLogTerm:  0,
-		Entries:      []*raft.RaftLogEntry{},
+		Entries:      []*raft.LogEntry{},
 		CommitIndex:  0,
 	})
 
@@ -99,24 +99,24 @@ func TestActivePoll(t *testing.T) {
 	assert.Equal(t, raft.Term(2), response.Term)
 
 	// Test that the poll is rejected if the LastLogTerm is lower than the log's last entry term
-	role.store.Writer().Append(&raft.RaftLogEntry{
+	role.store.Writer().Append(&raft.LogEntry{
 		Term:      raft.Term(1),
 		Timestamp: time.Now(),
-		Entry: &raft.RaftLogEntry_Initialize{
+		Entry: &raft.LogEntry_Initialize{
 			Initialize: &raft.InitializeEntry{},
 		},
 	})
-	role.store.Writer().Append(&raft.RaftLogEntry{
+	role.store.Writer().Append(&raft.LogEntry{
 		Term:      raft.Term(2),
 		Timestamp: time.Now(),
-		Entry: &raft.RaftLogEntry_Initialize{
+		Entry: &raft.LogEntry_Initialize{
 			Initialize: &raft.InitializeEntry{},
 		},
 	})
-	role.store.Writer().Append(&raft.RaftLogEntry{
+	role.store.Writer().Append(&raft.LogEntry{
 		Term:      raft.Term(2),
 		Timestamp: time.Now(),
-		Entry: &raft.RaftLogEntry_Initialize{
+		Entry: &raft.LogEntry_Initialize{
 			Initialize: &raft.InitializeEntry{},
 		},
 	})
@@ -235,24 +235,24 @@ func TestActiveVote(t *testing.T) {
 	assert.NoError(t, role.raft.SetLeader(&bar))
 
 	// Test that the request is rejected if the LastLogTerm is lower than the log's last entry term
-	role.store.Writer().Append(&raft.RaftLogEntry{
+	role.store.Writer().Append(&raft.LogEntry{
 		Term:      raft.Term(2),
 		Timestamp: time.Now(),
-		Entry: &raft.RaftLogEntry_Initialize{
+		Entry: &raft.LogEntry_Initialize{
 			Initialize: &raft.InitializeEntry{},
 		},
 	})
-	role.store.Writer().Append(&raft.RaftLogEntry{
+	role.store.Writer().Append(&raft.LogEntry{
 		Term:      raft.Term(3),
 		Timestamp: time.Now(),
-		Entry: &raft.RaftLogEntry_Initialize{
+		Entry: &raft.LogEntry_Initialize{
 			Initialize: &raft.InitializeEntry{},
 		},
 	})
-	role.store.Writer().Append(&raft.RaftLogEntry{
+	role.store.Writer().Append(&raft.LogEntry{
 		Term:      raft.Term(3),
 		Timestamp: time.Now(),
-		Entry: &raft.RaftLogEntry_Initialize{
+		Entry: &raft.LogEntry_Initialize{
 			Initialize: &raft.InitializeEntry{},
 		},
 	})

@@ -54,7 +54,7 @@ type Writer interface {
 	LastEntry() *Entry
 
 	// Append appends the given entry to the log
-	Append(entry *raft.RaftLogEntry) *Entry
+	Append(entry *raft.LogEntry) *Entry
 
 	// Reset resets the log writer to the given index
 	Reset(index raft.Index)
@@ -92,7 +92,7 @@ type Reader interface {
 // Entry is an indexed Raft log entry
 type Entry struct {
 	Index raft.Index
-	Entry *raft.RaftLogEntry
+	Entry *raft.LogEntry
 }
 
 type memoryLog struct {
@@ -151,7 +151,7 @@ func (w *memoryWriter) nextIndex() raft.Index {
 	return w.log.entries[len(w.log.entries)-1].Index + 1
 }
 
-func (w *memoryWriter) Append(entry *raft.RaftLogEntry) *Entry {
+func (w *memoryWriter) Append(entry *raft.LogEntry) *Entry {
 	indexed := &Entry{
 		Index: w.nextIndex(),
 		Entry: entry,

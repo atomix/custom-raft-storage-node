@@ -27,15 +27,15 @@ option (gogoproto.populate_all) = true;
 option (gogoproto.equal_all) = true;
 
 // Raft system metadata
-message RaftMetadata {
+message Metadata {
     uint64 term = 1 [(gogoproto.casttype) = "Term"];
     string vote = 2 [(gogoproto.casttype) = "MemberID"];
 }
 
 // Raft system configuration
-message RaftConfiguration {
+message Configuration {
     uint64 index = 1 [(gogoproto.casttype) = "Index"];
     uint64 term = 2 [(gogoproto.casttype) = "Term"];
     google.protobuf.Timestamp timestamp = 3 [(gogoproto.stdtime) = true];
-    repeated RaftMember members = 4;
+    repeated Member members = 4;
 }

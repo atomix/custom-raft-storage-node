@@ -29,29 +29,29 @@ var _ = time.Kitchen
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Raft log entry
-type RaftLogEntry struct {
+type LogEntry struct {
 	Term      Term      `protobuf:"varint,1,opt,name=term,proto3,casttype=Term" json:"term,omitempty"`
 	Timestamp time.Time `protobuf:"bytes,2,opt,name=timestamp,proto3,stdtime" json:"timestamp"`
 	// Types that are valid to be assigned to Entry:
-	//	*RaftLogEntry_Initialize
-	//	*RaftLogEntry_Configuration
-	//	*RaftLogEntry_Command
-	//	*RaftLogEntry_Query
-	Entry isRaftLogEntry_Entry `protobuf_oneof:"entry"`
+	//	*LogEntry_Initialize
+	//	*LogEntry_Configuration
+	//	*LogEntry_Command
+	//	*LogEntry_Query
+	Entry isLogEntry_Entry `protobuf_oneof:"entry"`
 }
 
-func (m *RaftLogEntry) Reset()         { *m = RaftLogEntry{} }
-func (m *RaftLogEntry) String() string { return proto.CompactTextString(m) }
-func (*RaftLogEntry) ProtoMessage()    {}
-func (*RaftLogEntry) Descriptor() ([]byte, []int) {
+func (m *LogEntry) Reset()         { *m = LogEntry{} }
+func (m *LogEntry) String() string { return proto.CompactTextString(m) }
+func (*LogEntry) ProtoMessage()    {}
+func (*LogEntry) Descriptor() ([]byte, []int) {
 	return fileDescriptor_169d8cb0b7cb7546, []int{0}
 }
-func (m *RaftLogEntry) XXX_Unmarshal(b []byte) error {
+func (m *LogEntry) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *RaftLogEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *LogEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_RaftLogEntry.Marshal(b, m, deterministic)
+		return xxx_messageInfo_LogEntry.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -61,135 +61,135 @@ func (m *RaftLogEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return b[:n], nil
 	}
 }
-func (m *RaftLogEntry) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RaftLogEntry.Merge(m, src)
+func (m *LogEntry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LogEntry.Merge(m, src)
 }
-func (m *RaftLogEntry) XXX_Size() int {
+func (m *LogEntry) XXX_Size() int {
 	return m.Size()
 }
-func (m *RaftLogEntry) XXX_DiscardUnknown() {
-	xxx_messageInfo_RaftLogEntry.DiscardUnknown(m)
+func (m *LogEntry) XXX_DiscardUnknown() {
+	xxx_messageInfo_LogEntry.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RaftLogEntry proto.InternalMessageInfo
+var xxx_messageInfo_LogEntry proto.InternalMessageInfo
 
-type isRaftLogEntry_Entry interface {
-	isRaftLogEntry_Entry()
+type isLogEntry_Entry interface {
+	isLogEntry_Entry()
 	Equal(interface{}) bool
 	MarshalTo([]byte) (int, error)
 	Size() int
 }
 
-type RaftLogEntry_Initialize struct {
+type LogEntry_Initialize struct {
 	Initialize *InitializeEntry `protobuf:"bytes,3,opt,name=initialize,proto3,oneof"`
 }
-type RaftLogEntry_Configuration struct {
+type LogEntry_Configuration struct {
 	Configuration *ConfigurationEntry `protobuf:"bytes,4,opt,name=configuration,proto3,oneof"`
 }
-type RaftLogEntry_Command struct {
+type LogEntry_Command struct {
 	Command *CommandEntry `protobuf:"bytes,5,opt,name=command,proto3,oneof"`
 }
-type RaftLogEntry_Query struct {
+type LogEntry_Query struct {
 	Query *QueryEntry `protobuf:"bytes,6,opt,name=query,proto3,oneof"`
 }
 
-func (*RaftLogEntry_Initialize) isRaftLogEntry_Entry()    {}
-func (*RaftLogEntry_Configuration) isRaftLogEntry_Entry() {}
-func (*RaftLogEntry_Command) isRaftLogEntry_Entry()       {}
-func (*RaftLogEntry_Query) isRaftLogEntry_Entry()         {}
+func (*LogEntry_Initialize) isLogEntry_Entry()    {}
+func (*LogEntry_Configuration) isLogEntry_Entry() {}
+func (*LogEntry_Command) isLogEntry_Entry()       {}
+func (*LogEntry_Query) isLogEntry_Entry()         {}
 
-func (m *RaftLogEntry) GetEntry() isRaftLogEntry_Entry {
+func (m *LogEntry) GetEntry() isLogEntry_Entry {
 	if m != nil {
 		return m.Entry
 	}
 	return nil
 }
 
-func (m *RaftLogEntry) GetTerm() Term {
+func (m *LogEntry) GetTerm() Term {
 	if m != nil {
 		return m.Term
 	}
 	return 0
 }
 
-func (m *RaftLogEntry) GetTimestamp() time.Time {
+func (m *LogEntry) GetTimestamp() time.Time {
 	if m != nil {
 		return m.Timestamp
 	}
 	return time.Time{}
 }
 
-func (m *RaftLogEntry) GetInitialize() *InitializeEntry {
-	if x, ok := m.GetEntry().(*RaftLogEntry_Initialize); ok {
+func (m *LogEntry) GetInitialize() *InitializeEntry {
+	if x, ok := m.GetEntry().(*LogEntry_Initialize); ok {
 		return x.Initialize
 	}
 	return nil
 }
 
-func (m *RaftLogEntry) GetConfiguration() *ConfigurationEntry {
-	if x, ok := m.GetEntry().(*RaftLogEntry_Configuration); ok {
+func (m *LogEntry) GetConfiguration() *ConfigurationEntry {
+	if x, ok := m.GetEntry().(*LogEntry_Configuration); ok {
 		return x.Configuration
 	}
 	return nil
 }
 
-func (m *RaftLogEntry) GetCommand() *CommandEntry {
-	if x, ok := m.GetEntry().(*RaftLogEntry_Command); ok {
+func (m *LogEntry) GetCommand() *CommandEntry {
+	if x, ok := m.GetEntry().(*LogEntry_Command); ok {
 		return x.Command
 	}
 	return nil
 }
 
-func (m *RaftLogEntry) GetQuery() *QueryEntry {
-	if x, ok := m.GetEntry().(*RaftLogEntry_Query); ok {
+func (m *LogEntry) GetQuery() *QueryEntry {
+	if x, ok := m.GetEntry().(*LogEntry_Query); ok {
 		return x.Query
 	}
 	return nil
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
-func (*RaftLogEntry) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _RaftLogEntry_OneofMarshaler, _RaftLogEntry_OneofUnmarshaler, _RaftLogEntry_OneofSizer, []interface{}{
-		(*RaftLogEntry_Initialize)(nil),
-		(*RaftLogEntry_Configuration)(nil),
-		(*RaftLogEntry_Command)(nil),
-		(*RaftLogEntry_Query)(nil),
+func (*LogEntry) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _LogEntry_OneofMarshaler, _LogEntry_OneofUnmarshaler, _LogEntry_OneofSizer, []interface{}{
+		(*LogEntry_Initialize)(nil),
+		(*LogEntry_Configuration)(nil),
+		(*LogEntry_Command)(nil),
+		(*LogEntry_Query)(nil),
 	}
 }
 
-func _RaftLogEntry_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*RaftLogEntry)
+func _LogEntry_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*LogEntry)
 	// entry
 	switch x := m.Entry.(type) {
-	case *RaftLogEntry_Initialize:
+	case *LogEntry_Initialize:
 		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Initialize); err != nil {
 			return err
 		}
-	case *RaftLogEntry_Configuration:
+	case *LogEntry_Configuration:
 		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Configuration); err != nil {
 			return err
 		}
-	case *RaftLogEntry_Command:
+	case *LogEntry_Command:
 		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Command); err != nil {
 			return err
 		}
-	case *RaftLogEntry_Query:
+	case *LogEntry_Query:
 		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Query); err != nil {
 			return err
 		}
 	case nil:
 	default:
-		return fmt.Errorf("RaftLogEntry.Entry has unexpected type %T", x)
+		return fmt.Errorf("LogEntry.Entry has unexpected type %T", x)
 	}
 	return nil
 }
 
-func _RaftLogEntry_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*RaftLogEntry)
+func _LogEntry_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*LogEntry)
 	switch tag {
 	case 3: // entry.initialize
 		if wire != proto.WireBytes {
@@ -197,7 +197,7 @@ func _RaftLogEntry_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.B
 		}
 		msg := new(InitializeEntry)
 		err := b.DecodeMessage(msg)
-		m.Entry = &RaftLogEntry_Initialize{msg}
+		m.Entry = &LogEntry_Initialize{msg}
 		return true, err
 	case 4: // entry.configuration
 		if wire != proto.WireBytes {
@@ -205,7 +205,7 @@ func _RaftLogEntry_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.B
 		}
 		msg := new(ConfigurationEntry)
 		err := b.DecodeMessage(msg)
-		m.Entry = &RaftLogEntry_Configuration{msg}
+		m.Entry = &LogEntry_Configuration{msg}
 		return true, err
 	case 5: // entry.command
 		if wire != proto.WireBytes {
@@ -213,7 +213,7 @@ func _RaftLogEntry_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.B
 		}
 		msg := new(CommandEntry)
 		err := b.DecodeMessage(msg)
-		m.Entry = &RaftLogEntry_Command{msg}
+		m.Entry = &LogEntry_Command{msg}
 		return true, err
 	case 6: // entry.query
 		if wire != proto.WireBytes {
@@ -221,33 +221,33 @@ func _RaftLogEntry_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.B
 		}
 		msg := new(QueryEntry)
 		err := b.DecodeMessage(msg)
-		m.Entry = &RaftLogEntry_Query{msg}
+		m.Entry = &LogEntry_Query{msg}
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-func _RaftLogEntry_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*RaftLogEntry)
+func _LogEntry_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*LogEntry)
 	// entry
 	switch x := m.Entry.(type) {
-	case *RaftLogEntry_Initialize:
+	case *LogEntry_Initialize:
 		s := proto.Size(x.Initialize)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *RaftLogEntry_Configuration:
+	case *LogEntry_Configuration:
 		s := proto.Size(x.Configuration)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *RaftLogEntry_Command:
+	case *LogEntry_Command:
 		s := proto.Size(x.Command)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *RaftLogEntry_Query:
+	case *LogEntry_Query:
 		s := proto.Size(x.Query)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
@@ -296,7 +296,7 @@ func (m *InitializeEntry) XXX_DiscardUnknown() {
 var xxx_messageInfo_InitializeEntry proto.InternalMessageInfo
 
 type ConfigurationEntry struct {
-	Members []*RaftMember `protobuf:"bytes,1,rep,name=members,proto3" json:"members,omitempty"`
+	Members []*Member `protobuf:"bytes,1,rep,name=members,proto3" json:"members,omitempty"`
 }
 
 func (m *ConfigurationEntry) Reset()         { *m = ConfigurationEntry{} }
@@ -332,7 +332,7 @@ func (m *ConfigurationEntry) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ConfigurationEntry proto.InternalMessageInfo
 
-func (m *ConfigurationEntry) GetMembers() []*RaftMember {
+func (m *ConfigurationEntry) GetMembers() []*Member {
 	if m != nil {
 		return m.Members
 	}
@@ -428,7 +428,7 @@ func (m *QueryEntry) GetValue() []byte {
 }
 
 func init() {
-	proto.RegisterType((*RaftLogEntry)(nil), "atomix.raft.protocol.RaftLogEntry")
+	proto.RegisterType((*LogEntry)(nil), "atomix.raft.protocol.LogEntry")
 	proto.RegisterType((*InitializeEntry)(nil), "atomix.raft.protocol.InitializeEntry")
 	proto.RegisterType((*ConfigurationEntry)(nil), "atomix.raft.protocol.ConfigurationEntry")
 	proto.RegisterType((*CommandEntry)(nil), "atomix.raft.protocol.CommandEntry")
@@ -438,43 +438,43 @@ func init() {
 func init() { proto.RegisterFile("atomix/raft/protocol/log.proto", fileDescriptor_169d8cb0b7cb7546) }
 
 var fileDescriptor_169d8cb0b7cb7546 = []byte{
-	// 414 bytes of a gzipped FileDescriptorProto
+	// 413 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x91, 0xc1, 0x8a, 0xd4, 0x30,
-	0x18, 0xc7, 0x1b, 0x67, 0xba, 0xb3, 0x7e, 0x8e, 0x88, 0x61, 0x0e, 0x65, 0x90, 0xb4, 0x84, 0x15,
-	0xe6, 0x94, 0x82, 0x5e, 0xc4, 0x83, 0x87, 0x8a, 0xa8, 0xa0, 0xb0, 0x96, 0x7d, 0x81, 0x4c, 0x4d,
-	0x4b, 0xa0, 0x69, 0xd6, 0x4c, 0x2a, 0xae, 0x0f, 0x21, 0xfb, 0x18, 0x3e, 0x82, 0x8f, 0xb0, 0xc7,
-	0x3d, 0x7a, 0x5a, 0xb5, 0xf3, 0x12, 0xe2, 0x49, 0x9a, 0x9a, 0xdd, 0x51, 0xbb, 0xb7, 0x24, 0xdf,
-	0xff, 0xf7, 0xfb, 0xbe, 0x8f, 0x00, 0xe1, 0x56, 0x2b, 0xf9, 0x21, 0x35, 0xbc, 0xb4, 0xe9, 0xb1,
-	0xd1, 0x56, 0x17, 0xba, 0x4e, 0x6b, 0x5d, 0x31, 0x77, 0xc1, 0x8b, 0xa1, 0xce, 0xfa, 0x3a, 0xf3,
-	0xf5, 0x25, 0x1d, 0xa5, 0x8a, 0xba, 0xdd, 0x58, 0x61, 0x86, 0xd8, 0x32, 0xae, 0xb4, 0xae, 0x6a,
-	0x31, 0x94, 0xd7, 0x6d, 0x99, 0x5a, 0xa9, 0xc4, 0xc6, 0x72, 0x75, 0xfc, 0x27, 0xb0, 0xa8, 0x74,
-	0xa5, 0xdd, 0x31, 0xed, 0x4f, 0xc3, 0x2b, 0xfd, 0x34, 0x81, 0x79, 0xce, 0x4b, 0xfb, 0x4a, 0x57,
-	0xcf, 0x1a, 0x6b, 0x4e, 0xf0, 0x3d, 0x98, 0x5a, 0x61, 0x54, 0x84, 0x12, 0xb4, 0x9a, 0x66, 0xfb,
-	0xbf, 0x2e, 0xe2, 0xe9, 0x91, 0x30, 0x2a, 0x77, 0xaf, 0x38, 0x83, 0x9b, 0x97, 0xde, 0xe8, 0x46,
-	0x82, 0x56, 0xb7, 0x1e, 0x2c, 0xd9, 0xd0, 0x99, 0xf9, 0xce, 0xec, 0xc8, 0x27, 0xb2, 0xfd, 0xb3,
-	0x8b, 0x38, 0x38, 0xfd, 0x16, 0xa3, 0xfc, 0x0a, 0xc3, 0xcf, 0x01, 0x64, 0x23, 0xad, 0xe4, 0xb5,
-	0xfc, 0x28, 0xa2, 0x89, 0x93, 0xdc, 0x67, 0x63, 0x8b, 0xb3, 0x97, 0x97, 0x39, 0x37, 0xdc, 0x8b,
-	0x20, 0xdf, 0x41, 0xf1, 0x21, 0xdc, 0x2e, 0x74, 0x53, 0xca, 0xaa, 0x35, 0xdc, 0x4a, 0xdd, 0x44,
-	0x53, 0xe7, 0x5a, 0x8d, 0xbb, 0x9e, 0xee, 0x46, 0xbd, 0xee, 0x6f, 0x01, 0x7e, 0x02, 0xb3, 0x42,
-	0x2b, 0xc5, 0x9b, 0xb7, 0x51, 0xe8, 0x5c, 0xf4, 0x3a, 0x97, 0x0b, 0x79, 0x8b, 0x87, 0xf0, 0x23,
-	0x08, 0xdf, 0xb5, 0xc2, 0x9c, 0x44, 0x7b, 0x8e, 0x4e, 0xc6, 0xe9, 0x37, 0x7d, 0xc4, 0xb3, 0x03,
-	0x90, 0xcd, 0x20, 0x14, 0xfd, 0x0b, 0xbd, 0x0b, 0x77, 0xfe, 0xd9, 0x9a, 0x1e, 0x02, 0xfe, 0x7f,
-	0x78, 0xfc, 0x18, 0x66, 0x4a, 0xa8, 0xb5, 0x30, 0x9b, 0x08, 0x25, 0x93, 0xeb, 0xbb, 0xf5, 0xbf,
-	0xfb, 0xda, 0x05, 0x73, 0x0f, 0xd0, 0x03, 0x98, 0xef, 0xae, 0x80, 0x17, 0x10, 0xbe, 0xe7, 0x75,
-	0x2b, 0xdc, 0xaf, 0xcf, 0xf3, 0xe1, 0x42, 0x29, 0xc0, 0xd5, 0xa8, 0xe3, 0x99, 0xec, 0xe0, 0xe7,
-	0x0f, 0x82, 0x3e, 0x77, 0x04, 0x7d, 0xe9, 0x08, 0x3a, 0xeb, 0x08, 0x3a, 0xef, 0x08, 0xfa, 0xde,
-	0x11, 0x74, 0xba, 0x25, 0xc1, 0xf9, 0x96, 0x04, 0x5f, 0xb7, 0x24, 0x58, 0xef, 0xb9, 0x69, 0x1e,
-	0xfe, 0x0e, 0x00, 0x00, 0xff, 0xff, 0x16, 0x22, 0x5b, 0xb0, 0xff, 0x02, 0x00, 0x00,
+	0x18, 0xc7, 0x1b, 0xa7, 0xdd, 0x19, 0xbf, 0x5d, 0x11, 0xc3, 0x1c, 0xca, 0xb0, 0xa4, 0x25, 0xac,
+	0xd0, 0x53, 0x0a, 0x2b, 0x88, 0x27, 0x0f, 0x15, 0x51, 0x61, 0x05, 0x2d, 0xfb, 0x02, 0x9d, 0x9a,
+	0x29, 0x81, 0xa6, 0x59, 0x33, 0xa9, 0xb8, 0x3e, 0x82, 0xa7, 0x7d, 0x0c, 0x1f, 0xc1, 0x47, 0xd8,
+	0xe3, 0x1e, 0x3d, 0xad, 0xda, 0x79, 0x09, 0xf1, 0x24, 0x4d, 0xcd, 0xce, 0xa8, 0xf5, 0x96, 0x7c,
+	0xdf, 0xef, 0xff, 0xfb, 0xbe, 0x10, 0x20, 0x85, 0x51, 0x52, 0xbc, 0x4f, 0x75, 0xb1, 0x32, 0xe9,
+	0x99, 0x56, 0x46, 0x95, 0xaa, 0x4e, 0x6b, 0x55, 0x31, 0x7b, 0xc1, 0xf3, 0xa1, 0xcf, 0xfa, 0x3e,
+	0x73, 0xfd, 0x05, 0x1d, 0x4d, 0x95, 0x75, 0xbb, 0x36, 0x5c, 0x0f, 0xd8, 0x22, 0xaa, 0x94, 0xaa,
+	0x6a, 0x3e, 0xb4, 0x97, 0xed, 0x2a, 0x35, 0x42, 0xf2, 0xb5, 0x29, 0xe4, 0xd9, 0x6f, 0x60, 0x5e,
+	0xa9, 0x4a, 0xd9, 0x63, 0xda, 0x9f, 0x86, 0x2a, 0xfd, 0x38, 0x81, 0xd9, 0x89, 0xaa, 0x9e, 0x36,
+	0x46, 0x9f, 0xe3, 0x43, 0xf0, 0x0d, 0xd7, 0x32, 0x44, 0x31, 0x4a, 0xfc, 0x6c, 0xf6, 0xf3, 0x3a,
+	0xf2, 0x4f, 0xb9, 0x96, 0xb9, 0xad, 0xe2, 0x0c, 0x6e, 0xdf, 0x38, 0xc3, 0x5b, 0x31, 0x4a, 0xf6,
+	0x8f, 0x17, 0x6c, 0x98, 0xca, 0xdc, 0x54, 0x76, 0xea, 0x88, 0x6c, 0x76, 0x79, 0x1d, 0x79, 0x17,
+	0x5f, 0x23, 0x94, 0x6f, 0x63, 0xf8, 0x19, 0x80, 0x68, 0x84, 0x11, 0x45, 0x2d, 0x3e, 0xf0, 0x70,
+	0x62, 0x25, 0xf7, 0xd9, 0xd8, 0xa3, 0xd9, 0x8b, 0x1b, 0xce, 0x2e, 0xf7, 0xdc, 0xcb, 0x77, 0xa2,
+	0xf8, 0x15, 0xdc, 0x29, 0x55, 0xb3, 0x12, 0x55, 0xab, 0x0b, 0x23, 0x54, 0x13, 0xfa, 0xd6, 0x95,
+	0x8c, 0xbb, 0x9e, 0xec, 0xa2, 0x4e, 0xf7, 0xa7, 0x00, 0x3f, 0x86, 0x69, 0xa9, 0xa4, 0x2c, 0x9a,
+	0x37, 0x61, 0x60, 0x5d, 0xf4, 0x7f, 0x2e, 0x0b, 0x39, 0x8b, 0x0b, 0xe1, 0x47, 0x10, 0xbc, 0x6d,
+	0xb9, 0x3e, 0x0f, 0xf7, 0x6c, 0x3a, 0x1e, 0x4f, 0xbf, 0xee, 0x11, 0x97, 0x1d, 0x02, 0xd9, 0x14,
+	0x02, 0xde, 0x57, 0xe8, 0x3d, 0xb8, 0xfb, 0xd7, 0xab, 0xe9, 0x09, 0xe0, 0x7f, 0x97, 0xc7, 0x0f,
+	0x61, 0x2a, 0xb9, 0x5c, 0x72, 0xbd, 0x0e, 0x51, 0x3c, 0x49, 0xf6, 0x8f, 0x0f, 0xc7, 0xa7, 0xbd,
+	0xb4, 0x50, 0xee, 0x60, 0x7a, 0x04, 0x07, 0xbb, 0xeb, 0xe3, 0x39, 0x04, 0xef, 0x8a, 0xba, 0xe5,
+	0xf6, 0xc7, 0x0f, 0xf2, 0xe1, 0x42, 0x29, 0xc0, 0x76, 0xcd, 0x71, 0x26, 0x3b, 0xfa, 0xf1, 0x9d,
+	0xa0, 0x4f, 0x1d, 0x41, 0x9f, 0x3b, 0x82, 0x2e, 0x3b, 0x82, 0xae, 0x3a, 0x82, 0xbe, 0x75, 0x04,
+	0x5d, 0x6c, 0x88, 0x77, 0xb5, 0x21, 0xde, 0x97, 0x0d, 0xf1, 0x96, 0x7b, 0x76, 0x93, 0x07, 0xbf,
+	0x02, 0x00, 0x00, 0xff, 0xff, 0xd8, 0x9a, 0xdf, 0x97, 0xf7, 0x02, 0x00, 0x00,
 }
 
-func (this *RaftLogEntry) Equal(that interface{}) bool {
+func (this *LogEntry) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
 	}
 
-	that1, ok := that.(*RaftLogEntry)
+	that1, ok := that.(*LogEntry)
 	if !ok {
-		that2, ok := that.(RaftLogEntry)
+		that2, ok := that.(LogEntry)
 		if ok {
 			that1 = &that2
 		} else {
@@ -503,14 +503,14 @@ func (this *RaftLogEntry) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (this *RaftLogEntry_Initialize) Equal(that interface{}) bool {
+func (this *LogEntry_Initialize) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
 	}
 
-	that1, ok := that.(*RaftLogEntry_Initialize)
+	that1, ok := that.(*LogEntry_Initialize)
 	if !ok {
-		that2, ok := that.(RaftLogEntry_Initialize)
+		that2, ok := that.(LogEntry_Initialize)
 		if ok {
 			that1 = &that2
 		} else {
@@ -527,14 +527,14 @@ func (this *RaftLogEntry_Initialize) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (this *RaftLogEntry_Configuration) Equal(that interface{}) bool {
+func (this *LogEntry_Configuration) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
 	}
 
-	that1, ok := that.(*RaftLogEntry_Configuration)
+	that1, ok := that.(*LogEntry_Configuration)
 	if !ok {
-		that2, ok := that.(RaftLogEntry_Configuration)
+		that2, ok := that.(LogEntry_Configuration)
 		if ok {
 			that1 = &that2
 		} else {
@@ -551,14 +551,14 @@ func (this *RaftLogEntry_Configuration) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (this *RaftLogEntry_Command) Equal(that interface{}) bool {
+func (this *LogEntry_Command) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
 	}
 
-	that1, ok := that.(*RaftLogEntry_Command)
+	that1, ok := that.(*LogEntry_Command)
 	if !ok {
-		that2, ok := that.(RaftLogEntry_Command)
+		that2, ok := that.(LogEntry_Command)
 		if ok {
 			that1 = &that2
 		} else {
@@ -575,14 +575,14 @@ func (this *RaftLogEntry_Command) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (this *RaftLogEntry_Query) Equal(that interface{}) bool {
+func (this *LogEntry_Query) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
 	}
 
-	that1, ok := that.(*RaftLogEntry_Query)
+	that1, ok := that.(*LogEntry_Query)
 	if !ok {
-		that2, ok := that.(RaftLogEntry_Query)
+		that2, ok := that.(LogEntry_Query)
 		if ok {
 			that1 = &that2
 		} else {
@@ -697,7 +697,7 @@ func (this *QueryEntry) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (m *RaftLogEntry) Marshal() (dAtA []byte, err error) {
+func (m *LogEntry) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -707,12 +707,12 @@ func (m *RaftLogEntry) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *RaftLogEntry) MarshalTo(dAtA []byte) (int, error) {
+func (m *LogEntry) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *RaftLogEntry) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *LogEntry) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -742,11 +742,11 @@ func (m *RaftLogEntry) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *RaftLogEntry_Initialize) MarshalTo(dAtA []byte) (int, error) {
+func (m *LogEntry_Initialize) MarshalTo(dAtA []byte) (int, error) {
 	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
 }
 
-func (m *RaftLogEntry_Initialize) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *LogEntry_Initialize) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	if m.Initialize != nil {
 		{
@@ -762,11 +762,11 @@ func (m *RaftLogEntry_Initialize) MarshalToSizedBuffer(dAtA []byte) (int, error)
 	}
 	return len(dAtA) - i, nil
 }
-func (m *RaftLogEntry_Configuration) MarshalTo(dAtA []byte) (int, error) {
+func (m *LogEntry_Configuration) MarshalTo(dAtA []byte) (int, error) {
 	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
 }
 
-func (m *RaftLogEntry_Configuration) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *LogEntry_Configuration) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	if m.Configuration != nil {
 		{
@@ -782,11 +782,11 @@ func (m *RaftLogEntry_Configuration) MarshalToSizedBuffer(dAtA []byte) (int, err
 	}
 	return len(dAtA) - i, nil
 }
-func (m *RaftLogEntry_Command) MarshalTo(dAtA []byte) (int, error) {
+func (m *LogEntry_Command) MarshalTo(dAtA []byte) (int, error) {
 	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
 }
 
-func (m *RaftLogEntry_Command) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *LogEntry_Command) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	if m.Command != nil {
 		{
@@ -802,11 +802,11 @@ func (m *RaftLogEntry_Command) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	}
 	return len(dAtA) - i, nil
 }
-func (m *RaftLogEntry_Query) MarshalTo(dAtA []byte) (int, error) {
+func (m *LogEntry_Query) MarshalTo(dAtA []byte) (int, error) {
 	return m.MarshalToSizedBuffer(dAtA[:m.Size()])
 }
 
-func (m *RaftLogEntry_Query) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *LogEntry_Query) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	if m.Query != nil {
 		{
@@ -953,44 +953,44 @@ func encodeVarintLog(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func NewPopulatedRaftLogEntry(r randyLog, easy bool) *RaftLogEntry {
-	this := &RaftLogEntry{}
+func NewPopulatedLogEntry(r randyLog, easy bool) *LogEntry {
+	this := &LogEntry{}
 	this.Term = Term(uint64(r.Uint32()))
 	v1 := github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
 	this.Timestamp = *v1
 	oneofNumber_Entry := []int32{3, 4, 5, 6}[r.Intn(4)]
 	switch oneofNumber_Entry {
 	case 3:
-		this.Entry = NewPopulatedRaftLogEntry_Initialize(r, easy)
+		this.Entry = NewPopulatedLogEntry_Initialize(r, easy)
 	case 4:
-		this.Entry = NewPopulatedRaftLogEntry_Configuration(r, easy)
+		this.Entry = NewPopulatedLogEntry_Configuration(r, easy)
 	case 5:
-		this.Entry = NewPopulatedRaftLogEntry_Command(r, easy)
+		this.Entry = NewPopulatedLogEntry_Command(r, easy)
 	case 6:
-		this.Entry = NewPopulatedRaftLogEntry_Query(r, easy)
+		this.Entry = NewPopulatedLogEntry_Query(r, easy)
 	}
 	if !easy && r.Intn(10) != 0 {
 	}
 	return this
 }
 
-func NewPopulatedRaftLogEntry_Initialize(r randyLog, easy bool) *RaftLogEntry_Initialize {
-	this := &RaftLogEntry_Initialize{}
+func NewPopulatedLogEntry_Initialize(r randyLog, easy bool) *LogEntry_Initialize {
+	this := &LogEntry_Initialize{}
 	this.Initialize = NewPopulatedInitializeEntry(r, easy)
 	return this
 }
-func NewPopulatedRaftLogEntry_Configuration(r randyLog, easy bool) *RaftLogEntry_Configuration {
-	this := &RaftLogEntry_Configuration{}
+func NewPopulatedLogEntry_Configuration(r randyLog, easy bool) *LogEntry_Configuration {
+	this := &LogEntry_Configuration{}
 	this.Configuration = NewPopulatedConfigurationEntry(r, easy)
 	return this
 }
-func NewPopulatedRaftLogEntry_Command(r randyLog, easy bool) *RaftLogEntry_Command {
-	this := &RaftLogEntry_Command{}
+func NewPopulatedLogEntry_Command(r randyLog, easy bool) *LogEntry_Command {
+	this := &LogEntry_Command{}
 	this.Command = NewPopulatedCommandEntry(r, easy)
 	return this
 }
-func NewPopulatedRaftLogEntry_Query(r randyLog, easy bool) *RaftLogEntry_Query {
-	this := &RaftLogEntry_Query{}
+func NewPopulatedLogEntry_Query(r randyLog, easy bool) *LogEntry_Query {
+	this := &LogEntry_Query{}
 	this.Query = NewPopulatedQueryEntry(r, easy)
 	return this
 }
@@ -1005,9 +1005,9 @@ func NewPopulatedConfigurationEntry(r randyLog, easy bool) *ConfigurationEntry {
 	this := &ConfigurationEntry{}
 	if r.Intn(5) != 0 {
 		v2 := r.Intn(5)
-		this.Members = make([]*RaftMember, v2)
+		this.Members = make([]*Member, v2)
 		for i := 0; i < v2; i++ {
-			this.Members[i] = NewPopulatedRaftMember(r, easy)
+			this.Members[i] = NewPopulatedMember(r, easy)
 		}
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -1111,7 +1111,7 @@ func encodeVarintPopulateLog(dAtA []byte, v uint64) []byte {
 	dAtA = append(dAtA, uint8(v))
 	return dAtA
 }
-func (m *RaftLogEntry) Size() (n int) {
+func (m *LogEntry) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1128,7 +1128,7 @@ func (m *RaftLogEntry) Size() (n int) {
 	return n
 }
 
-func (m *RaftLogEntry_Initialize) Size() (n int) {
+func (m *LogEntry_Initialize) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1140,7 +1140,7 @@ func (m *RaftLogEntry_Initialize) Size() (n int) {
 	}
 	return n
 }
-func (m *RaftLogEntry_Configuration) Size() (n int) {
+func (m *LogEntry_Configuration) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1152,7 +1152,7 @@ func (m *RaftLogEntry_Configuration) Size() (n int) {
 	}
 	return n
 }
-func (m *RaftLogEntry_Command) Size() (n int) {
+func (m *LogEntry_Command) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1164,7 +1164,7 @@ func (m *RaftLogEntry_Command) Size() (n int) {
 	}
 	return n
 }
-func (m *RaftLogEntry_Query) Size() (n int) {
+func (m *LogEntry_Query) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -1232,7 +1232,7 @@ func sovLog(x uint64) (n int) {
 func sozLog(x uint64) (n int) {
 	return sovLog(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *RaftLogEntry) Unmarshal(dAtA []byte) error {
+func (m *LogEntry) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1255,10 +1255,10 @@ func (m *RaftLogEntry) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: RaftLogEntry: wiretype end group for non-group")
+			return fmt.Errorf("proto: LogEntry: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: RaftLogEntry: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: LogEntry: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1346,7 +1346,7 @@ func (m *RaftLogEntry) Unmarshal(dAtA []byte) error {
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.Entry = &RaftLogEntry_Initialize{v}
+			m.Entry = &LogEntry_Initialize{v}
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
@@ -1381,7 +1381,7 @@ func (m *RaftLogEntry) Unmarshal(dAtA []byte) error {
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.Entry = &RaftLogEntry_Configuration{v}
+			m.Entry = &LogEntry_Configuration{v}
 			iNdEx = postIndex
 		case 5:
 			if wireType != 2 {
@@ -1416,7 +1416,7 @@ func (m *RaftLogEntry) Unmarshal(dAtA []byte) error {
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.Entry = &RaftLogEntry_Command{v}
+			m.Entry = &LogEntry_Command{v}
 			iNdEx = postIndex
 		case 6:
 			if wireType != 2 {
@@ -1451,7 +1451,7 @@ func (m *RaftLogEntry) Unmarshal(dAtA []byte) error {
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
-			m.Entry = &RaftLogEntry_Query{v}
+			m.Entry = &LogEntry_Query{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1588,7 +1588,7 @@ func (m *ConfigurationEntry) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Members = append(m.Members, &RaftMember{})
+			m.Members = append(m.Members, &Member{})
 			if err := m.Members[len(m.Members)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}

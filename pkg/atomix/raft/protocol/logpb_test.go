@@ -21,15 +21,15 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-func TestRaftLogEntryProto(t *testing.T) {
+func TestLogEntryProto(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftLogEntry(popr, false)
+	p := NewPopulatedLogEntry(popr, false)
 	dAtA, err := github_com_gogo_protobuf_proto.Marshal(p)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &RaftLogEntry{}
+	msg := &LogEntry{}
 	if err := github_com_gogo_protobuf_proto.Unmarshal(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -52,10 +52,10 @@ func TestRaftLogEntryProto(t *testing.T) {
 	}
 }
 
-func TestRaftLogEntryMarshalTo(t *testing.T) {
+func TestLogEntryMarshalTo(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftLogEntry(popr, false)
+	p := NewPopulatedLogEntry(popr, false)
 	size := p.Size()
 	dAtA := make([]byte, size)
 	for i := range dAtA {
@@ -65,7 +65,7 @@ func TestRaftLogEntryMarshalTo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &RaftLogEntry{}
+	msg := &LogEntry{}
 	if err := github_com_gogo_protobuf_proto.Unmarshal(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -301,16 +301,16 @@ func TestQueryEntryMarshalTo(t *testing.T) {
 	}
 }
 
-func TestRaftLogEntryJSON(t *testing.T) {
+func TestLogEntryJSON(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftLogEntry(popr, true)
+	p := NewPopulatedLogEntry(popr, true)
 	marshaler := github_com_gogo_protobuf_jsonpb.Marshaler{}
 	jsondata, err := marshaler.MarshalToString(p)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
-	msg := &RaftLogEntry{}
+	msg := &LogEntry{}
 	err = github_com_gogo_protobuf_jsonpb.UnmarshalString(jsondata, msg)
 	if err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
@@ -391,12 +391,12 @@ func TestQueryEntryJSON(t *testing.T) {
 		t.Fatalf("seed = %d, %#v !Json Equal %#v", seed, msg, p)
 	}
 }
-func TestRaftLogEntryProtoText(t *testing.T) {
+func TestLogEntryProtoText(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftLogEntry(popr, true)
+	p := NewPopulatedLogEntry(popr, true)
 	dAtA := github_com_gogo_protobuf_proto.MarshalTextString(p)
-	msg := &RaftLogEntry{}
+	msg := &LogEntry{}
 	if err := github_com_gogo_protobuf_proto.UnmarshalText(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -405,12 +405,12 @@ func TestRaftLogEntryProtoText(t *testing.T) {
 	}
 }
 
-func TestRaftLogEntryProtoCompactText(t *testing.T) {
+func TestLogEntryProtoCompactText(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftLogEntry(popr, true)
+	p := NewPopulatedLogEntry(popr, true)
 	dAtA := github_com_gogo_protobuf_proto.CompactTextString(p)
-	msg := &RaftLogEntry{}
+	msg := &LogEntry{}
 	if err := github_com_gogo_protobuf_proto.UnmarshalText(dAtA, msg); err != nil {
 		t.Fatalf("seed = %d, err = %v", seed, err)
 	}
@@ -531,10 +531,10 @@ func TestQueryEntryProtoCompactText(t *testing.T) {
 	}
 }
 
-func TestRaftLogEntrySize(t *testing.T) {
+func TestLogEntrySize(t *testing.T) {
 	seed := time.Now().UnixNano()
 	popr := math_rand.New(math_rand.NewSource(seed))
-	p := NewPopulatedRaftLogEntry(popr, true)
+	p := NewPopulatedLogEntry(popr, true)
 	size2 := github_com_gogo_protobuf_proto.Size(p)
 	dAtA, err := github_com_gogo_protobuf_proto.Marshal(p)
 	if err != nil {

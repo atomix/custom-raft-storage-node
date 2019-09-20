@@ -27,7 +27,7 @@ option (gogoproto.populate_all) = true;
 option (gogoproto.equal_all) = true;
 
 // Raft log entry
-message RaftLogEntry {
+message LogEntry {
     uint64 term = 1 [(gogoproto.casttype) = "Term"];
     google.protobuf.Timestamp timestamp = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
@@ -43,7 +43,7 @@ message InitializeEntry {
 }
 
 message ConfigurationEntry {
-    repeated RaftMember members = 1;
+    repeated Member members = 1;
 }
 
 message CommandEntry {

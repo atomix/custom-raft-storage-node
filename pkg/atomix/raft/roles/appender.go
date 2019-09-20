@@ -291,7 +291,7 @@ const (
 	maxBatchSize           = 1024 * 1024
 )
 
-func newMemberAppender(state raft.Raft, sm state.Manager, store store.Store, logger util.Logger, member *raft.RaftMember, commitCh chan<- memberCommit, failCh chan<- time.Time) *memberAppender {
+func newMemberAppender(state raft.Raft, sm state.Manager, store store.Store, logger util.Logger, member *raft.Member, commitCh chan<- memberCommit, failCh chan<- time.Time) *memberAppender {
 	ticker := time.NewTicker(state.Config().GetElectionTimeoutOrDefault() / 2)
 	reader := store.Log().OpenReader(0)
 	return &memberAppender{
@@ -320,7 +320,7 @@ type memberAppender struct {
 	sm               state.Manager
 	store            store.Store
 	log              util.Logger
-	member           *raft.RaftMember
+	member           *raft.Member
 	active           bool
 	snapshotIndex    raft.Index
 	prevTerm         raft.Term
@@ -594,10 +594,10 @@ func (a *memberAppender) entriesAppendRequest() *raft.AppendRequest {
 	}
 
 	// Convert the linked list into a slice
-	entries := make([]*raft.RaftLogEntry, 0, entriesList.Len())
+	entries := make([]*raft.LogEntry, 0, entriesList.Len())
 	entry := entriesList.Front()
 	for entry != nil {
-		entries = append(entries, entry.Value.(*raft.RaftLogEntry))
+		entries = append(entries, entry.Value.(*raft.LogEntry))
 		entry = entry.Next()
 	}
 

@@ -173,7 +173,7 @@ func (c *Client) receiveWrite(ctx context.Context, request *raft.CommandRequest,
 			ch <- node.Output{
 				Value: response.Output,
 			}
-		} else if response.Error == raft.RaftError_ILLEGAL_MEMBER_STATE {
+		} else if response.Error == raft.ResponseError_ILLEGAL_MEMBER_STATE {
 			leaderID := string(response.Leader)
 			if c.leader.ID == "" || leaderID != c.leader.ID {
 				leader, ok := c.members[leaderID]
@@ -290,7 +290,7 @@ func (c *Client) receiveRead(ctx context.Context, request *raft.QueryRequest, ch
 			ch <- node.Output{
 				Value: response.Output,
 			}
-		} else if response.Error == raft.RaftError_ILLEGAL_MEMBER_STATE {
+		} else if response.Error == raft.ResponseError_ILLEGAL_MEMBER_STATE {
 			c.resetConn()
 			if err := c.read(ctx, request, ch); err != nil {
 				ch <- node.Output{

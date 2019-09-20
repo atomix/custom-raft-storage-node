@@ -72,10 +72,10 @@ func (r *LeaderRole) commitInitializeEntry() {
 	r.raft.WriteLock()
 
 	// Create and append an InitializeEntry.
-	entry := &raft.RaftLogEntry{
+	entry := &raft.LogEntry{
 		Term:      r.raft.Term(),
 		Timestamp: time.Now(),
-		Entry: &raft.RaftLogEntry_Initialize{
+		Entry: &raft.LogEntry_Initialize{
 			Initialize: &raft.InitializeEntry{},
 		},
 	}
@@ -172,10 +172,10 @@ func (r *LeaderRole) Command(request *raft.CommandRequest, responseCh chan<- *ra
 	// Acquire the write lock to write the entry to the log.
 	r.raft.WriteLock()
 
-	entry := &raft.RaftLogEntry{
+	entry := &raft.LogEntry{
 		Term:      r.raft.Term(),
 		Timestamp: time.Now(),
-		Entry: &raft.RaftLogEntry_Command{
+		Entry: &raft.LogEntry_Command{
 			Command: &raft.CommandEntry{
 				Value: request.Value,
 			},
@@ -199,7 +199,7 @@ func (r *LeaderRole) Command(request *raft.CommandRequest, responseCh chan<- *ra
 	if err := r.appender.commit(indexed, f); err != nil {
 		response := &raft.CommandResponse{
 			Status: raft.ResponseStatus_ERROR,
-			Error:  raft.RaftError_PROTOCOL_ERROR,
+			Error:  raft.ResponseError_PROTOCOL_ERROR,
 		}
 		_ = r.log.Response("CommandResponse", response, nil)
 		responseCh <- raft.NewCommandStreamResponse(response, nil)
@@ -208,12 +208,12 @@ func (r *LeaderRole) Command(request *raft.CommandRequest, responseCh chan<- *ra
 
 	for output := range outputCh {
 		var status raft.ResponseStatus
-		var err raft.RaftError
+		var err raft.ResponseError
 		if output.Succeeded() {
 			status = raft.ResponseStatus_OK
 		} else {
 			status = raft.ResponseStatus_ERROR
-			err = raft.RaftError_APPLICATION_ERROR
+			err = raft.ResponseError_APPLICATION_ERROR
 		}
 
 		r.raft.ReadLock()
@@ -242,10 +242,10 @@ func (r *LeaderRole) Query(request *raft.QueryRequest, responseCh chan<- *raft.Q
 	// Create the entry to apply to the state machine.
 	entry := &log.Entry{
 		Index: r.store.Writer().LastIndex(),
-		Entry: &raft.RaftLogEntry{
+		Entry: &raft.LogEntry{
 			Term:      r.raft.Term(),
 			Timestamp: time.Now(),
-			Entry: &raft.RaftLogEntry_Query{
+			Entry: &raft.LogEntry_Query{
 				Query: &raft.QueryEntry{
 					Value: request.Value,
 				},

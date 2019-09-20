@@ -28,10 +28,10 @@ func TestMemoryLog(t *testing.T) {
 
 	assert.Equal(t, raft.Index(0), writer.LastIndex())
 
-	entry := writer.Append(&raft.RaftLogEntry{
+	entry := writer.Append(&raft.LogEntry{
 		Term:      1,
 		Timestamp: time.Now(),
-		Entry:     &raft.RaftLogEntry_Initialize{},
+		Entry:     &raft.LogEntry_Initialize{},
 	})
 	assert.Equal(t, raft.Index(1), entry.Index)
 	assert.Equal(t, raft.Term(1), entry.Entry.Term)
@@ -48,10 +48,10 @@ func TestMemoryLog(t *testing.T) {
 	assert.Equal(t, raft.Index(2), reader.NextIndex())
 	assert.Nil(t, reader.NextEntry())
 
-	entry = writer.Append(&raft.RaftLogEntry{
+	entry = writer.Append(&raft.LogEntry{
 		Term:      1,
 		Timestamp: time.Now(),
-		Entry:     &raft.RaftLogEntry_Initialize{},
+		Entry:     &raft.LogEntry_Initialize{},
 	})
 	assert.Equal(t, raft.Index(2), entry.Index)
 	assert.Equal(t, raft.Term(1), entry.Entry.Term)
@@ -66,20 +66,20 @@ func TestMemoryLog(t *testing.T) {
 
 	assert.Equal(t, raft.Index(1), reader.FirstIndex())
 
-	writer.Append(&raft.RaftLogEntry{
+	writer.Append(&raft.LogEntry{
 		Term:      1,
 		Timestamp: time.Now(),
-		Entry:     &raft.RaftLogEntry_Initialize{},
+		Entry:     &raft.LogEntry_Initialize{},
 	})
-	writer.Append(&raft.RaftLogEntry{
+	writer.Append(&raft.LogEntry{
 		Term:      1,
 		Timestamp: time.Now(),
-		Entry:     &raft.RaftLogEntry_Initialize{},
+		Entry:     &raft.LogEntry_Initialize{},
 	})
-	writer.Append(&raft.RaftLogEntry{
+	writer.Append(&raft.LogEntry{
 		Term:      1,
 		Timestamp: time.Now(),
-		Entry:     &raft.RaftLogEntry_Initialize{},
+		Entry:     &raft.LogEntry_Initialize{},
 	})
 
 	assert.Equal(t, raft.Index(5), writer.LastIndex())
@@ -103,10 +103,10 @@ func TestMemoryLog(t *testing.T) {
 	assert.Equal(t, raft.Index(3), writer.LastIndex())
 	assert.Equal(t, raft.Index(4), reader.NextIndex())
 	assert.Nil(t, reader.NextEntry())
-	entry = writer.Append(&raft.RaftLogEntry{
+	entry = writer.Append(&raft.LogEntry{
 		Term:      2,
 		Timestamp: time.Now(),
-		Entry:     &raft.RaftLogEntry_Initialize{},
+		Entry:     &raft.LogEntry_Initialize{},
 	})
 	assert.Equal(t, raft.Index(4), entry.Index)
 	assert.Equal(t, raft.Index(4), reader.NextIndex())

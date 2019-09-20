@@ -49,7 +49,7 @@ func TestPassiveAppend(t *testing.T) {
 		Leader:       "bar",
 		PrevLogIndex: 0,
 		PrevLogTerm:  0,
-		Entries:      []*raft.RaftLogEntry{},
+		Entries:      []*raft.LogEntry{},
 		CommitIndex:  0,
 	})
 
@@ -66,7 +66,7 @@ func TestPassiveAppend(t *testing.T) {
 		Leader:       "foo",
 		PrevLogIndex: 0,
 		PrevLogTerm:  0,
-		Entries:      []*raft.RaftLogEntry{},
+		Entries:      []*raft.LogEntry{},
 		CommitIndex:  0,
 	})
 
@@ -81,18 +81,18 @@ func TestPassiveAppend(t *testing.T) {
 		Leader:       "bar",
 		PrevLogIndex: 0,
 		PrevLogTerm:  0,
-		Entries: []*raft.RaftLogEntry{
+		Entries: []*raft.LogEntry{
 			{
 				Term:      2,
 				Timestamp: time.Now(),
-				Entry: &raft.RaftLogEntry_Initialize{
+				Entry: &raft.LogEntry_Initialize{
 					Initialize: &raft.InitializeEntry{},
 				},
 			},
 			{
 				Term:      2,
 				Timestamp: time.Now(),
-				Entry: &raft.RaftLogEntry_Initialize{
+				Entry: &raft.LogEntry_Initialize{
 					Initialize: &raft.InitializeEntry{},
 				},
 			},
@@ -112,7 +112,7 @@ func TestPassiveAppend(t *testing.T) {
 		Leader:       "bar",
 		PrevLogIndex: 2,
 		PrevLogTerm:  2,
-		Entries:      []*raft.RaftLogEntry{},
+		Entries:      []*raft.LogEntry{},
 		CommitIndex:  1,
 	})
 
@@ -128,11 +128,11 @@ func TestPassiveAppend(t *testing.T) {
 		Leader:       "bar",
 		PrevLogIndex: 3,
 		PrevLogTerm:  2,
-		Entries: []*raft.RaftLogEntry{
+		Entries: []*raft.LogEntry{
 			{
 				Term:      2,
 				Timestamp: time.Now(),
-				Entry: &raft.RaftLogEntry_Initialize{
+				Entry: &raft.LogEntry_Initialize{
 					Initialize: &raft.InitializeEntry{},
 				},
 			},
@@ -152,11 +152,11 @@ func TestPassiveAppend(t *testing.T) {
 		Leader:       "baz",
 		PrevLogIndex: 2,
 		PrevLogTerm:  3,
-		Entries: []*raft.RaftLogEntry{
+		Entries: []*raft.LogEntry{
 			{
 				Term:      2,
 				Timestamp: time.Now(),
-				Entry: &raft.RaftLogEntry_Initialize{
+				Entry: &raft.LogEntry_Initialize{
 					Initialize: &raft.InitializeEntry{},
 				},
 			},
@@ -178,18 +178,18 @@ func TestPassiveAppend(t *testing.T) {
 		Leader:       "baz",
 		PrevLogIndex: 1,
 		PrevLogTerm:  2,
-		Entries: []*raft.RaftLogEntry{
+		Entries: []*raft.LogEntry{
 			{
 				Term:      3,
 				Timestamp: time.Now(),
-				Entry: &raft.RaftLogEntry_Initialize{
+				Entry: &raft.LogEntry_Initialize{
 					Initialize: &raft.InitializeEntry{},
 				},
 			},
 			{
 				Term:      3,
 				Timestamp: time.Now(),
-				Entry: &raft.RaftLogEntry_Initialize{
+				Entry: &raft.LogEntry_Initialize{
 					Initialize: &raft.InitializeEntry{},
 				},
 			},
@@ -215,7 +215,7 @@ func TestPassiveCommand(t *testing.T) {
 	response := <-ch
 	assert.True(t, response.Succeeded())
 	assert.Equal(t, raft.ResponseStatus_ERROR, response.Response.Status)
-	assert.Equal(t, raft.RaftError_ILLEGAL_MEMBER_STATE, response.Response.Error)
+	assert.Equal(t, raft.ResponseError_ILLEGAL_MEMBER_STATE, response.Response.Error)
 	assert.Equal(t, raft.Term(1), response.Response.Term)
 	assert.Equal(t, raft.MemberID(""), response.Response.Leader)
 
@@ -226,7 +226,7 @@ func TestPassiveCommand(t *testing.T) {
 	response = <-ch
 	assert.True(t, response.Succeeded())
 	assert.Equal(t, raft.ResponseStatus_ERROR, response.Response.Status)
-	assert.Equal(t, raft.RaftError_ILLEGAL_MEMBER_STATE, response.Response.Error)
+	assert.Equal(t, raft.ResponseError_ILLEGAL_MEMBER_STATE, response.Response.Error)
 	assert.Equal(t, raft.Term(1), response.Response.Term)
 	assert.Equal(t, role.raft.Members()[1], response.Response.Leader)
 }
@@ -243,7 +243,7 @@ func TestPassiveQuery(t *testing.T) {
 	response := <-ch
 	assert.True(t, response.Succeeded())
 	assert.Equal(t, raft.ResponseStatus_ERROR, response.Response.Status)
-	assert.Equal(t, raft.RaftError_NO_LEADER, response.Response.Error)
+	assert.Equal(t, raft.ResponseError_NO_LEADER, response.Response.Error)
 
 	// With no commits and a leader, the role should forward the request
 	assert.NoError(t, role.raft.SetLeader(&role.raft.Members()[1]))
@@ -261,10 +261,10 @@ func TestPassiveQuery(t *testing.T) {
 	})
 
 	// With commits caught up, the role should handle sequential requests
-	role.store.Writer().Append(&raft.RaftLogEntry{
+	role.store.Writer().Append(&raft.LogEntry{
 		Term:      raft.Term(1),
 		Timestamp: time.Now(),
-		Entry: &raft.RaftLogEntry_Initialize{
+		Entry: &raft.LogEntry_Initialize{
 			Initialize: &raft.InitializeEntry{},
 		},
 	})

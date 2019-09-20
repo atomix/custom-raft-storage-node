@@ -62,7 +62,7 @@ func (r *raftRole) Join(ctx context.Context, request *raft.JoinRequest) (*raft.J
 	r.log.Request("JoinRequest", request)
 	response := &raft.JoinResponse{
 		Status: raft.ResponseStatus_ERROR,
-		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
+		Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
 	}
 	_ = r.log.Response("JoinResponse", response, nil)
 	return response, nil
@@ -73,7 +73,7 @@ func (r *raftRole) Leave(ctx context.Context, request *raft.LeaveRequest) (*raft
 	r.log.Request("LeaveRequest", request)
 	response := &raft.LeaveResponse{
 		Status: raft.ResponseStatus_ERROR,
-		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
+		Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
 	}
 	_ = r.log.Response("LeaveResponse", response, nil)
 	return response, nil
@@ -84,7 +84,7 @@ func (r *raftRole) Configure(ctx context.Context, request *raft.ConfigureRequest
 	r.log.Request("ConfigureRequest", request)
 	response := &raft.ConfigureResponse{
 		Status: raft.ResponseStatus_ERROR,
-		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
+		Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
 	}
 	_ = r.log.Response("", response, nil)
 	return response, nil
@@ -95,7 +95,7 @@ func (r *raftRole) Reconfigure(ctx context.Context, request *raft.ReconfigureReq
 	r.log.Request("ReconfigureRequest", request)
 	response := &raft.ReconfigureResponse{
 		Status: raft.ResponseStatus_ERROR,
-		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
+		Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
 	}
 	_ = r.log.Response("ReconfigureResponse", response, nil)
 	return response, nil
@@ -106,7 +106,7 @@ func (r *raftRole) Poll(ctx context.Context, request *raft.PollRequest) (*raft.P
 	r.log.Request("PollRequest", request)
 	response := &raft.PollResponse{
 		Status: raft.ResponseStatus_ERROR,
-		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
+		Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
 	}
 	_ = r.log.Response("PollResponse", response, nil)
 	return response, nil
@@ -117,7 +117,7 @@ func (r *raftRole) Vote(ctx context.Context, request *raft.VoteRequest) (*raft.V
 	r.log.Request("VoteRequest", request)
 	response := &raft.VoteResponse{
 		Status: raft.ResponseStatus_ERROR,
-		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
+		Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
 	}
 	_ = r.log.Response("VoteResponse", response, nil)
 	return response, nil
@@ -128,7 +128,7 @@ func (r *raftRole) Transfer(ctx context.Context, request *raft.TransferRequest) 
 	r.log.Request("TransferRequest", request)
 	response := &raft.TransferResponse{
 		Status: raft.ResponseStatus_ERROR,
-		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
+		Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
 	}
 	_ = r.log.Response("TransferResponse", response, nil)
 	return response, nil
@@ -139,7 +139,7 @@ func (r *raftRole) Append(ctx context.Context, request *raft.AppendRequest) (*ra
 	r.log.Request("AppendRequest", request)
 	response := &raft.AppendResponse{
 		Status: raft.ResponseStatus_ERROR,
-		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
+		Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
 	}
 	_ = r.log.Response("AppendResponse", response, nil)
 	return response, nil
@@ -149,7 +149,7 @@ func (r *raftRole) Append(ctx context.Context, request *raft.AppendRequest) (*ra
 func (r *raftRole) Install(ch <-chan *raft.InstallStreamRequest) (*raft.InstallResponse, error) {
 	response := &raft.InstallResponse{
 		Status: raft.ResponseStatus_ERROR,
-		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
+		Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
 	}
 	_ = r.log.Response("InstallResponse", response, nil)
 	return response, nil
@@ -161,7 +161,7 @@ func (r *raftRole) Command(request *raft.CommandRequest, ch chan<- *raft.Command
 	r.log.Request("CommandRequest", request)
 	response := &raft.CommandResponse{
 		Status: raft.ResponseStatus_ERROR,
-		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
+		Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
 	}
 	_ = r.log.Response("CommandResponse", response, nil)
 	ch <- raft.NewCommandStreamResponse(response, nil)
@@ -174,7 +174,7 @@ func (r *raftRole) Query(request *raft.QueryRequest, ch chan<- *raft.QueryStream
 	r.log.Request("QueryRequest", request)
 	response := &raft.QueryResponse{
 		Status: raft.ResponseStatus_ERROR,
-		Error:  raft.RaftError_ILLEGAL_MEMBER_STATE,
+		Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
 	}
 	_ = r.log.Response("QueryResponse", response, nil)
 	ch <- raft.NewQueryStreamResponse(response, nil)
