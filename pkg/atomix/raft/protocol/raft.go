@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	atomix "github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 	"sync"
@@ -38,20 +37,22 @@ const (
 	StatusReady Status = "ready"
 )
 
-// NewProtocol returns a new Raft protocol state struct
-func NewProtocol(cluster atomix.Cluster, config *config.ProtocolConfig) Raft {
-	return newProtocol(cluster, config, newMemoryMetadataStore())
+// NewRaft returns a new Raft protocol state struct
+func NewRaft(cluster Cluster, config *config.ProtocolConfig, protocol Protocol) Raft {
+	return newProtocol(cluster, config, protocol, newMemoryMetadataStore())
 }
 
 // newProtocol returns a new Raft protocol state struct
-func newProtocol(cluster atomix.Cluster, config *config.ProtocolConfig, store MetadataStore) Raft {
+func newProtocol(cluster Cluster, config *config.ProtocolConfig, protocol Protocol, store MetadataStore) Raft {
 	return &raft{
-		log:       util.NewNodeLogger(string(cluster.MemberID)),
-		config:    config,
-		status:    StatusStopped,
-		listeners: make([]func(Status), 0, 1),
-		cluster:   NewCluster(cluster),
-		metadata:  store,
+		log:            util.NewNodeLogger(string(cluster.Member())),
+		config:         config,
+		protocol:       protocol,
+		status:         StatusStopped,
+		roleWatchers:   make([]func(RoleType), 0),
+		statusWatchers: make([]func(Status), 0, 1),
+		cluster:        cluster,
+		metadata:       store,
 	}
 }
 
@@ -68,8 +69,14 @@ type Term uint64
 type Raft interface {
 	RaftServiceServer
 
-	// Initi initializes the Raft state
+	// Init initializes the Raft state
 	Init()
+
+	// Role is the current role
+	Role() RoleType
+
+	// WatchRole watches the protocol role for changes
+	WatchRole(func(RoleType))
 
 	// Status returns the Raft protocol status
 	Status() Status
@@ -89,8 +96,8 @@ type Raft interface {
 	// GetMember returns a RaftMember by ID
 	GetMember(memberID MemberID) *RaftMember
 
-	// Connect gets a client for the given member
-	Connect(memberID MemberID) (RaftServiceClient, error)
+	// Protocol returns the Raft messaging protocol
+	Protocol() Protocol
 
 	// Term returns the current term
 	Term() Term
@@ -138,12 +145,26 @@ type Raft interface {
 	Close() error
 }
 
+// RoleType is the name of a role
+type RoleType string
+
+const (
+	// RoleFollower is a Raft follower role
+	RoleFollower RoleType = "Follower"
+
+	// RoleCandidate is a Raft candidate role
+	RoleCandidate RoleType = "Candidate"
+
+	// RoleLeader is a Raft leader role
+	RoleLeader RoleType = "Leader"
+)
+
 // Role is implemented by server roles to support protocol requests
 type Role interface {
 	RaftServiceServer
 
-	// Name is the name of the role
-	Name() string
+	// Type is the type of the role
+	Type() RoleType
 
 	// Start initializes the role
 	Start() error
@@ -157,8 +178,10 @@ type raft struct {
 	log              util.Logger
 	status           Status
 	config           *config.ProtocolConfig
+	protocol         Protocol
 	metadata         MetadataStore
-	listeners        []func(Status)
+	roleWatchers     []func(RoleType)
+	statusWatchers   []func(Status)
 	role             Role
 	term             Term
 	leader           *MemberID
@@ -182,8 +205,8 @@ func (r *raft) Status() Status {
 	return r.status
 }
 
-func (r *raft) WatchStatus(f func(Status)) {
-	r.listeners = append(r.listeners, f)
+func (r *raft) WatchStatus(watcher func(Status)) {
+	r.statusWatchers = append(r.statusWatchers, watcher)
 }
 
 // setStatus sets the node's status
@@ -191,14 +214,18 @@ func (r *raft) setStatus(status Status) {
 	if r.status != status {
 		r.log.Info("Server is %s", status)
 		r.status = status
-		for _, listener := range r.listeners {
-			listener(status)
+		for _, watcher := range r.statusWatchers {
+			watcher(status)
 		}
 	}
 }
 
 func (r *raft) Config() *config.ProtocolConfig {
 	return r.config
+}
+
+func (r *raft) Protocol() Protocol {
+	return r.protocol
 }
 
 func (r *raft) Member() MemberID {
@@ -312,19 +339,39 @@ func (r *raft) ReadUnlock() {
 	r.mu.RUnlock()
 }
 
+func (r *raft) Role() RoleType {
+	return r.role.Type()
+}
+
 func (r *raft) SetRole(role Role) {
 	r.WriteLock()
-	r.log.Info("Transitioning to %s", role.Name())
+
+	// If the role has not changed, ignore the call
+	if r.role != nil && r.role.Type() == role.Type() {
+		r.WriteUnlock()
+		return
+	}
+
+	r.log.Info("Transitioning to %s", role.Type())
 	if r.role != nil {
 		if err := r.role.Stop(); err != nil {
-			r.log.Error("Failed to stop %s role", r.role.Name(), err)
+			r.log.Error("Failed to stop %s role", r.role.Type(), err)
 		}
 	}
 	r.role = role
+	roleType := role.Type()
 	r.WriteUnlock()
 	if err := role.Start(); err != nil {
-		r.log.Error("Failed to start %s role", role.Name(), err)
+		r.log.Error("Failed to start %s role", role.Type(), err)
 	}
+
+	for _, watcher := range r.roleWatchers {
+		watcher(roleType)
+	}
+}
+
+func (r *raft) WatchRole(watcher func(RoleType)) {
+	r.roleWatchers = append(r.roleWatchers, watcher)
 }
 
 func (r *raft) getRole() Role {

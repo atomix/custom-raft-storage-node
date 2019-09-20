@@ -49,7 +49,7 @@ func TestRaftProtocol(t *testing.T) {
 
 	store := newMemoryMetadataStore()
 	electionTimeout := 10 * time.Second
-	raft := newProtocol(cluster, &config.ProtocolConfig{ElectionTimeout: &electionTimeout}, store)
+	raft := newProtocol(NewCluster(cluster), &config.ProtocolConfig{ElectionTimeout: &electionTimeout}, &UnimplementedProtocol{}, store)
 	assert.Equal(t, StatusStopped, raft.Status())
 	statusCh := make(chan Status, 1)
 	raft.WatchStatus(func(status Status) {
@@ -66,13 +66,6 @@ func TestRaftProtocol(t *testing.T) {
 	assert.Equal(t, MemberID("foo"), raft.GetMember(MemberID("foo")).MemberID)
 	assert.Equal(t, MemberID("bar"), raft.GetMember(MemberID("bar")).MemberID)
 	assert.Equal(t, MemberID("baz"), raft.GetMember(MemberID("baz")).MemberID)
-
-	// Attempt to connect to a node
-	_, err := raft.Connect(MemberID("none"))
-	assert.Error(t, err)
-	client, err := raft.Connect(MemberID("bar"))
-	assert.NoError(t, err)
-	assert.NotNil(t, client)
 
 	// Verify the initial values
 	assert.Equal(t, foo, raft.Member())
@@ -148,7 +141,7 @@ func TestRaftProtocol(t *testing.T) {
 	assert.Equal(t, StatusStopped, <-statusCh)
 
 	// Verify that the cluster state is reloaded from the metadata store when restarted
-	raft = newProtocol(cluster, &config.ProtocolConfig{}, store)
+	raft = newProtocol(NewCluster(cluster), &config.ProtocolConfig{}, &UnimplementedProtocol{}, store)
 	assert.Equal(t, StatusStopped, raft.Status())
 	raft.Init()
 	assert.Equal(t, StatusRunning, raft.Status())
@@ -160,19 +153,26 @@ func TestRaftProtocol(t *testing.T) {
 	assert.Equal(t, Index(0), raft.CommitIndex())
 
 	// Test a role change
-	test := &testRole{}
-	raft.SetRole(test)
-	assert.False(t, test.appended)
+	roleCh := make(chan RoleType, 1)
+	raft.WatchRole(func(role RoleType) {
+		roleCh <- role
+	})
+	follower := &followerRole{&testRole{}}
+	raft.SetRole(follower)
+	assert.False(t, follower.appended)
 	_, _ = raft.Append(context.TODO(), &AppendRequest{})
-	assert.True(t, test.appended)
+	assert.True(t, follower.appended)
+	assert.Equal(t, RoleFollower, raft.Role())
+	assert.Equal(t, RoleFollower, <-roleCh)
+
+	leader := &leaderRole{&testRole{}}
+	raft.SetRole(leader)
+	assert.Equal(t, RoleLeader, raft.Role())
+	assert.Equal(t, RoleLeader, <-roleCh)
 }
 
 type testRole struct {
 	appended bool
-}
-
-func (r *testRole) Name() string {
-	return "test"
 }
 
 func (r *testRole) Start() error {
@@ -226,4 +226,20 @@ func (r *testRole) Command(*CommandRequest, RaftService_CommandServer) error {
 
 func (r *testRole) Query(*QueryRequest, RaftService_QueryServer) error {
 	panic("implement me")
+}
+
+type followerRole struct {
+	*testRole
+}
+
+func (r *followerRole) Type() RoleType {
+	return RoleFollower
+}
+
+type leaderRole struct {
+	*testRole
+}
+
+func (r *leaderRole) Type() RoleType {
+	return RoleLeader
 }

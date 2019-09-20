@@ -27,10 +27,10 @@ import (
 )
 
 // newCandidateRole returns a new candidate role
-func newCandidateRole(raft raft.Raft, state state.Manager, store store.Store) raft.Role {
-	log := util.NewRoleLogger(string(raft.Member()), string(RoleCandidate))
+func newCandidateRole(protocol raft.Raft, state state.Manager, store store.Store) raft.Role {
+	log := util.NewRoleLogger(string(protocol.Member()), string(raft.RoleCandidate))
 	return &CandidateRole{
-		ActiveRole: newActiveRole(raft, state, store, log),
+		ActiveRole: newActiveRole(protocol, state, store, log),
 	}
 }
 
@@ -41,9 +41,9 @@ type CandidateRole struct {
 	electionExpired chan bool
 }
 
-// Name is the name of the role
-func (r *CandidateRole) Name() string {
-	return string(RoleCandidate)
+// Type is the role type
+func (r *CandidateRole) Type() raft.RoleType {
+	return raft.RoleCandidate
 }
 
 // Start starts the candidate
@@ -246,39 +246,36 @@ func (r *CandidateRole) sendVoteRequests() {
 				LastLogTerm:  lastTerm,
 			}
 
-			client, err := r.raft.Connect(member)
-			if err == nil {
-				r.log.Send("VoteRequest", request)
-				response, err := client.Vote(context.Background(), request)
-				if err != nil {
-					votes <- false
-					log.WithField("memberID", r.raft.Member()).Warn(err)
-				} else {
-					r.log.Receive("VoteResponse", response)
-					r.raft.WriteLock()
-					if response.Term > request.Term {
-						log.WithField("memberID", r.raft.Member()).
-							Debugf("Received greater term from %s; transitioning back to follower", member)
-						_ = r.raft.SetTerm(response.Term)
-						go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
-						r.raft.WriteUnlock()
-						close(votes)
-						return
-					} else if !response.Voted {
-						log.WithField("memberID", r.raft.Member()).
-							Debugf("Received rejected vote from %s", member)
-						votes <- false
-					} else if response.Term != r.raft.Term() {
-						log.WithField("memberID", r.raft.Member()).
-							Debugf("Received successful vote for a different term from %s", member)
-						votes <- false
-					} else {
-						log.WithField("memberID", r.raft.Member()).
-							Debugf("Received successful vote from %s", member)
-						votes <- true
-					}
+			r.log.Send("VoteRequest", request)
+			response, err := r.raft.Protocol().Vote(context.Background(), request, member)
+			if err != nil {
+				votes <- false
+				log.WithField("memberID", r.raft.Member()).Warn(err)
+			} else {
+				r.log.Receive("VoteResponse", response)
+				r.raft.WriteLock()
+				if response.Term > request.Term {
+					log.WithField("memberID", r.raft.Member()).
+						Debugf("Received greater term from %s; transitioning back to follower", member)
+					_ = r.raft.SetTerm(response.Term)
+					go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
 					r.raft.WriteUnlock()
+					close(votes)
+					return
+				} else if !response.Voted {
+					log.WithField("memberID", r.raft.Member()).
+						Debugf("Received rejected vote from %s", member)
+					votes <- false
+				} else if response.Term != r.raft.Term() {
+					log.WithField("memberID", r.raft.Member()).
+						Debugf("Received successful vote for a different term from %s", member)
+					votes <- false
+				} else {
+					log.WithField("memberID", r.raft.Member()).
+						Debugf("Received successful vote from %s", member)
+					votes <- true
 				}
+				r.raft.WriteUnlock()
 			}
 		}(member)
 	}

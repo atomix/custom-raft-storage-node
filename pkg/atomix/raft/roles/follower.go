@@ -26,10 +26,10 @@ import (
 )
 
 // newFollowerRole returns a new follower role
-func newFollowerRole(raft raft.Raft, state state.Manager, store store.Store) raft.Role {
-	log := util.NewRoleLogger(string(raft.Member()), string(RoleFollower))
+func newFollowerRole(protocol raft.Raft, state state.Manager, store store.Store) *FollowerRole {
+	log := util.NewRoleLogger(string(protocol.Member()), string(raft.RoleFollower))
 	return &FollowerRole{
-		ActiveRole: newActiveRole(raft, state, store, log),
+		ActiveRole: newActiveRole(protocol, state, store, log),
 	}
 }
 
@@ -40,9 +40,9 @@ type FollowerRole struct {
 	heartbeatStop  chan bool
 }
 
-// Name is the name of the role
-func (r *FollowerRole) Name() string {
-	return string(RoleFollower)
+// Type is the role type
+func (r *FollowerRole) Type() raft.RoleType {
+	return raft.RoleFollower
 }
 
 // Start starts the follower
@@ -199,39 +199,33 @@ func (r *FollowerRole) sendPollRequests() {
 				LastLogTerm:  lastTerm,
 			}
 
-			client, err := r.raft.Connect(member)
+			r.log.Send("PollRequest", request)
+			response, err := r.raft.Protocol().Poll(context.Background(), request, member)
 			if err != nil {
 				votes <- false
 				r.log.Warn("Poll request failed", err)
 			} else {
-				r.log.Send("PollRequest", request)
-				response, err := client.Poll(context.Background(), request)
-				if err != nil {
+				r.log.Receive("PollResponse", response)
+
+				// If the response term is greater than the term we send, use a double checked lock
+				// to increment the term.
+				if response.Term > term {
+					r.raft.WriteLock()
+					if response.Term > r.raft.Term() {
+						_ = r.raft.SetTerm(response.Term)
+					}
+					r.raft.WriteUnlock()
+				}
+
+				if !response.Accepted {
+					r.log.Debug("Received rejected poll from %s", member)
 					votes <- false
-					r.log.Warn("Poll request failed", err)
+				} else if response.Term != request.Term {
+					r.log.Debug("Received accepted poll for a different term from %s", member)
+					votes <- false
 				} else {
-					r.log.Receive("PollResponse", response)
-
-					// If the response term is greater than the term we send, use a double checked lock
-					// to increment the term.
-					if response.Term > term {
-						r.raft.WriteLock()
-						if response.Term > r.raft.Term() {
-							_ = r.raft.SetTerm(response.Term)
-						}
-						r.raft.WriteUnlock()
-					}
-
-					if !response.Accepted {
-						r.log.Debug("Received rejected poll from %s", member)
-						votes <- false
-					} else if response.Term != request.Term {
-						r.log.Debug("Received accepted poll for a different term from %s", member)
-						votes <- false
-					} else {
-						r.log.Debug("Received accepted poll from %s", member)
-						votes <- true
-					}
+					r.log.Debug("Received accepted poll from %s", member)
+					votes <- true
 				}
 			}
 		}(member)

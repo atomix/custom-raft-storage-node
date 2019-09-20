@@ -30,13 +30,15 @@ import (
 )
 
 // NewServer returns a new Raft consensus protocol server
-func NewServer(cluster cluster.Cluster, registry *node.Registry, config *config.ProtocolConfig) *Server {
-	member, ok := cluster.Members[cluster.MemberID]
+func NewServer(clusterConfig cluster.Cluster, registry *node.Registry, protocolConfig *config.ProtocolConfig) *Server {
+	member, ok := clusterConfig.Members[clusterConfig.MemberID]
 	if !ok {
 		panic("Local member is not present in cluster configuration!")
 	}
 
-	raft := raft.NewProtocol(cluster, config)
+	cluster := raft.NewCluster(clusterConfig)
+	protocol := raft.NewProtocol(cluster)
+	raft := raft.NewRaft(cluster, protocolConfig, protocol)
 	store := store.NewMemoryStore()
 	state := state.NewManager(raft, store, registry)
 	server := &Server{

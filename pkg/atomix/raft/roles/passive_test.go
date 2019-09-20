@@ -27,7 +27,7 @@ import (
 )
 
 func TestUpdateTermAndLeader(t *testing.T) {
-	protocol, sm, stores := newTestArgs()
+	protocol, sm, stores := newTestState(&raft.UnimplementedProtocol{})
 	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	foo := raft.MemberID("foo")
@@ -41,7 +41,7 @@ func TestUpdateTermAndLeader(t *testing.T) {
 }
 
 func TestPassiveAppend(t *testing.T) {
-	protocol, sm, stores := newTestArgs()
+	protocol, sm, stores := newTestState(&raft.UnimplementedProtocol{})
 	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	// Test updating the term/leader
@@ -206,7 +206,7 @@ func TestPassiveAppend(t *testing.T) {
 }
 
 func TestPassiveCommand(t *testing.T) {
-	protocol, sm, stores := newTestArgs()
+	protocol, sm, stores := newTestState(&raft.UnimplementedProtocol{})
 	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 
@@ -230,7 +230,7 @@ func TestPassiveCommand(t *testing.T) {
 }
 
 func TestPassiveQuery(t *testing.T) {
-	protocol, sm, stores := newTestArgs()
+	protocol, sm, stores := newTestState(&queryProtocol{})
 	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 
@@ -246,7 +246,9 @@ func TestPassiveQuery(t *testing.T) {
 	// With no commits and a leader, the role should forward the request
 	assert.NoError(t, role.raft.SetLeader(&role.raft.Members()[1]))
 	err = role.Query(&raft.QueryRequest{}, server)
-	assert.Error(t, err)
+	assert.NoError(t, err)
+	response = server.NextResponse()
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
 
 	bytes, _ := proto.Marshal(&service.ServiceRequest{
 		Request: &service.ServiceRequest_Metadata{
@@ -274,9 +276,29 @@ func TestPassiveQuery(t *testing.T) {
 
 	// Requests with stronger consistency requirements should be forwarded to the leader
 	err = role.Query(&raft.QueryRequest{ReadConsistency: raft.ReadConsistency_LINEARIZABLE_LEASE}, server)
-	assert.Error(t, err)
+	assert.NoError(t, err)
+	response = server.NextResponse()
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
 	err = role.Query(&raft.QueryRequest{ReadConsistency: raft.ReadConsistency_LINEARIZABLE}, server)
-	assert.Error(t, err)
+	assert.NoError(t, err)
+	response = server.NextResponse()
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+}
+
+type queryProtocol struct {
+	*raft.UnimplementedProtocol
+}
+
+func (p *queryProtocol) Query(ctx context.Context, request *raft.QueryRequest, member raft.MemberID) (<-chan *raft.QueryStreamResponse, error) {
+	ch := make(chan *raft.QueryStreamResponse, 1)
+	ch <- &raft.QueryStreamResponse{
+		StreamResponse: &raft.StreamResponse{},
+		Response: &raft.QueryResponse{
+			Status: raft.ResponseStatus_OK,
+		},
+	}
+	defer close(ch)
+	return ch, nil
 }
 
 func newCommandServer() *commandServer {

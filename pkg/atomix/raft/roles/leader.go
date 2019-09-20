@@ -26,11 +26,11 @@ import (
 )
 
 // newLeaderRole returns a new leader role
-func newLeaderRole(raft raft.Raft, state state.Manager, store store.Store) raft.Role {
-	log := util.NewRoleLogger(string(raft.Member()), string(RoleLeader))
+func newLeaderRole(protocol raft.Raft, state state.Manager, store store.Store) raft.Role {
+	log := util.NewRoleLogger(string(protocol.Member()), string(raft.RoleLeader))
 	return &LeaderRole{
-		ActiveRole: newActiveRole(raft, state, store, log),
-		appender:   newAppender(raft, state, store, log),
+		ActiveRole: newActiveRole(protocol, state, store, log),
+		appender:   newAppender(protocol, state, store, log),
 	}
 }
 
@@ -41,9 +41,9 @@ type LeaderRole struct {
 	initIndex raft.Index
 }
 
-// Name is the name of the role
-func (r *LeaderRole) Name() string {
-	return string(RoleLeader)
+// Type is the role type
+func (r *LeaderRole) Type() raft.RoleType {
+	return raft.RoleLeader
 }
 
 // Start starts the leader

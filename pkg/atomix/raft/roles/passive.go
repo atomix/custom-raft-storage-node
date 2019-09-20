@@ -431,26 +431,17 @@ func (r *PassiveRole) forwardQuery(request *raft.QueryRequest, leader *raft.Memb
 	}
 
 	r.log.Trace("Forwarding %v", request)
-	client, err := r.raft.Connect(*leader)
+	stream, err := r.raft.Protocol().Query(context.Background(), request, *leader)
 	if err != nil {
-		return r.log.Response("QueryResponse", nil, err)
+		return err
 	}
 
-	stream, err := client.Query(context.Background(), request)
-	if err != nil {
-		return r.log.Response("QueryResponse", nil, err)
-	}
-
-	for {
-		response, err := stream.Recv()
-		if err == io.EOF {
-			break
+	for response := range stream {
+		if response.Failed() {
+			_ = r.log.Response("QueryResponse", nil, response.Error)
+		} else {
+			_ = r.log.Response("QueryResponse", response, server.Send(response.Response))
 		}
-		if err != nil {
-			return r.log.Response("QueryResponse", nil, err)
-		}
-		r.log.Request("QueryResponse", response)
-		_ = r.log.Response("QueryResponse", response, server.Send(response))
 	}
 	return nil
 }
