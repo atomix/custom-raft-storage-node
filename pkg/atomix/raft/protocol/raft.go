@@ -37,17 +37,18 @@ const (
 )
 
 // NewRaft returns a new Raft protocol state struct
-func NewRaft(cluster Cluster, config *config.ProtocolConfig, protocol Client) Raft {
-	return newProtocol(cluster, config, protocol, newMemoryMetadataStore())
+func NewRaft(cluster Cluster, config *config.ProtocolConfig, protocol Client, roles map[RoleType]func(Raft) Role) Raft {
+	return newProtocol(cluster, config, protocol, roles, newMemoryMetadataStore())
 }
 
 // newProtocol returns a new Raft protocol state struct
-func newProtocol(cluster Cluster, config *config.ProtocolConfig, protocol Client, store MetadataStore) Raft {
+func newProtocol(cluster Cluster, config *config.ProtocolConfig, protocol Client, roles map[RoleType]func(Raft) Role, store MetadataStore) Raft {
 	return &raft{
 		log:            util.NewNodeLogger(string(cluster.Member())),
 		config:         config,
 		protocol:       protocol,
 		status:         StatusStopped,
+		roles:          roles,
 		roleWatchers:   make([]func(RoleType), 0),
 		statusWatchers: make([]func(Status), 0, 1),
 		cluster:        cluster,
@@ -138,7 +139,7 @@ type Raft interface {
 	ReadUnlock()
 
 	// SetRole sets the protocol's current role
-	SetRole(role Role)
+	SetRole(role RoleType)
 
 	// Close closes the Raft state
 	Close() error
@@ -179,6 +180,7 @@ type raft struct {
 	config           *config.ProtocolConfig
 	protocol         Client
 	metadata         MetadataStore
+	roles            map[RoleType]func(Raft) Role
 	roleWatchers     []func(RoleType)
 	statusWatchers   []func(Status)
 	role             Role
@@ -198,6 +200,7 @@ func (r *raft) Init() {
 	}
 	r.lastVotedFor = r.metadata.LoadVote()
 	r.setStatus(StatusRunning)
+	go r.SetRole(RoleFollower)
 }
 
 func (r *raft) Status() Status {
@@ -342,7 +345,17 @@ func (r *raft) Role() RoleType {
 	return r.role.Type()
 }
 
-func (r *raft) SetRole(role Role) {
+func (r *raft) SetRole(roleType RoleType) {
+	roleFunc, ok := r.roles[roleType]
+	if !ok {
+		r.log.Error("Unknown role type %s", roleType)
+		return
+	}
+	role := roleFunc(r)
+	go r.changeRole(role)
+}
+
+func (r *raft) changeRole(role Role) {
 	r.WriteLock()
 
 	// If the role has not changed, ignore the call
@@ -358,14 +371,13 @@ func (r *raft) SetRole(role Role) {
 		}
 	}
 	r.role = role
-	roleType := role.Type()
 	r.WriteUnlock()
 	if err := role.Start(); err != nil {
 		r.log.Error("Failed to start %s role", role.Type(), err)
 	}
 
 	for _, watcher := range r.roleWatchers {
-		watcher(roleType)
+		watcher(role.Type())
 	}
 }
 

@@ -52,7 +52,7 @@ func (r *CandidateRole) Start() error {
 	if len(r.raft.Members()) == 1 {
 		log.WithField("memberID", r.raft.Member()).
 			Debug("Single node cluster; skipping election")
-		go r.raft.SetRole(newLeaderRole(r.raft, r.state, r.store))
+		defer r.raft.SetRole(raft.RoleLeader)
 		return nil
 	}
 	_ = r.ActiveRole.Start()
@@ -77,7 +77,7 @@ func (r *CandidateRole) Vote(ctx context.Context, request *raft.VoteRequest) (*r
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context and step down as a candidate.
 	if r.updateTermAndLeader(request.Term, nil) {
-		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+		defer r.raft.SetRole(raft.RoleFollower)
 		response, err := r.handleVote(ctx, request)
 		_ = r.log.Response("VoteResponse", response, err)
 		return response, err
@@ -154,12 +154,12 @@ func (r *CandidateRole) sendVoteRequests() {
 	member := r.raft.Member()
 	if err := r.raft.SetTerm(r.raft.Term() + 1); err != nil {
 		r.log.Error("Failed to increment term", err)
-		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+		defer r.raft.SetRole(raft.RoleFollower)
 		return
 	}
 	if err := r.raft.SetLastVotedFor(member); err != nil {
 		r.log.Error("Failed to vote for self", err)
-		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+		defer r.raft.SetRole(raft.RoleFollower)
 		return
 	}
 	term := r.raft.Term()
@@ -186,7 +186,7 @@ func (r *CandidateRole) sendVoteRequests() {
 				if r.raft.Leader() == nil && voteCount == quorum {
 					log.WithField("memberID", r.raft.Member()).
 						Debugf("Won election with %d/%d votes; transitioning to leader", voteCount, len(votingMembers))
-					go r.raft.SetRole(newLeaderRole(r.raft, r.state, r.store))
+					r.raft.SetRole(raft.RoleLeader)
 					r.raft.WriteUnlock()
 					return
 				}
@@ -197,7 +197,7 @@ func (r *CandidateRole) sendVoteRequests() {
 				if rejectCount == quorum {
 					log.WithField("memberID", r.raft.Member()).
 						Debugf("Lost election with %d/%d votes rejected; transitioning back to follower", rejectCount, len(votingMembers))
-					go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+					r.raft.SetRole(raft.RoleFollower)
 					r.raft.WriteUnlock()
 					return
 				}
@@ -258,7 +258,7 @@ func (r *CandidateRole) sendVoteRequests() {
 					log.WithField("memberID", r.raft.Member()).
 						Debugf("Received greater term from %s; transitioning back to follower", member)
 					_ = r.raft.SetTerm(response.Term)
-					go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+					defer r.raft.SetRole(raft.RoleFollower)
 					r.raft.WriteUnlock()
 					close(votes)
 					return

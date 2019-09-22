@@ -25,10 +25,10 @@ import (
 )
 
 // NewManager returns a new Raft state manager
-func NewManager(raft raft.Raft, store store.Store, registry *node.Registry) Manager {
+func NewManager(member raft.MemberID, store store.Store, registry *node.Registry) Manager {
 	sm := &manager{
-		raft:   raft,
-		log:    util.NewNodeLogger(string(raft.Member())),
+		member: member,
+		log:    util.NewNodeLogger(string(member)),
 		reader: store.Log().OpenReader(0),
 		ch:     make(chan *change, stateBufferSize),
 	}
@@ -56,7 +56,7 @@ const (
 
 // manager manages the Raft state machine
 type manager struct {
-	raft         raft.Raft
+	member       raft.MemberID
 	state        node.StateMachine
 	log          util.Logger
 	currentIndex raft.Index
@@ -69,7 +69,7 @@ type manager struct {
 
 // Node returns the local node identifier
 func (m *manager) Node() string {
-	return string(m.raft.Member())
+	return string(m.member)
 }
 
 // applyIndex applies entries up to the given index

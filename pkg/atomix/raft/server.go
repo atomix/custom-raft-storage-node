@@ -38,9 +38,10 @@ func NewServer(clusterConfig cluster.Cluster, registry *node.Registry, protocolC
 
 	cluster := raft.NewCluster(clusterConfig)
 	protocol := raft.NewClient(cluster)
-	raft := raft.NewRaft(cluster, protocolConfig, protocol)
 	store := store.NewMemoryStore()
-	state := state.NewManager(raft, store, registry)
+	state := state.NewManager(cluster.Member(), store, registry)
+	roles := roles.GetRoles(state, store)
+	raft := raft.NewRaft(cluster, protocolConfig, protocol, roles)
 	server := &Server{
 		raft:  raft,
 		state: state,
@@ -67,9 +68,6 @@ func (s *Server) Start() error {
 
 	// Initialize the Raft state
 	s.raft.Init()
-
-	// Transition the node to the follower role
-	go s.raft.SetRole(roles.NewInitialRole(s.raft, s.state, s.store))
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
 	if err != nil {

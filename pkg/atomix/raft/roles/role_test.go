@@ -30,7 +30,16 @@ import (
 	"testing"
 )
 
-func newTestState(client raft.Client) (raft.Raft, state.Manager, store.Store) {
+func newTestState(client raft.Client, roles ...raft.Role) (raft.Raft, state.Manager, store.Store) {
+	roleFuncs := make(map[raft.RoleType]func(raft.Raft) raft.Role)
+	for _, role := range roles {
+		roleFuncs[role.Type()] = func(role raft.Role) func(raft.Raft) raft.Role {
+			return func(raft.Raft) raft.Role {
+				return role
+			}
+		}(role)
+	}
+
 	members := cluster.Cluster{
 		MemberID: "foo",
 		Members: map[string]cluster.Member{
@@ -51,9 +60,11 @@ func newTestState(client raft.Client) (raft.Raft, state.Manager, store.Store) {
 			},
 		},
 	}
-	raft := raft.NewRaft(raft.NewCluster(members), &config.ProtocolConfig{}, client)
+
+	cluster := raft.NewCluster(members)
 	store := store.NewMemoryStore()
-	state := state.NewManager(raft, store, node.GetRegistry())
+	state := state.NewManager(cluster.Member(), store, node.GetRegistry())
+	raft := raft.NewRaft(cluster, &config.ProtocolConfig{}, client, roleFuncs)
 	return raft, state, store
 }
 
@@ -93,6 +104,30 @@ func TestRole(t *testing.T) {
 	appendResponse, err := role.Append(context.TODO(), &raft.AppendRequest{})
 	assert.NoError(t, err)
 	assert.Equal(t, raft.ResponseStatus_ERROR, appendResponse.Status)
+}
+
+// mockRole mocks a role
+func mockRole(ctrl *gomock.Controller, roleType raft.RoleType) raft.Role {
+	role := mock.NewMockRole(ctrl)
+	role.EXPECT().Type().Return(roleType).AnyTimes()
+	role.EXPECT().Start().Return(nil).AnyTimes()
+	role.EXPECT().Stop().Return(nil).AnyTimes()
+	return role
+}
+
+// mockFollower mocks a follower role
+func mockFollower(ctrl *gomock.Controller) raft.Role {
+	return mockRole(ctrl, raft.RoleFollower)
+}
+
+// mockCandidate mocks a candidate role
+func mockCandidate(ctrl *gomock.Controller) raft.Role {
+	return mockRole(ctrl, raft.RoleCandidate)
+}
+
+// mockLeader mocks a leader role
+func mockLeader(ctrl *gomock.Controller) raft.Role {
+	return mockRole(ctrl, raft.RoleLeader)
 }
 
 // expectQuery expects a successful query response

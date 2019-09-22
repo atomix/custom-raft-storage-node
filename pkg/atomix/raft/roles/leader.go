@@ -96,7 +96,7 @@ func (r *LeaderRole) commitInitializeEntry() {
 			r.log.Error("Failed to unset leader", err)
 		}
 		r.raft.WriteUnlock()
-		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+		defer r.raft.SetRole(raft.RoleFollower)
 	} else {
 		r.state.ApplyEntry(indexed, nil)
 	}
@@ -123,7 +123,7 @@ func (r *LeaderRole) Vote(ctx context.Context, request *raft.VoteRequest) (*raft
 	defer r.raft.WriteUnlock()
 	if r.updateTermAndLeader(request.Term, nil) {
 		r.log.Debug("Received greater term")
-		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+		defer r.raft.SetRole(raft.RoleFollower)
 		response, err := r.ActiveRole.Vote(ctx, request)
 		_ = r.log.Response("VoteResponse", response, err)
 		return response, err
@@ -145,7 +145,7 @@ func (r *LeaderRole) Append(ctx context.Context, request *raft.AppendRequest) (*
 	defer r.raft.WriteUnlock()
 	if r.updateTermAndLeader(request.Term, &request.Leader) {
 		r.log.Debug("Received greater term")
-		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+		defer r.raft.SetRole(raft.RoleFollower)
 		response, err := r.ActiveRole.Append(ctx, request)
 		_ = r.log.Response("AppendResponse", response, err)
 		return response, err

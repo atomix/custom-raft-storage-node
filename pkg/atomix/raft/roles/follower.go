@@ -50,7 +50,7 @@ func (r *FollowerRole) Start() error {
 	// If there are no other members in the cluster, immediately transition to candidate to increment the term.
 	if len(r.raft.Members()) == 1 {
 		r.log.Debug("Single node cluster; starting election")
-		go r.raft.SetRole(newCandidateRole(r.raft, r.state, r.store))
+		defer r.raft.SetRole(raft.RoleCandidate)
 		return nil
 	}
 	_ = r.ActiveRole.Start()
@@ -142,7 +142,7 @@ func (r *FollowerRole) sendPollRequests() {
 				if r.raft.Leader() == nil && acceptCount == quorum {
 					r.raft.ReadUnlock()
 					r.log.Debug("Received %d/%d pre-votes; transitioning to candidate", acceptCount, len(votingMembers))
-					go r.raft.SetRole(newCandidateRole(r.raft, r.state, r.store))
+					r.raft.SetRole(raft.RoleCandidate)
 					return
 				}
 				r.raft.ReadUnlock()
@@ -263,7 +263,7 @@ func (r *FollowerRole) Vote(ctx context.Context, request *raft.VoteRequest) (*ra
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context.
 	if r.updateTermAndLeader(request.Term, nil) {
-		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+		defer r.raft.SetRole(raft.RoleFollower)
 	}
 
 	// Handle the vote request and then release the lock

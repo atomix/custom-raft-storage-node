@@ -45,8 +45,9 @@ func (r *ActiveRole) Append(ctx context.Context, request *raft.AppendRequest) (*
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context and transition to follower.
 	if r.updateTermAndLeader(request.Term, &request.Leader) {
-		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+		defer r.raft.SetRole(raft.RoleFollower)
 	}
+
 	response, err := r.handleAppend(ctx, request)
 	_ = r.log.Response("AppendResponse", response, err)
 	return response, err
@@ -145,7 +146,7 @@ func (r *ActiveRole) Vote(ctx context.Context, request *raft.VoteRequest) (*raft
 	// If the request indicates a term that is greater than the current term then
 	// assign that term and leader to the current context.
 	if r.updateTermAndLeader(request.Term, nil) {
-		go r.raft.SetRole(newFollowerRole(r.raft, r.state, r.store))
+		defer r.raft.SetRole(raft.RoleFollower)
 	}
 
 	response, err := r.handleVote(ctx, request)

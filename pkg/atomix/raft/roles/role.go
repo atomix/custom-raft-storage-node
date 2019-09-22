@@ -22,9 +22,19 @@ import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 )
 
-// NewInitialRole returns an initial Role instance
-func NewInitialRole(raft raft.Raft, state state.Manager, store store.Store) raft.Role {
-	return newFollowerRole(raft, state, store)
+// GetRoles returns a mapping of role types to role factories
+func GetRoles(state state.Manager, store store.Store) map[raft.RoleType]func(raft.Raft) raft.Role {
+	return map[raft.RoleType]func(raft.Raft) raft.Role{
+		raft.RoleFollower: func(raft raft.Raft) raft.Role {
+			return newFollowerRole(raft, state, store)
+		},
+		raft.RoleCandidate: func(raft raft.Raft) raft.Role {
+			return newCandidateRole(raft, state, store)
+		},
+		raft.RoleLeader: func(raft raft.Raft) raft.Role {
+			return newLeaderRole(raft, state, store)
+		},
+	}
 }
 
 func newRaftRole(raft raft.Raft, state state.Manager, store store.Store, log util.Logger) *raftRole {

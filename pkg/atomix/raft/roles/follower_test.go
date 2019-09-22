@@ -29,7 +29,7 @@ func TestFollowerHeartbeatTimeout(t *testing.T) {
 	expectVote(client).AnyTimes()
 	expectAppend(client).AnyTimes()
 
-	protocol, sm, stores := newTestState(client)
+	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
 	role := newFollowerRole(protocol, sm, stores)
 	assert.NoError(t, role.Start())
 
