@@ -27,7 +27,12 @@ import (
 
 func TestActiveAppend(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	protocol, sm, stores := newTestState(mock.NewMockClient(ctrl))
+	client := mock.NewMockClient(ctrl)
+	expectPoll(client).AnyTimes()
+	expectVote(client).AnyTimes()
+	expectAppend(client).AnyTimes()
+
+	protocol, sm, stores := newTestState(client)
 	role := newActiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	// Test accepting the current term/leader
@@ -71,7 +76,12 @@ func TestActiveAppend(t *testing.T) {
 
 func TestActivePoll(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	protocol, sm, stores := newTestState(mock.NewMockClient(ctrl))
+	client := mock.NewMockClient(ctrl)
+	expectPoll(client).AnyTimes()
+	expectVote(client).AnyTimes()
+	expectAppend(client).AnyTimes()
+
+	protocol, sm, stores := newTestState(client)
 	role := newActiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	// Test rejecting a poll for an old term
@@ -177,7 +187,12 @@ func TestActivePoll(t *testing.T) {
 
 func TestActiveVote(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	protocol, sm, stores := newTestState(mock.NewMockClient(ctrl))
+	client := mock.NewMockClient(ctrl)
+	expectPoll(client).AnyTimes()
+	expectVote(client).AnyTimes()
+	expectAppend(client).AnyTimes()
+
+	protocol, sm, stores := newTestState(client)
 	role := newActiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
 
 	// Test rejecting a vote request for an old term

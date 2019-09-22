@@ -16,6 +16,7 @@ package roles
 
 import (
 	"context"
+	"errors"
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
@@ -92,4 +93,54 @@ func TestRole(t *testing.T) {
 	appendResponse, err := role.Append(context.TODO(), &raft.AppendRequest{})
 	assert.NoError(t, err)
 	assert.Equal(t, raft.ResponseStatus_ERROR, appendResponse.Status)
+}
+
+// expectQuery expects a successful query response
+func expectQuery(client *mock.MockClient) *gomock.Call {
+	return client.EXPECT().
+		Query(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, request *raft.QueryRequest, member raft.MemberID) (<-chan *raft.QueryStreamResponse, error) {
+			ch := make(chan *raft.QueryStreamResponse, 1)
+			ch <- &raft.QueryStreamResponse{
+				StreamMessage: &raft.StreamMessage{},
+				Response: &raft.QueryResponse{
+					Status: raft.ResponseStatus_OK,
+				},
+			}
+			defer close(ch)
+			return ch, nil
+		})
+}
+
+// expectPoll expects a successful poll response
+func expectPoll(client *mock.MockClient) *gomock.Call {
+	return client.EXPECT().
+		Poll(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, request *raft.PollRequest, member raft.MemberID) (*raft.PollResponse, error) {
+			return &raft.PollResponse{
+				Status:   raft.ResponseStatus_OK,
+				Term:     request.Term,
+				Accepted: true,
+			}, nil
+		})
+}
+
+// expectVote expects a successful vote response
+func expectVote(client *mock.MockClient) *gomock.Call {
+	return client.EXPECT().
+		Vote(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, request *raft.VoteRequest, member raft.MemberID) (*raft.VoteResponse, error) {
+			return &raft.VoteResponse{
+				Status: raft.ResponseStatus_OK,
+				Term:   request.Term,
+				Voted:  true,
+			}, nil
+		})
+}
+
+// expectAppend expects and rejects an append request
+func expectAppend(client *mock.MockClient) *gomock.Call {
+	return client.EXPECT().
+		Append(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil, errors.New("not implemented"))
 }

@@ -302,20 +302,3 @@ func TestPassiveQuery(t *testing.T) {
 	assert.True(t, response.Succeeded())
 	assert.Equal(t, raft.ResponseStatus_OK, response.Response.Status)
 }
-
-// expectQuery expects a successful query response
-func expectQuery(client *mock.MockClient) *gomock.Call {
-	return client.EXPECT().
-		Query(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, request *raft.QueryRequest, member raft.MemberID) (<-chan *raft.QueryStreamResponse, error) {
-			ch := make(chan *raft.QueryStreamResponse, 1)
-			ch <- &raft.QueryStreamResponse{
-				StreamMessage: &raft.StreamMessage{},
-				Response: &raft.QueryResponse{
-					Status: raft.ResponseStatus_OK,
-				},
-			}
-			defer close(ch)
-			return ch, nil
-		})
-}

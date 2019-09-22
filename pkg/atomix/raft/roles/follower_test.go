@@ -15,8 +15,6 @@
 package roles
 
 import (
-	"context"
-	"errors"
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol/mock"
 	"github.com/golang/mock/gomock"
@@ -40,37 +38,4 @@ func TestFollowerHeartbeatTimeout(t *testing.T) {
 		roleCh <- roleType
 	})
 	assert.Equal(t, raft.RoleCandidate, <-roleCh)
-}
-
-// expectPoll expects a successful poll response
-func expectPoll(client *mock.MockClient) *gomock.Call {
-	return client.EXPECT().
-		Poll(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, request *raft.PollRequest, member raft.MemberID) (*raft.PollResponse, error) {
-			return &raft.PollResponse{
-				Status:   raft.ResponseStatus_OK,
-				Term:     request.Term,
-				Accepted: true,
-			}, nil
-		})
-}
-
-// expectVote expects a successful vote response
-func expectVote(client *mock.MockClient) *gomock.Call {
-	return client.EXPECT().
-		Vote(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, request *raft.VoteRequest, member raft.MemberID) (*raft.VoteResponse, error) {
-			return &raft.VoteResponse{
-				Status: raft.ResponseStatus_OK,
-				Term:   request.Term,
-				Voted:  true,
-			}, nil
-		})
-}
-
-// expectAppend expects and rejects an append request
-func expectAppend(client *mock.MockClient) *gomock.Call {
-	return client.EXPECT().
-		Append(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(nil, errors.New("not implemented"))
 }
