@@ -28,9 +28,9 @@ import (
 func TestActiveAppend(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock.NewMockClient(ctrl)
-	expectPoll(client).AnyTimes()
-	expectVote(client).AnyTimes()
-	expectAppend(client).AnyTimes()
+	acceptPoll(client).AnyTimes()
+	acceptVote(client).AnyTimes()
+	failAppend(client).AnyTimes()
 
 	protocol, sm, stores := newTestState(client)
 	role := newActiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
@@ -77,9 +77,9 @@ func TestActiveAppend(t *testing.T) {
 func TestActivePoll(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock.NewMockClient(ctrl)
-	expectPoll(client).AnyTimes()
-	expectVote(client).AnyTimes()
-	expectAppend(client).AnyTimes()
+	acceptPoll(client).AnyTimes()
+	acceptVote(client).AnyTimes()
+	failAppend(client).AnyTimes()
 
 	protocol, sm, stores := newTestState(client)
 	role := newActiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
@@ -188,9 +188,9 @@ func TestActivePoll(t *testing.T) {
 func TestActiveVote(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock.NewMockClient(ctrl)
-	expectPoll(client).AnyTimes()
-	expectVote(client).AnyTimes()
-	expectAppend(client).AnyTimes()
+	acceptPoll(client).AnyTimes()
+	acceptVote(client).AnyTimes()
+	failAppend(client).AnyTimes()
 
 	protocol, sm, stores := newTestState(client)
 	role := newActiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))

@@ -344,7 +344,13 @@ func (r *raft) ReadUnlock() {
 }
 
 func (r *raft) Role() RoleType {
-	return r.role.Type()
+	r.ReadLock()
+	defer r.ReadUnlock()
+	role := r.role
+	if role == nil {
+		return ""
+	}
+	return role.Type()
 }
 
 func (r *raft) SetRole(roleType RoleType) {

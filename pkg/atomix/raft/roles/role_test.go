@@ -28,6 +28,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 )
 
 func newTestState(client raft.Client, roles ...raft.Role) (raft.Raft, state.Manager, store.Store) {
@@ -64,7 +65,11 @@ func newTestState(client raft.Client, roles ...raft.Role) (raft.Raft, state.Mana
 	cluster := raft.NewCluster(members)
 	store := store.NewMemoryStore()
 	state := state.NewManager(cluster.Member(), store, node.GetRegistry())
-	raft := raft.NewRaft(cluster, &config.ProtocolConfig{}, client, roleFuncs)
+	electionTimeout := 1 * time.Second
+	config := &config.ProtocolConfig{
+		ElectionTimeout: &electionTimeout,
+	}
+	raft := raft.NewRaft(cluster, config, client, roleFuncs)
 	return raft, state, store
 }
 
@@ -147,8 +152,8 @@ func expectQuery(client *mock.MockClient) *gomock.Call {
 		})
 }
 
-// expectPoll expects a successful poll response
-func expectPoll(client *mock.MockClient) *gomock.Call {
+// acceptPoll expects a successful poll response
+func acceptPoll(client *mock.MockClient) *gomock.Call {
 	return client.EXPECT().
 		Poll(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, request *raft.PollRequest, member raft.MemberID) (*raft.PollResponse, error) {
@@ -160,8 +165,21 @@ func expectPoll(client *mock.MockClient) *gomock.Call {
 		})
 }
 
-// expectVote expects a successful vote response
-func expectVote(client *mock.MockClient) *gomock.Call {
+// rejectPoll rejects poll requests
+func rejectPoll(client *mock.MockClient) *gomock.Call {
+	return client.EXPECT().
+		Poll(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, request *raft.PollRequest, member raft.MemberID) (*raft.PollResponse, error) {
+			return &raft.PollResponse{
+				Status:   raft.ResponseStatus_OK,
+				Term:     request.Term,
+				Accepted: false,
+			}, nil
+		})
+}
+
+// acceptVote expects a successful vote response
+func acceptVote(client *mock.MockClient) *gomock.Call {
 	return client.EXPECT().
 		Vote(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, request *raft.VoteRequest, member raft.MemberID) (*raft.VoteResponse, error) {
@@ -173,8 +191,21 @@ func expectVote(client *mock.MockClient) *gomock.Call {
 		})
 }
 
-// expectAppend expects and rejects an append request
-func expectAppend(client *mock.MockClient) *gomock.Call {
+// rejectVote rejects a vote request
+func rejectVote(client *mock.MockClient) *gomock.Call {
+	return client.EXPECT().
+		Vote(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, request *raft.VoteRequest, member raft.MemberID) (*raft.VoteResponse, error) {
+			return &raft.VoteResponse{
+				Status: raft.ResponseStatus_OK,
+				Term:   request.Term,
+				Voted:  false,
+			}, nil
+		})
+}
+
+// failAppend expects and rejects an append request
+func failAppend(client *mock.MockClient) *gomock.Call {
 	return client.EXPECT().
 		Append(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, errors.New("not implemented"))

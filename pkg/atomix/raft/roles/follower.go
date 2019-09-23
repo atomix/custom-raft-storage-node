@@ -72,11 +72,9 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 	defer r.raft.WriteUnlock()
 
 	// If a timer is already set, cancel the timer.
-	if r.heartbeatTimer != nil {
-		if !r.heartbeatTimer.Stop() {
-			r.heartbeatStop <- true
-			return
-		}
+	if r.heartbeatTimer != nil && r.heartbeatTimer.Stop() {
+		r.heartbeatStop <- true
+		return
 	}
 
 	// Set the election timeout in a semi-random fashion with the random range
@@ -96,7 +94,7 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 				}
 				r.raft.WriteUnlock()
 				r.log.Debug("Heartbeat timed out in %d milliseconds", timeout/time.Millisecond)
-				r.sendPollRequests()
+				go r.sendPollRequests()
 			} else {
 				r.raft.WriteUnlock()
 			}
@@ -116,7 +114,7 @@ func (r *FollowerRole) sendPollRequests() {
 		case <-timeoutTimer.C:
 			if r.active {
 				r.log.Debug("Failed to poll a majority of the cluster in %d", r.raft.Config().GetElectionTimeoutOrDefault())
-				r.resetHeartbeatTimeout()
+				go r.resetHeartbeatTimeout()
 			}
 		case <-timeoutExpired:
 			return
@@ -150,7 +148,8 @@ func (r *FollowerRole) sendPollRequests() {
 				rejectCount++
 				if rejectCount == quorum {
 					r.log.Debug("Received %d/%d rejected pre-votes; resetting heartbeat timeout", rejectCount, len(votingMembers))
-					r.resetHeartbeatTimeout()
+					r.raft.WriteUnlock()
+					go r.resetHeartbeatTimeout()
 					return
 				}
 				r.raft.WriteUnlock()
@@ -158,7 +157,7 @@ func (r *FollowerRole) sendPollRequests() {
 		}
 
 		// If not enough votes were received, reset the heartbeat timeout.
-		r.resetHeartbeatTimeout()
+		go r.resetHeartbeatTimeout()
 	}()
 
 	// First, load the last log entry to get its term. We load the entry
@@ -272,7 +271,7 @@ func (r *FollowerRole) Vote(ctx context.Context, request *raft.VoteRequest) (*ra
 
 	// If we voted for the candidate, reset the heartbeat timeout
 	if response.Voted {
-		r.resetHeartbeatTimeout()
+		go r.resetHeartbeatTimeout()
 	}
 	_ = r.log.Response("VoteResponse", response, err)
 	return response, err

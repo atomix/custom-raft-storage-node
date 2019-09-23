@@ -20,14 +20,15 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 )
 
 func TestFollowerHeartbeatTimeout(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock.NewMockClient(ctrl)
-	expectPoll(client).AnyTimes()
-	expectVote(client).AnyTimes()
-	expectAppend(client).AnyTimes()
+	acceptPoll(client).AnyTimes()
+	acceptVote(client).AnyTimes()
+	failAppend(client).AnyTimes()
 
 	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
 	role := newFollowerRole(protocol, sm, stores)
@@ -38,4 +39,38 @@ func TestFollowerHeartbeatTimeout(t *testing.T) {
 		roleCh <- roleType
 	})
 	assert.Equal(t, raft.RoleCandidate, <-roleCh)
+}
+
+func TestFollowerPollQuorum(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	acceptPoll(client)
+	rejectPoll(client).AnyTimes()
+	acceptVote(client).AnyTimes()
+	failAppend(client).AnyTimes()
+
+	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
+	role := newFollowerRole(protocol, sm, stores)
+	assert.NoError(t, role.Start())
+
+	roleCh := make(chan raft.RoleType, 1)
+	role.raft.WatchRole(func(roleType raft.RoleType) {
+		roleCh <- roleType
+	})
+	assert.Equal(t, raft.RoleCandidate, <-roleCh)
+}
+
+func TestFollowerPollFail(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	rejectPoll(client).AnyTimes()
+	acceptVote(client).AnyTimes()
+	failAppend(client).AnyTimes()
+
+	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
+	role := newFollowerRole(protocol, sm, stores)
+	assert.NoError(t, role.Start())
+
+	time.Sleep(5*time.Second)
+	assert.Equal(t, raft.RoleType(""), role.raft.Role())
 }
