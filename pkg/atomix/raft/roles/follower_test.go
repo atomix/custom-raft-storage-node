@@ -38,7 +38,7 @@ func TestFollowerPollQuorum(t *testing.T) {
 	assert.Equal(t, raft.Term(0), role.raft.Term())
 	assert.Nil(t, role.raft.Leader())
 	role.raft.ReadUnlock()
-	assert.Equal(t, raft.RoleCandidate, <-awaitRole(role.raft, raft.RoleCandidate))
+	assert.Equal(t, raft.RoleCandidate, awaitRole(role.raft, raft.RoleCandidate))
 }
 
 func TestFollowerPollFail(t *testing.T) {

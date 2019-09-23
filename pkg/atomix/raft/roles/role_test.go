@@ -24,9 +24,10 @@ import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol/mock"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/state"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store"
+	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store/log"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 	"github.com/golang/mock/gomock"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -112,11 +113,10 @@ func TestRole(t *testing.T) {
 	assert.Equal(t, raft.ResponseStatus_ERROR, appendResponse.Status)
 }
 
-// awaitRole returns a channel future that waits for the role to be set to the given role
-func awaitRole(r raft.Raft, role raft.RoleType) <-chan raft.RoleType {
+// awaitRole blocks until the role is set to the given role
+func awaitRole(r raft.Raft, role raft.RoleType) raft.RoleType {
 	ch := make(chan raft.RoleType, 1)
 	r.ReadLock()
-	defer r.ReadUnlock()
 	if r.Role() == role {
 		ch <- role
 	} else {
@@ -126,14 +126,14 @@ func awaitRole(r raft.Raft, role raft.RoleType) <-chan raft.RoleType {
 			}
 		})
 	}
-	return ch
+	r.ReadUnlock()
+	return <-ch
 }
 
-// awaitTerm returns a channel future that waits for the term to be set to the given term
-func awaitTerm(r raft.Raft, term raft.Term) <-chan raft.Term {
+// awaitTerm blocks until the term is set to the given term
+func awaitTerm(r raft.Raft, term raft.Term) raft.Term {
 	ch := make(chan raft.Term, 1)
 	r.ReadLock()
-	defer r.ReadUnlock()
 	if r.Term() == term {
 		ch <- term
 	} else {
@@ -143,7 +143,37 @@ func awaitTerm(r raft.Raft, term raft.Term) <-chan raft.Term {
 			}
 		})
 	}
-	return ch
+	r.ReadUnlock()
+	return <-ch
+}
+
+// awaitEntry blocks until the entry at the given index is appended
+func awaitEntry(r raft.Raft, log log.Log, index raft.Index) *log.Entry {
+	reader := log.OpenReader(0)
+	for {
+		r.ReadLock()
+		if reader.LastIndex() >= index {
+			reader.Reset(index)
+			entry := reader.NextEntry()
+			r.ReadUnlock()
+			return entry
+		}
+		r.ReadUnlock()
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// awaitCommit blocks until the given index has been committed
+func awaitCommit(r raft.Raft, index raft.Index) raft.Index {
+	for {
+		r.ReadLock()
+		if r.CommitIndex() >= index {
+			r.ReadUnlock()
+			return index
+		}
+		r.ReadUnlock()
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 // mockRole mocks a role
@@ -249,6 +279,20 @@ func delayFailVote(client *mock.MockClient, delay time.Duration) *gomock.Call {
 		})
 }
 
+// succeedAppend responds successfully to an append request
+func succeedAppend(client *mock.MockClient) *gomock.Call {
+	return client.EXPECT().
+		Append(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, request *raft.AppendRequest, member raft.MemberID) (*raft.AppendResponse, error) {
+			return &raft.AppendResponse{
+				Status:       raft.ResponseStatus_OK,
+				Term:         request.Term,
+				Succeeded:    true,
+				LastLogIndex: request.PrevLogIndex + raft.Index(len(request.Entries)),
+			}, nil
+		})
+}
+
 // failAppend expects and rejects an append request
 func failAppend(client *mock.MockClient) *gomock.Call {
 	return client.EXPECT().
@@ -257,5 +301,5 @@ func failAppend(client *mock.MockClient) *gomock.Call {
 }
 
 func init() {
-	log.SetLevel(log.TraceLevel)
+	logrus.SetLevel(logrus.TraceLevel)
 }

@@ -32,7 +32,7 @@ func TestCandidatePollQuorum(t *testing.T) {
 	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
 	role := newCandidateRole(protocol, sm, stores)
 	assert.NoError(t, role.Start())
-	assert.Equal(t, raft.RoleLeader, <-awaitRole(role.raft, raft.RoleLeader))
+	assert.Equal(t, raft.RoleLeader, awaitRole(role.raft, raft.RoleLeader))
 }
 
 func TestCandidatePollFail(t *testing.T) {
@@ -43,7 +43,7 @@ func TestCandidatePollFail(t *testing.T) {
 	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
 	role := newCandidateRole(protocol, sm, stores)
 	assert.NoError(t, role.Start())
-	assert.Equal(t, raft.RoleFollower, <-awaitRole(role.raft, raft.RoleFollower))
+	assert.Equal(t, raft.RoleFollower, awaitRole(role.raft, raft.RoleFollower))
 }
 
 func TestCandidateVoteTimeout(t *testing.T) {
@@ -54,7 +54,7 @@ func TestCandidateVoteTimeout(t *testing.T) {
 	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
 	role := newCandidateRole(protocol, sm, stores)
 	assert.NoError(t, role.Start())
-	assert.Equal(t, raft.Term(1), <-awaitTerm(role.raft, raft.Term(1)))
+	assert.Equal(t, raft.Term(1), awaitTerm(role.raft, raft.Term(1)))
 
 	// Verify that the term is incremented and the candidate votes for itself
 	role.raft.ReadLock()
@@ -64,7 +64,7 @@ func TestCandidateVoteTimeout(t *testing.T) {
 	role.raft.ReadUnlock()
 
 	// Verify that the term is incremented and the candidate votes for itself again
-	assert.Equal(t, raft.Term(2), <-awaitTerm(role.raft, raft.Term(2)))
+	assert.Equal(t, raft.Term(2), awaitTerm(role.raft, raft.Term(2)))
 	assert.Equal(t, raft.RoleType(""), role.raft.Role())
 	assert.Equal(t, raft.Term(2), role.raft.Term())
 	assert.Nil(t, role.raft.Leader())
