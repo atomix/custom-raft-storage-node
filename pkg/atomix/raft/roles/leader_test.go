@@ -15,11 +15,15 @@
 package roles
 
 import (
+	"context"
+	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol/mock"
+	"github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 )
 
 func TestLeaderInit(t *testing.T) {
@@ -66,4 +70,246 @@ func TestLeaderCommitStepDown(t *testing.T) {
 	assert.NoError(t, role.Start())
 	assert.Equal(t, raft.Index(1), awaitCommit(role.raft, raft.Index(1)))
 	assert.Equal(t, raft.RoleFollower, awaitRole(role.raft, raft.RoleFollower))
+}
+
+func TestLeaderPoll(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	succeedAppend(client).AnyTimes()
+
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
+	assert.NoError(t, role.Start())
+
+	response, err := role.Poll(context.TODO(), &raft.PollRequest{
+		Term:         raft.Term(1),
+		Candidate:    role.raft.Members()[1],
+		LastLogIndex: 0,
+		LastLogTerm:  0,
+	})
+	assert.NoError(t, err)
+	assert.False(t, response.Accepted)
+}
+
+func TestLeaderVote(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	succeedAppend(client).AnyTimes()
+
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
+	assert.NoError(t, role.Start())
+
+	response, err := role.Vote(context.TODO(), &raft.VoteRequest{
+		Term:         raft.Term(2),
+		Candidate:    role.raft.Members()[1],
+		LastLogIndex: 0,
+		LastLogTerm:  0,
+	})
+	assert.NoError(t, err)
+	assert.False(t, response.Voted)
+	assert.Equal(t, raft.RoleFollower, awaitRole(role.raft, raft.RoleFollower))
+	assert.Equal(t, raft.Term(2), awaitTerm(role.raft, raft.Term(2)))
+
+	role = newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
+	assert.NoError(t, role.Start())
+
+	response, err = role.Vote(context.TODO(), &raft.VoteRequest{
+		Term:         raft.Term(2),
+		Candidate:    role.raft.Members()[1],
+		LastLogIndex: 1,
+		LastLogTerm:  1,
+	})
+	assert.NoError(t, err)
+	assert.True(t, response.Voted)
+	assert.Equal(t, raft.RoleFollower, awaitRole(role.raft, raft.RoleFollower))
+	assert.Equal(t, raft.Term(2), awaitTerm(role.raft, raft.Term(2)))
+}
+
+func TestLeaderAppendPriorTerm(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	succeedAppend(client).AnyTimes()
+
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	assert.NoError(t, role.raft.SetTerm(raft.Term(2)))
+	assert.NoError(t, role.Start())
+
+	response, err := role.Append(context.TODO(), &raft.AppendRequest{
+		Term:         raft.Term(1),
+		Leader:       raft.MemberID("bar"),
+		PrevLogIndex: 1,
+		PrevLogTerm:  1,
+		Entries:      []*raft.LogEntry{},
+		CommitIndex:  0,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+	assert.False(t, response.Succeeded)
+}
+
+func TestLeaderAppendGreaterTerm(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	succeedAppend(client).AnyTimes()
+
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
+	assert.NoError(t, role.Start())
+
+	leader := raft.MemberID("bar")
+	response, err := role.Append(context.TODO(), &raft.AppendRequest{
+		Term:         raft.Term(2),
+		Leader:       leader,
+		PrevLogIndex: 1,
+		PrevLogTerm:  1,
+		Entries:      []*raft.LogEntry{},
+		CommitIndex:  1,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+	assert.True(t, response.Succeeded)
+	assert.Equal(t, raft.RoleFollower, awaitRole(role.raft, raft.RoleFollower))
+	assert.Equal(t, raft.Term(2), awaitTerm(role.raft, raft.Term(2)))
+	assert.Equal(t, &leader, awaitLeader(role.raft, &leader))
+}
+
+func TestCommandCommit(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	succeedAppend(client).AnyTimes()
+
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
+	assert.NoError(t, role.Start())
+
+	request := &raft.CommandRequest{
+		Value: newOpenSessionRequest(),
+	}
+	ch := make(chan *raft.CommandStreamResponse, 1)
+	err := role.Command(request, ch)
+	assert.NoError(t, err)
+	response := <-ch
+	assert.True(t, response.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, response.Response.Status)
+	sessionID := getSessionID(response.Response.Output)
+
+	role.raft.ReadLock()
+	assert.Equal(t, raft.Index(2), role.raft.CommitIndex())
+	role.raft.ReadUnlock()
+
+	request = &raft.CommandRequest{
+		Value: newSetRequest("Set", sessionID, 1),
+	}
+	ch = make(chan *raft.CommandStreamResponse, 1)
+	err = role.Command(request, ch)
+	assert.NoError(t, err)
+	response = <-ch
+	assert.True(t, response.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, response.Response.Status)
+
+	role.raft.ReadLock()
+	assert.Equal(t, raft.Index(3), role.raft.CommitIndex())
+	role.raft.ReadUnlock()
+
+	_, ok := <-ch
+	assert.False(t, ok)
+
+	request = &raft.CommandRequest{
+		Value: newSetRequest("SetStream", sessionID, 2),
+	}
+	ch = make(chan *raft.CommandStreamResponse, 3)
+	err = role.Command(request, ch)
+	assert.NoError(t, err)
+	response = <-ch
+	assert.True(t, response.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, response.Response.Status)
+	response = <-ch
+	assert.True(t, response.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, response.Response.Status)
+	response = <-ch
+	assert.True(t, response.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, response.Response.Status)
+
+	role.raft.ReadLock()
+	assert.Equal(t, raft.Index(4), role.raft.CommitIndex())
+	role.raft.ReadUnlock()
+
+	_, ok = <-ch
+	assert.False(t, ok)
+
+	request = &raft.CommandRequest{
+		Value: newSetRequest("SetError", sessionID, 3),
+	}
+	ch = make(chan *raft.CommandStreamResponse, 1)
+	err = role.Command(request, ch)
+	assert.NoError(t, err)
+	response = <-ch
+	assert.True(t, response.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_ERROR, response.Response.Status)
+
+	role.raft.ReadLock()
+	assert.Equal(t, raft.Index(5), role.raft.CommitIndex())
+	role.raft.ReadUnlock()
+
+	_, ok = <-ch
+	assert.False(t, ok)
+}
+
+func newOpenSessionRequest() []byte {
+	timeout := 30 * time.Second
+	bytes, _ := proto.Marshal(&service.SessionRequest{
+		Request: &service.SessionRequest_OpenSession{
+			OpenSession: &service.OpenSessionRequest{
+				Timeout: &timeout,
+			},
+		},
+	})
+	return newCommandRequest(bytes)
+}
+
+func getSessionID(bytes []byte) uint64 {
+	return getOpenSessionResponse(bytes).SessionID
+}
+
+func getOpenSessionResponse(bytes []byte) *service.OpenSessionResponse {
+	serviceResponse := &service.ServiceResponse{}
+	_ = proto.Unmarshal(bytes, serviceResponse)
+	sessionResponse := &service.SessionResponse{}
+	_ = proto.Unmarshal(serviceResponse.GetCommand(), sessionResponse)
+	return sessionResponse.GetOpenSession()
+}
+
+func newSetRequest(setType string, sessionID uint64, commandID uint64) []byte {
+	bytes, _ := proto.Marshal(&SetRequest{
+		Value: "Hello world!",
+	})
+	bytes, _ = proto.Marshal(&service.SessionRequest{
+		Request: &service.SessionRequest_Command{
+			Command: &service.SessionCommandRequest{
+				Context: &service.SessionCommandContext{
+					SessionID:      sessionID,
+					SequenceNumber: commandID,
+				},
+				Name:  setType,
+				Input: bytes,
+			},
+		},
+	})
+	return newCommandRequest(bytes)
+}
+
+func newCommandRequest(bytes []byte) []byte {
+	bytes, _ = proto.Marshal(&service.ServiceRequest{
+		Id: &service.ServiceId{
+			Type:      "test",
+			Name:      "test",
+			Namespace: "test",
+		},
+		Request: &service.ServiceRequest_Command{
+			Command: bytes,
+		},
+	})
+	return bytes
 }

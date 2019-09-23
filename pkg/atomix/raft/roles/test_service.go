@@ -15,6 +15,7 @@
 package roles
 
 import (
+	"errors"
 	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
 	"github.com/golang/protobuf/proto"
@@ -41,8 +42,12 @@ type testService struct {
 
 // init initializes the test service
 func (s *testService) init() {
-	s.Executor.Register("set", s.Set)
-	s.Executor.Register("get", s.Get)
+	s.Executor.Register("Set", s.Set)
+	s.Executor.Register("SetStream", s.SetStream)
+	s.Executor.Register("SetError", s.SetError)
+	s.Executor.Register("Get", s.Get)
+	s.Executor.Register("GetStream", s.GetStream)
+	s.Executor.Register("GetError", s.GetError)
 }
 
 // Backup backs up the map service
@@ -71,6 +76,26 @@ func (s *testService) Get(value []byte, ch chan<- service.Result) {
 	}))
 }
 
+// Get gets the test value
+func (s *testService) GetStream(value []byte, ch chan<- service.Result) {
+	defer close(ch)
+	ch <- s.NewResult(proto.Marshal(&GetResponse{
+		Value: s.value,
+	}))
+	ch <- s.NewResult(proto.Marshal(&GetResponse{
+		Value: s.value,
+	}))
+	ch <- s.NewResult(proto.Marshal(&GetResponse{
+		Value: s.value,
+	}))
+}
+
+// Get gets the test value
+func (s *testService) GetError(value []byte, ch chan<- service.Result) {
+	defer close(ch)
+	ch <- s.NewFailure(errors.New("error"))
+}
+
 // Set sets the test value
 func (s *testService) Set(value []byte, ch chan<- service.Result) {
 	defer close(ch)
@@ -80,5 +105,29 @@ func (s *testService) Set(value []byte, ch chan<- service.Result) {
 	} else {
 		s.value = request.Value
 		ch <- s.NewResult(proto.Marshal(&SetResponse{}))
+	}
+}
+
+// Set sets the test value
+func (s *testService) SetStream(value []byte, ch chan<- service.Result) {
+	defer close(ch)
+	request := &SetRequest{}
+	if err := proto.Unmarshal(value, request); err != nil {
+		ch <- s.NewFailure(err)
+	} else {
+		ch <- s.NewResult(proto.Marshal(&SetResponse{}))
+		ch <- s.NewResult(proto.Marshal(&SetResponse{}))
+		ch <- s.NewResult(proto.Marshal(&SetResponse{}))
+	}
+}
+
+// Set sets the test value
+func (s *testService) SetError(value []byte, ch chan<- service.Result) {
+	defer close(ch)
+	request := &SetRequest{}
+	if err := proto.Unmarshal(value, request); err != nil {
+		ch <- s.NewFailure(err)
+	} else {
+		ch <- s.NewFailure(errors.New("error"))
 	}
 }

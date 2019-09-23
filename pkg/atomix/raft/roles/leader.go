@@ -124,7 +124,7 @@ func (r *LeaderRole) Vote(ctx context.Context, request *raft.VoteRequest) (*raft
 	if r.updateTermAndLeader(request.Term, nil) {
 		r.log.Debug("Received greater term")
 		defer r.raft.SetRole(raft.RoleFollower)
-		response, err := r.ActiveRole.Vote(ctx, request)
+		response, err := r.ActiveRole.handleVote(ctx, request)
 		_ = r.log.Response("VoteResponse", response, err)
 		return response, err
 	}
@@ -146,7 +146,7 @@ func (r *LeaderRole) Append(ctx context.Context, request *raft.AppendRequest) (*
 	if r.updateTermAndLeader(request.Term, &request.Leader) {
 		r.log.Debug("Received greater term")
 		defer r.raft.SetRole(raft.RoleFollower)
-		response, err := r.ActiveRole.Append(ctx, request)
+		response, err := r.ActiveRole.handleAppend(ctx, request)
 		_ = r.log.Response("AppendResponse", response, err)
 		return response, err
 	} else if request.Term < r.raft.Term() {
@@ -160,7 +160,7 @@ func (r *LeaderRole) Append(ctx context.Context, request *raft.AppendRequest) (*
 		return response, nil
 	}
 
-	response, err := r.ActiveRole.Append(ctx, request)
+	response, err := r.ActiveRole.handleAppend(ctx, request)
 	_ = r.log.Response("AppendResponse", response, err)
 	return response, err
 }
@@ -168,6 +168,7 @@ func (r *LeaderRole) Append(ctx context.Context, request *raft.AppendRequest) (*
 // Command handles a command request
 func (r *LeaderRole) Command(request *raft.CommandRequest, responseCh chan<- *raft.CommandStreamResponse) error {
 	r.log.Request("CommandRequest", request)
+	defer close(responseCh)
 
 	// Acquire the write lock to write the entry to the log.
 	r.raft.WriteLock()
@@ -235,6 +236,7 @@ func (r *LeaderRole) Command(request *raft.CommandRequest, responseCh chan<- *ra
 // Query handles a query request
 func (r *LeaderRole) Query(request *raft.QueryRequest, responseCh chan<- *raft.QueryStreamResponse) error {
 	r.log.Request("QueryRequest", request)
+	defer close(responseCh)
 
 	// Acquire a read lock before creating the entry.
 	r.raft.ReadLock()

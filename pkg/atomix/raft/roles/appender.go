@@ -387,7 +387,7 @@ func (a *memberAppender) append() {
 		timeSinceFailure := float64(time.Since(a.firstFailureTime))
 		electionTimeout := a.raft.Config().GetElectionTimeoutOrDefault()
 		failureCount := a.failureCount - minBackoffFailureCount
-		heartbeatWaitTime := math.Min(float64(failureCount * failureCount) * float64(electionTimeout.Nanoseconds()), float64(maxHeartbeatWait))
+		heartbeatWaitTime := math.Min(float64(failureCount*failureCount)*float64(electionTimeout.Nanoseconds()), float64(maxHeartbeatWait))
 		if timeSinceFailure > heartbeatWaitTime {
 			a.sendAppendRequest(a.nextAppendRequest())
 		} else {

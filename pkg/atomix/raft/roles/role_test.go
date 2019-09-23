@@ -147,6 +147,23 @@ func awaitTerm(r raft.Raft, term raft.Term) raft.Term {
 	return <-ch
 }
 
+// awaitLeader blocks until the leader is set to the given leader
+func awaitLeader(r raft.Raft, leader *raft.MemberID) *raft.MemberID {
+	ch := make(chan *raft.MemberID, 1)
+	r.ReadLock()
+	if (r.Leader() == nil && leader == nil) || (r.Leader() != nil && leader != nil && *r.Leader() == *leader) {
+		ch <- leader
+	} else {
+		r.Watch(func(event raft.Event) {
+			if event.Type == raft.EventTypeLeader && ((event.Leader == nil && leader == nil) || (event.Leader != nil && leader != nil && *event.Leader == *leader)) {
+				ch <- leader
+			}
+		})
+	}
+	r.ReadUnlock()
+	return <-ch
+}
+
 // awaitEntry blocks until the entry at the given index is appended
 func awaitEntry(r raft.Raft, log log.Log, index raft.Index) *log.Entry {
 	reader := log.OpenReader(0)
