@@ -288,7 +288,7 @@ type memberCommit struct {
 }
 
 const (
-	minBackoffFailureCount = 5
+	minBackoffFailureCount = 3
 	maxHeartbeatWait       = 1 * time.Minute
 	maxBatchSize           = 1024 * 1024
 )
@@ -383,11 +383,15 @@ func (a *memberAppender) processEvents() {
 }
 
 func (a *memberAppender) append() {
-	if a.failureCount >= minBackoffFailureCount {
+	if a.failureCount > minBackoffFailureCount {
 		timeSinceFailure := float64(time.Since(a.firstFailureTime))
-		heartbeatWaitTime := math.Min(float64(a.failureCount)*float64(a.failureCount)*float64(a.raft.Config().GetElectionTimeoutOrDefault()), float64(maxHeartbeatWait))
+		electionTimeout := a.raft.Config().GetElectionTimeoutOrDefault()
+		failureCount := a.failureCount - minBackoffFailureCount
+		heartbeatWaitTime := math.Min(float64(failureCount * failureCount) * float64(electionTimeout.Nanoseconds()), float64(maxHeartbeatWait))
 		if timeSinceFailure > heartbeatWaitTime {
 			a.sendAppendRequest(a.nextAppendRequest())
+		} else {
+			a.pause()
 		}
 	} else {
 		// TODO: The snapshot store needs concurrency control when accessing the snapshots for replication.
@@ -425,6 +429,10 @@ func (a *memberAppender) requeue() {
 	hasEntries := a.reader.LastIndex() >= a.nextIndex
 	a.raft.ReadUnlock()
 	a.appendCh <- hasEntries
+}
+
+func (a *memberAppender) pause() {
+	a.appendCh <- false
 }
 
 func (a *memberAppender) newInstallRequest(snapshot snapshot.Snapshot, bytes []byte) *raft.InstallRequest {
@@ -657,9 +665,6 @@ func (a *memberAppender) handleAppendResponse(request *raft.AppendRequest, respo
 
 		// Send a commit event to the parent appender.
 		a.commit(startTime)
-
-		// Notify the appender that the next index can be appended.
-		a.requeue()
 	} else {
 		// If the request was rejected, use a double checked lock to compare the response term to the
 		// server's term. If the term is greater than the local server's term, transition back to follower.
@@ -691,10 +696,10 @@ func (a *memberAppender) handleAppendResponse(request *raft.AppendRequest, respo
 			a.log.Trace("Reset next index for %s to %d", a.member.MemberID, a.nextIndex)
 			a.prevTerm = 0
 		}
-
-		// Notify the appender that the next index can be appended.
-		a.requeue()
 	}
+
+	// Notify the appender that the next index can be appended.
+	a.requeue()
 }
 
 func (a *memberAppender) handleAppendFailure(request *raft.AppendRequest, response *raft.AppendResponse, startTime time.Time) {

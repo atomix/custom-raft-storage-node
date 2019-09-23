@@ -31,6 +31,7 @@ func TestLeaderInit(t *testing.T) {
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 	assert.NoError(t, role.Start())
 	role.raft.ReadLock()
+	assert.Equal(t, raft.RoleLeader, role.Type())
 	assert.Equal(t, raft.Term(1), role.raft.Term())
 	assert.Equal(t, role.raft.Member(), *role.raft.Leader())
 	role.raft.ReadUnlock()
@@ -40,4 +41,29 @@ func TestLeaderInit(t *testing.T) {
 	assert.NotNil(t, entry.Entry.GetInitialize())
 
 	assert.Equal(t, raft.Index(1), awaitCommit(role.raft, raft.Index(1)))
+}
+
+func TestLeaderInitStepDown(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	failAppend(client).AnyTimes()
+
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
+	assert.NoError(t, role.Start())
+	assert.Equal(t, raft.RoleFollower, awaitRole(role.raft, raft.RoleFollower))
+}
+
+func TestLeaderCommitStepDown(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	succeedAppend(client)
+	succeedAppend(client)
+	failAppend(client).AnyTimes()
+
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
+	assert.NoError(t, role.Start())
+	assert.Equal(t, raft.Index(1), awaitCommit(role.raft, raft.Index(1)))
+	assert.Equal(t, raft.RoleFollower, awaitRole(role.raft, raft.RoleFollower))
 }
