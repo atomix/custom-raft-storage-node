@@ -164,6 +164,11 @@ func awaitLeader(r raft.Raft, leader *raft.MemberID) *raft.MemberID {
 	return <-ch
 }
 
+// awaitIndex blocks until the entry at the given index is appended
+func awaitIndex(r raft.Raft, log log.Log, index raft.Index) raft.Index {
+	return awaitEntry(r, log, index).Index
+}
+
 // awaitEntry blocks until the entry at the given index is appended
 func awaitEntry(r raft.Raft, log log.Log, index raft.Index) *log.Entry {
 	reader := log.OpenReader(0)

@@ -157,6 +157,7 @@ func TestLeaderAppendGreaterTerm(t *testing.T) {
 	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 	assert.NoError(t, role.Start())
+	awaitIndex(role.raft, role.store.Log(), raft.Index(1))
 
 	leader := raft.MemberID("bar")
 	response, err := role.Append(context.TODO(), &raft.AppendRequest{
