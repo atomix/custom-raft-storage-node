@@ -98,11 +98,11 @@ func (l *nodeLogger) Trace(message string, args ...interface{}) {
 }
 
 func (l *nodeLogger) Send(messageType string, request interface{}) {
-	l.Request(messageType, request)
+	_ = l.Response(messageType, request, nil)
 }
 
 func (l *nodeLogger) Receive(messageType string, response interface{}) {
-	_ = l.Response(messageType, response, nil)
+	l.Request(messageType, response)
 }
 
 func (l *nodeLogger) SendTo(messageType string, request interface{}, member interface{}) {
@@ -159,7 +159,7 @@ func (l *roleLogger) Trace(message string, args ...interface{}) {
 
 func (l *roleLogger) Request(requestType string, request interface{}) {
 	util.RequestEntry(l.node, l.role, requestType).
-		Tracef("Sending %v", request)
+		Tracef("Received %v", request)
 }
 
 func (l *roleLogger) Response(responseType string, response interface{}, err error) error {

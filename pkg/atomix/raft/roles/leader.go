@@ -26,7 +26,7 @@ import (
 )
 
 // newLeaderRole returns a new leader role
-func newLeaderRole(protocol raft.Raft, state state.Manager, store store.Store) *LeaderRole {
+func newLeaderRole(protocol raft.Raft, state state.Manager, store store.Store) raft.Role {
 	log := util.NewRoleLogger(string(protocol.Member()), string(raft.RoleLeader))
 	return &LeaderRole{
 		ActiveRole: newActiveRole(protocol, state, store, log),

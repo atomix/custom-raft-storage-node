@@ -15,6 +15,7 @@
 package roles
 
 import (
+	"context"
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol/mock"
 	"github.com/golang/mock/gomock"
@@ -23,25 +24,75 @@ import (
 	"time"
 )
 
-func TestCandidatePollQuorum(t *testing.T) {
+func TestCandidateVote(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	delayFailVote(client, 5*time.Second).AnyTimes()
+
+	role := newTestRole(client, newCandidateRole, mockFollower(ctrl), mockLeader(ctrl)).(*CandidateRole)
+	assert.NoError(t, role.raft.SetTerm(1))
+	assert.NoError(t, role.Start())
+
+	response, err := role.Vote(context.TODO(), &raft.VoteRequest{
+		Term:         raft.Term(1),
+		Candidate:    raft.MemberID("bar"),
+		LastLogIndex: 1,
+		LastLogTerm:  1,
+	})
+	assert.NoError(t, err)
+	assert.False(t, response.Voted)
+	assert.Equal(t, raft.Term(2), response.Term)
+
+	role = newTestRole(client, newCandidateRole, mockFollower(ctrl), mockLeader(ctrl)).(*CandidateRole)
+	assert.NoError(t, role.raft.SetTerm(1))
+	assert.NoError(t, role.Start())
+
+	response, err = role.Vote(context.TODO(), &raft.VoteRequest{
+		Term:         raft.Term(3),
+		Candidate:    raft.MemberID("bar"),
+		LastLogIndex: 1,
+		LastLogTerm:  1,
+	})
+	assert.NoError(t, err)
+	assert.True(t, response.Voted)
+	assert.Equal(t, raft.RoleFollower, awaitRole(role.raft, raft.RoleFollower))
+	assert.Equal(t, raft.Term(3), awaitTerm(role.raft, raft.Term(3)))
+
+	role = newTestRole(client, newCandidateRole, mockFollower(ctrl), mockLeader(ctrl)).(*CandidateRole)
+	assert.NoError(t, role.raft.SetTerm(1))
+	assert.NoError(t, role.Start())
+
+	response, err = role.Vote(context.TODO(), &raft.VoteRequest{
+		Term:         raft.Term(3),
+		Candidate:    raft.MemberID("bar"),
+		LastLogIndex: 0,
+		LastLogTerm:  0,
+	})
+	assert.NoError(t, err)
+	assert.True(t, response.Voted)
+	assert.Equal(t, raft.RoleFollower, awaitRole(role.raft, raft.RoleFollower))
+	assert.Equal(t, raft.Term(3), awaitTerm(role.raft, raft.Term(3)))
+}
+
+func TestCandidateVoteQuorum(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock.NewMockClient(ctrl)
 	acceptVote(client)
 	rejectVote(client).AnyTimes()
 
 	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
-	role := newCandidateRole(protocol, sm, stores)
+	role := newCandidateRole(protocol, sm, stores).(*CandidateRole)
 	assert.NoError(t, role.Start())
 	assert.Equal(t, raft.RoleLeader, awaitRole(role.raft, raft.RoleLeader))
 }
 
-func TestCandidatePollFail(t *testing.T) {
+func TestCandidateVoteFail(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock.NewMockClient(ctrl)
 	rejectVote(client).AnyTimes()
 
 	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
-	role := newCandidateRole(protocol, sm, stores)
+	role := newCandidateRole(protocol, sm, stores).(*CandidateRole)
 	assert.NoError(t, role.Start())
 	assert.Equal(t, raft.RoleFollower, awaitRole(role.raft, raft.RoleFollower))
 }
@@ -52,7 +103,7 @@ func TestCandidateVoteTimeout(t *testing.T) {
 	delayFailVote(client, 5*time.Second).AnyTimes()
 
 	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
-	role := newCandidateRole(protocol, sm, stores)
+	role := newCandidateRole(protocol, sm, stores).(*CandidateRole)
 	assert.NoError(t, role.Start())
 	assert.Equal(t, raft.Term(1), awaitTerm(role.raft, raft.Term(1)))
 

@@ -31,7 +31,7 @@ func TestLeaderInit(t *testing.T) {
 	client := mock.NewMockClient(ctrl)
 	succeedAppend(client).AnyTimes()
 
-	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))).(*LeaderRole)
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 	assert.NoError(t, role.Start())
 	role.raft.ReadLock()
@@ -52,7 +52,7 @@ func TestLeaderInitStepDown(t *testing.T) {
 	client := mock.NewMockClient(ctrl)
 	failAppend(client).AnyTimes()
 
-	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))).(*LeaderRole)
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 	assert.NoError(t, role.Start())
 	assert.Equal(t, raft.RoleFollower, awaitRole(role.raft, raft.RoleFollower))
@@ -65,7 +65,7 @@ func TestLeaderCommitStepDown(t *testing.T) {
 	succeedAppend(client)
 	failAppend(client).AnyTimes()
 
-	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))).(*LeaderRole)
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 	assert.NoError(t, role.Start())
 	assert.Equal(t, raft.Index(1), awaitCommit(role.raft, raft.Index(1)))
@@ -77,7 +77,7 @@ func TestLeaderPoll(t *testing.T) {
 	client := mock.NewMockClient(ctrl)
 	succeedAppend(client).AnyTimes()
 
-	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))).(*LeaderRole)
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 	assert.NoError(t, role.Start())
 
@@ -96,7 +96,7 @@ func TestLeaderVote(t *testing.T) {
 	client := mock.NewMockClient(ctrl)
 	succeedAppend(client).AnyTimes()
 
-	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))).(*LeaderRole)
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 	assert.NoError(t, role.Start())
 	awaitIndex(role.raft, role.store.Log(), raft.Index(1))
@@ -112,7 +112,7 @@ func TestLeaderVote(t *testing.T) {
 	assert.Equal(t, raft.RoleFollower, awaitRole(role.raft, raft.RoleFollower))
 	assert.Equal(t, raft.Term(2), awaitTerm(role.raft, raft.Term(2)))
 
-	role = newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	role = newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))).(*LeaderRole)
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 	assert.NoError(t, role.Start())
 	awaitIndex(role.raft, role.store.Log(), raft.Index(1))
@@ -134,7 +134,7 @@ func TestLeaderAppendPriorTerm(t *testing.T) {
 	client := mock.NewMockClient(ctrl)
 	succeedAppend(client).AnyTimes()
 
-	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))).(*LeaderRole)
 	assert.NoError(t, role.raft.SetTerm(raft.Term(2)))
 	assert.NoError(t, role.Start())
 
@@ -156,7 +156,7 @@ func TestLeaderAppendGreaterTerm(t *testing.T) {
 	client := mock.NewMockClient(ctrl)
 	succeedAppend(client).AnyTimes()
 
-	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))).(*LeaderRole)
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 	assert.NoError(t, role.Start())
 	awaitIndex(role.raft, role.store.Log(), raft.Index(1))
@@ -183,7 +183,7 @@ func TestLeaderCommand(t *testing.T) {
 	client := mock.NewMockClient(ctrl)
 	succeedAppend(client).AnyTimes()
 
-	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))).(*LeaderRole)
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 	assert.NoError(t, role.Start())
 
@@ -265,7 +265,7 @@ func TestLeaderQuery(t *testing.T) {
 	client := mock.NewMockClient(ctrl)
 	succeedAppend(client).AnyTimes()
 
-	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))).(*LeaderRole)
 	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
 	assert.NoError(t, role.Start())
 

@@ -27,7 +27,7 @@ import (
 )
 
 // newCandidateRole returns a new candidate role
-func newCandidateRole(protocol raft.Raft, state state.Manager, store store.Store) *CandidateRole {
+func newCandidateRole(protocol raft.Raft, state state.Manager, store store.Store) raft.Role {
 	log := util.NewRoleLogger(string(protocol.Member()), string(raft.RoleCandidate))
 	return &CandidateRole{
 		ActiveRole: newActiveRole(protocol, state, store, log),
@@ -137,9 +137,12 @@ func (r *CandidateRole) resetElectionTimeout() {
 
 // sendVoteRequests sends vote requests to peers
 func (r *CandidateRole) sendVoteRequests() {
+	r.raft.WriteLock()
+
 	// Because of asynchronous execution, the candidate state could have already been closed. In that case,
 	// simply skip the election.
 	if !r.active {
+		r.raft.WriteUnlock()
 		return
 	}
 
@@ -148,7 +151,6 @@ func (r *CandidateRole) sendVoteRequests() {
 
 	// When the election timer is reset, increment the current term and
 	// restart the election.
-	r.raft.WriteLock()
 	member := r.raft.Member()
 	if err := r.raft.SetTerm(r.raft.Term() + 1); err != nil {
 		r.log.Error("Failed to increment term", err)

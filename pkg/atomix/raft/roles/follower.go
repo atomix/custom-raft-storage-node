@@ -26,7 +26,7 @@ import (
 )
 
 // newFollowerRole returns a new follower role
-func newFollowerRole(protocol raft.Raft, state state.Manager, store store.Store) *FollowerRole {
+func newFollowerRole(protocol raft.Raft, state state.Manager, store store.Store) raft.Role {
 	log := util.NewRoleLogger(string(protocol.Member()), string(raft.RoleFollower))
 	return &FollowerRole{
 		ActiveRole: newActiveRole(protocol, state, store, log),

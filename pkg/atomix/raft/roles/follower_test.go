@@ -32,7 +32,7 @@ func TestFollowerPollQuorum(t *testing.T) {
 	failAppend(client).AnyTimes()
 
 	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
-	role := newFollowerRole(protocol, sm, stores)
+	role := newFollowerRole(protocol, sm, stores).(*FollowerRole)
 	assert.NoError(t, role.Start())
 	role.raft.ReadLock()
 	assert.Equal(t, raft.Term(0), role.raft.Term())
@@ -49,7 +49,7 @@ func TestFollowerPollFail(t *testing.T) {
 	failAppend(client).AnyTimes()
 
 	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
-	role := newFollowerRole(protocol, sm, stores)
+	role := newFollowerRole(protocol, sm, stores).(*FollowerRole)
 	assert.NoError(t, role.Start())
 	role.raft.ReadLock()
 	assert.Equal(t, raft.Term(0), role.raft.Term())

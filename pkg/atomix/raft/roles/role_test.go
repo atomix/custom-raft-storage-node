@@ -33,7 +33,7 @@ import (
 	"time"
 )
 
-func newTestState(client raft.Client, roles ...raft.Role) (raft.Raft, state.Manager, store.Store) {
+func newRoleFuncs(roles ...raft.Role) map[raft.RoleType]func(raft.Raft) raft.Role {
 	roleFuncs := make(map[raft.RoleType]func(raft.Raft) raft.Role)
 	for _, role := range roles {
 		roleFuncs[role.Type()] = func(role raft.Role) func(raft.Raft) raft.Role {
@@ -42,7 +42,10 @@ func newTestState(client raft.Client, roles ...raft.Role) (raft.Raft, state.Mana
 			}
 		}(role)
 	}
+	return roleFuncs
+}
 
+func newTestState(client raft.Client, roles ...raft.Role) (raft.Raft, state.Manager, store.Store) {
 	members := cluster.Cluster{
 		MemberID: "foo",
 		Members: map[string]cluster.Member{
@@ -71,8 +74,46 @@ func newTestState(client raft.Client, roles ...raft.Role) (raft.Raft, state.Mana
 	config := &config.ProtocolConfig{
 		ElectionTimeout: &electionTimeout,
 	}
-	raft := raft.NewRaft(cluster, config, client, roleFuncs)
+	raft := raft.NewRaft(cluster, config, client, newRoleFuncs(roles...))
 	return raft, state, store
+}
+
+func newTestRole(client raft.Client, f func(raft.Raft, state.Manager, store.Store) raft.Role, roles ...raft.Role) raft.Role {
+	members := cluster.Cluster{
+		MemberID: "foo",
+		Members: map[string]cluster.Member{
+			"foo": {
+				ID:   "foo",
+				Host: "localhost",
+				Port: 5000,
+			},
+			"bar": {
+				ID:   "bar",
+				Host: "localhost",
+				Port: 5001,
+			},
+			"baz": {
+				ID:   "baz",
+				Host: "localhost",
+				Port: 5002,
+			},
+		},
+	}
+
+	cluster := raft.NewCluster(members)
+	store := store.NewMemoryStore()
+	state := state.NewManager(cluster.Member(), store, node.GetRegistry())
+	electionTimeout := 1 * time.Second
+	config := &config.ProtocolConfig{
+		ElectionTimeout: &electionTimeout,
+	}
+	roleFuncs := newRoleFuncs(roles...)
+	r := raft.NewRaft(cluster, config, client, roleFuncs)
+	role := f(r, state, store)
+	roleFuncs[role.Type()] = func(r raft.Raft) raft.Role {
+		return role
+	}
+	return role
 }
 
 func TestRole(t *testing.T) {
