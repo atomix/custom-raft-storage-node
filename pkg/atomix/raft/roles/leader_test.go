@@ -175,7 +175,7 @@ func TestLeaderAppendGreaterTerm(t *testing.T) {
 	assert.Equal(t, &leader, awaitLeader(role.raft, &leader))
 }
 
-func TestCommandCommit(t *testing.T) {
+func TestLeaderCommand(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock.NewMockClient(ctrl)
 	succeedAppend(client).AnyTimes()
@@ -257,6 +257,132 @@ func TestCommandCommit(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestLeaderQuery(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	succeedAppend(client).AnyTimes()
+
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl)))
+	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
+	assert.NoError(t, role.Start())
+
+	command := &raft.CommandRequest{
+		Value: newOpenSessionRequest(),
+	}
+	commandCh := make(chan *raft.CommandStreamResponse, 1)
+	err := role.Command(command, commandCh)
+	assert.NoError(t, err)
+	commandResponse := <-commandCh
+	assert.True(t, commandResponse.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, commandResponse.Response.Status)
+	sessionID := getSessionID(commandResponse.Response.Output)
+
+	role.raft.ReadLock()
+	assert.Equal(t, raft.Index(2), role.raft.CommitIndex())
+	role.raft.ReadUnlock()
+
+	query := &raft.QueryRequest{
+		Value:           newGetRequest("Get", sessionID, 0),
+		ReadConsistency: raft.ReadConsistency_SEQUENTIAL,
+	}
+	queryCh := make(chan *raft.QueryStreamResponse, 1)
+	err = role.Query(query, queryCh)
+	assert.NoError(t, err)
+
+	queryResponse := <-queryCh
+	assert.True(t, queryResponse.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, queryResponse.Response.Status)
+
+	role.raft.ReadLock()
+	assert.Equal(t, raft.Index(2), role.raft.CommitIndex())
+	role.raft.ReadUnlock()
+
+	_, ok := <-queryCh
+	assert.False(t, ok)
+
+	query = &raft.QueryRequest{
+		Value:           newGetRequest("Get", sessionID, 0),
+		ReadConsistency: raft.ReadConsistency_LINEARIZABLE_LEASE,
+	}
+	queryCh = make(chan *raft.QueryStreamResponse, 1)
+	err = role.Query(query, queryCh)
+	assert.NoError(t, err)
+
+	queryResponse = <-queryCh
+	assert.True(t, queryResponse.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, queryResponse.Response.Status)
+
+	role.raft.ReadLock()
+	assert.Equal(t, raft.Index(2), role.raft.CommitIndex())
+	role.raft.ReadUnlock()
+
+	_, ok = <-queryCh
+	assert.False(t, ok)
+
+	query = &raft.QueryRequest{
+		Value:           newGetRequest("Get", sessionID, 0),
+		ReadConsistency: raft.ReadConsistency_LINEARIZABLE,
+	}
+	queryCh = make(chan *raft.QueryStreamResponse, 1)
+	err = role.Query(query, queryCh)
+	assert.NoError(t, err)
+
+	queryResponse = <-queryCh
+	assert.True(t, queryResponse.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, queryResponse.Response.Status)
+
+	role.raft.ReadLock()
+	assert.Equal(t, raft.Index(2), role.raft.CommitIndex())
+	role.raft.ReadUnlock()
+
+	_, ok = <-queryCh
+	assert.False(t, ok)
+
+	query = &raft.QueryRequest{
+		Value: newGetRequest("GetStream", sessionID, 0),
+	}
+	queryCh = make(chan *raft.QueryStreamResponse, 3)
+	err = role.Query(query, queryCh)
+	assert.NoError(t, err)
+
+	queryResponse = <-queryCh
+	assert.True(t, queryResponse.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, queryResponse.Response.Status)
+
+	queryResponse = <-queryCh
+	assert.True(t, queryResponse.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, queryResponse.Response.Status)
+
+	queryResponse = <-queryCh
+	assert.True(t, queryResponse.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_OK, queryResponse.Response.Status)
+
+	role.raft.ReadLock()
+	assert.Equal(t, raft.Index(2), role.raft.CommitIndex())
+	role.raft.ReadUnlock()
+
+	_, ok = <-queryCh
+	assert.False(t, ok)
+
+	query = &raft.QueryRequest{
+		Value: newGetRequest("GetError", sessionID, 0),
+	}
+	queryCh = make(chan *raft.QueryStreamResponse, 1)
+	err = role.Query(query, queryCh)
+	assert.NoError(t, err)
+
+	queryResponse = <-queryCh
+	assert.True(t, queryResponse.Succeeded())
+	assert.Equal(t, raft.ResponseStatus_ERROR, queryResponse.Response.Status)
+
+	role.raft.ReadLock()
+	assert.Equal(t, raft.Index(2), role.raft.CommitIndex())
+	role.raft.ReadUnlock()
+
+	_, ok = <-queryCh
+	assert.False(t, ok)
+}
+
 func newOpenSessionRequest() []byte {
 	timeout := 30 * time.Second
 	bytes, _ := proto.Marshal(&service.SessionRequest{
@@ -309,6 +435,37 @@ func newCommandRequest(bytes []byte) []byte {
 		},
 		Request: &service.ServiceRequest_Command{
 			Command: bytes,
+		},
+	})
+	return bytes
+}
+
+func newGetRequest(getType string, sessionID uint64, commandID uint64) []byte {
+	bytes, _ := proto.Marshal(&GetRequest{})
+	bytes, _ = proto.Marshal(&service.SessionRequest{
+		Request: &service.SessionRequest_Query{
+			Query: &service.SessionQueryRequest{
+				Context: &service.SessionQueryContext{
+					SessionID:          sessionID,
+					LastSequenceNumber: commandID,
+				},
+				Name:  getType,
+				Input: bytes,
+			},
+		},
+	})
+	return newQueryRequest(bytes)
+}
+
+func newQueryRequest(bytes []byte) []byte {
+	bytes, _ = proto.Marshal(&service.ServiceRequest{
+		Id: &service.ServiceId{
+			Type:      "test",
+			Name:      "test",
+			Namespace: "test",
+		},
+		Request: &service.ServiceRequest_Query{
+			Query: bytes,
 		},
 	})
 	return bytes

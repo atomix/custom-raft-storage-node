@@ -93,7 +93,7 @@ func (a *raftAppender) heartbeat() error {
 		return nil
 	}
 
-	future := heartbeatFuture{}
+	future := newHeartbeatFuture()
 
 	// Acquire a lock to add the future to the heartbeat futures.
 	a.mu.Lock()
@@ -274,6 +274,14 @@ func (a *raftAppender) stop() {
 	a.stopped <- true
 }
 
+// newHeartbeatFuture returns a new heartbeatFuture
+func newHeartbeatFuture() heartbeatFuture {
+	return heartbeatFuture{
+		ch:   make(chan struct{}),
+		time: time.Now(),
+	}
+}
+
 // heartbeatFuture is a heartbeat channel with a timestamp indicating when the heartbeat was requested
 type heartbeatFuture struct {
 	ch   chan struct{}
@@ -370,7 +378,10 @@ func (a *memberAppender) processEvents() {
 				go a.append()
 			}
 		case <-a.heartbeatCh:
-			go a.sendAppendRequest(a.emptyAppendRequest())
+			if !a.appending {
+				a.appending = true
+				go a.append()
+			}
 		case <-a.tickCh:
 			if !a.appending {
 				a.appending = true
