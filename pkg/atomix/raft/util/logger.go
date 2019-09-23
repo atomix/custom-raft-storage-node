@@ -122,7 +122,7 @@ func (l *nodeLogger) ErrorFrom(messageType string, err error, member interface{}
 
 func (l *nodeLogger) Request(requestType string, request interface{}) {
 	util.RequestEntry(l.node, requestType).
-		Tracef("Sending %v", request)
+		Tracef("Received %v", request)
 }
 
 func (l *nodeLogger) Response(responseType string, response interface{}, err error) error {
