@@ -259,7 +259,9 @@ func (a *raftAppender) failTime(failTime time.Time) {
 	if failTime.Sub(a.lastQuorumTime) > a.raft.Config().GetElectionTimeoutOrDefault()*2 {
 		a.log.Warn("Suspected network partition; stepping down")
 		_ = a.raft.SetLeader(nil)
-		defer a.raft.SetRole(raft.RoleFollower)
+		a.raft.WriteLock()
+		defer a.raft.WriteUnlock()
+		a.raft.SetRole(raft.RoleFollower)
 	}
 }
 
@@ -670,8 +672,7 @@ func (a *memberAppender) handleAppendResponse(request *raft.AppendRequest, respo
 				// If we've received a greater term, update the term and transition back to follower.
 				_ = a.raft.SetTerm(response.Term)
 				_ = a.raft.SetLeader(nil)
-				defer a.raft.SetRole(raft.RoleFollower)
-				return
+				a.raft.SetRole(raft.RoleFollower)
 			}
 			return
 		}

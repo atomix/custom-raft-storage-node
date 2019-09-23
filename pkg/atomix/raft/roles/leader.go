@@ -92,11 +92,11 @@ func (r *LeaderRole) commitInitializeEntry() {
 	if err != nil {
 		r.log.Debug("Failed to commit entry from leader's term; transitioning to follower")
 		r.raft.WriteLock()
+		defer r.raft.WriteUnlock()
 		if err := r.raft.SetLeader(nil); err != nil {
 			r.log.Error("Failed to unset leader", err)
 		}
-		r.raft.WriteUnlock()
-		defer r.raft.SetRole(raft.RoleFollower)
+		r.raft.SetRole(raft.RoleFollower)
 	} else {
 		r.state.ApplyEntry(indexed, nil)
 	}

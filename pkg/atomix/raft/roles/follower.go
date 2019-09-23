@@ -50,11 +50,11 @@ func (r *FollowerRole) Start() error {
 	// If there are no other members in the cluster, immediately transition to candidate to increment the term.
 	if len(r.raft.Members()) == 1 {
 		r.log.Debug("Single node cluster; starting election")
-		defer r.raft.SetRole(raft.RoleCandidate)
+		r.raft.SetRole(raft.RoleCandidate)
 		return nil
 	}
 	_ = r.ActiveRole.Start()
-	r.resetHeartbeatTimeout()
+	go r.resetHeartbeatTimeout()
 	return nil
 }
 
@@ -131,21 +131,21 @@ func (r *FollowerRole) sendPollRequests() {
 		acceptCount := 0
 		rejectCount := 0
 		for vote := range votes {
-			r.raft.ReadLock()
+			r.raft.WriteLock()
 			if !r.active {
-				r.raft.ReadUnlock()
+				r.raft.WriteUnlock()
 				return
 			}
 			if vote {
 				// If no leader has been discovered and the quorum was reached, transition to candidate.
 				acceptCount++
 				if r.raft.Leader() == nil && acceptCount == quorum {
-					r.raft.ReadUnlock()
 					r.log.Debug("Received %d/%d pre-votes; transitioning to candidate", acceptCount, len(votingMembers))
 					r.raft.SetRole(raft.RoleCandidate)
+					r.raft.WriteUnlock()
 					return
 				}
-				r.raft.ReadUnlock()
+				r.raft.WriteUnlock()
 			} else {
 				rejectCount++
 				if rejectCount == quorum {
@@ -153,7 +153,7 @@ func (r *FollowerRole) sendPollRequests() {
 					r.resetHeartbeatTimeout()
 					return
 				}
-				r.raft.ReadUnlock()
+				r.raft.WriteUnlock()
 			}
 		}
 

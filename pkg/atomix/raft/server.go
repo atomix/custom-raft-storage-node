@@ -67,7 +67,9 @@ func (s *Server) Start() error {
 	s.mu.Lock()
 
 	// Initialize the Raft state
+	s.raft.WriteLock()
 	s.raft.Init()
+	s.raft.WriteUnlock()
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
 	if err != nil {

@@ -56,9 +56,11 @@ func TestRaftProtocol(t *testing.T) {
 	raft.WatchStatus(func(status Status) {
 		statusCh <- status
 	})
+	raft.WriteLock()
 	raft.Init()
 	assert.Equal(t, StatusRunning, raft.Status())
 	assert.Equal(t, StatusRunning, <-statusCh)
+	raft.WriteUnlock()
 
 	// Verify the cluster configuration
 	assert.Equal(t, electionTimeout, raft.Config().GetElectionTimeoutOrDefault())
@@ -154,8 +156,10 @@ func TestRaftProtocol(t *testing.T) {
 	}
 	raft = newProtocol(NewCluster(cluster), &config.ProtocolConfig{}, &unimplementedClient{}, roles, store)
 	assert.Equal(t, StatusStopped, raft.Status())
+	raft.WriteLock()
 	raft.Init()
 	assert.Equal(t, StatusRunning, raft.Status())
+	raft.WriteUnlock()
 	assert.Equal(t, foo, raft.Member())
 	assert.Len(t, raft.Members(), 3)
 	assert.Equal(t, Term(10), raft.Term())
@@ -166,18 +170,22 @@ func TestRaftProtocol(t *testing.T) {
 	// Test a role change
 	roleCh := make(chan RoleType, 1)
 	raft.WatchRole(func(role RoleType) {
+		println(role)
 		roleCh <- role
 	})
+	raft.WriteLock()
 	raft.SetRole(RoleFollower)
-	assert.Equal(t, RoleFollower, <-roleCh)
 	assert.Equal(t, RoleFollower, raft.Role())
+	raft.WriteUnlock()
 	assert.False(t, follower.appended)
 	_, _ = raft.Append(context.TODO(), &AppendRequest{})
 	assert.True(t, follower.appended)
 
+	raft.WriteLock()
 	raft.SetRole(RoleLeader)
-	assert.Equal(t, RoleLeader, <-roleCh)
 	assert.Equal(t, RoleLeader, raft.Role())
+	assert.Equal(t, RoleLeader, <-roleCh)
+	raft.WriteUnlock()
 }
 
 type testRole struct {

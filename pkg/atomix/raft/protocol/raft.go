@@ -167,9 +167,11 @@ type Role interface {
 	Type() RoleType
 
 	// Start initializes the role
+	// The Start method will always be called with a write lock on the Raft object
 	Start() error
 
 	// Stop stops the role
+	// The Stop method will always be called with a write lock on the Raft object
 	Stop() error
 }
 
@@ -200,7 +202,7 @@ func (r *raft) Init() {
 	}
 	r.lastVotedFor = r.metadata.LoadVote()
 	r.setStatus(StatusRunning)
-	go r.SetRole(RoleFollower)
+	r.SetRole(RoleFollower)
 }
 
 func (r *raft) Status() Status {
@@ -346,32 +348,29 @@ func (r *raft) Role() RoleType {
 }
 
 func (r *raft) SetRole(roleType RoleType) {
+	// Get the role factory function
 	roleFunc, ok := r.roles[roleType]
 	if !ok {
 		r.log.Error("Unknown role type %s", roleType)
 		return
 	}
-	role := roleFunc(r)
-	go r.changeRole(role)
-}
-
-func (r *raft) changeRole(role Role) {
-	r.WriteLock()
 
 	// If the role has not changed, ignore the call
-	if r.role != nil && r.role.Type() == role.Type() {
-		r.WriteUnlock()
+	if r.role != nil && r.role.Type() == roleType {
 		return
 	}
 
-	r.log.Info("Transitioning to %s", role.Type())
+	// Stop the current role if set
+	r.log.Info("Transitioning to %s", roleType)
 	if r.role != nil {
 		if err := r.role.Stop(); err != nil {
 			r.log.Error("Failed to stop %s role", r.role.Type(), err)
 		}
 	}
+
+	// Create and start the new role
+	role := roleFunc(r)
 	r.role = role
-	r.WriteUnlock()
 	if err := role.Start(); err != nil {
 		r.log.Error("Failed to start %s role", role.Type(), err)
 	}
