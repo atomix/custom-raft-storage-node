@@ -27,7 +27,7 @@ import (
 )
 
 // newCandidateRole returns a new candidate role
-func newCandidateRole(protocol raft.Raft, state state.Manager, store store.Store) raft.Role {
+func newCandidateRole(protocol raft.Raft, state state.Manager, store store.Store) *CandidateRole {
 	log := util.NewRoleLogger(string(protocol.Member()), string(raft.RoleCandidate))
 	return &CandidateRole{
 		ActiveRole: newActiveRole(protocol, state, store, log),
@@ -107,11 +107,9 @@ func (r *CandidateRole) Vote(ctx context.Context, request *raft.VoteRequest) (*r
 // resetElectionTimeout resets the candidate's election timer
 func (r *CandidateRole) resetElectionTimeout() {
 	// If a timer is already set, cancel the timer.
-	if r.electionTimer != nil {
-		if !r.electionTimer.Stop() {
-			r.electionExpired <- true
-			return
-		}
+	if r.electionTimer != nil && r.electionTimer.Stop() {
+		r.electionExpired <- true
+		return
 	}
 
 	// Set the election timeout in a semi-random fashion with the random range
@@ -129,7 +127,7 @@ func (r *CandidateRole) resetElectionTimeout() {
 				// check and restart the election.
 				log.WithField("memberID", r.raft.Member()).
 					Debugf("Election round for term %d expired: not enough votes received within the election timeout; restarting election", r.raft.Term())
-				r.sendVoteRequests()
+				go r.sendVoteRequests()
 			}
 		case <-expiredCh:
 			return
@@ -178,7 +176,7 @@ func (r *CandidateRole) sendVoteRequests() {
 		rejectCount := 0
 		for vote := range votes {
 			r.raft.WriteLock()
-			if !r.active {
+			if !r.active || r.raft.Term() != term {
 				r.raft.WriteUnlock()
 				return
 			}
@@ -206,9 +204,6 @@ func (r *CandidateRole) sendVoteRequests() {
 				r.raft.WriteUnlock()
 			}
 		}
-
-		// If not enough votes were received, restart the election.
-		r.sendVoteRequests()
 	}()
 
 	// First, load the last log entry to get its term. We load the entry

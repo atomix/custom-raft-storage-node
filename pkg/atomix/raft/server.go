@@ -85,8 +85,8 @@ func (s *Server) Start() error {
 // WaitForReady blocks the current goroutine until the server is ready
 func (s *Server) WaitForReady() error {
 	ch := make(chan struct{})
-	s.raft.WatchStatus(func(status raft.Status) {
-		if status == raft.StatusReady {
+	s.raft.Watch(func(event raft.Event) {
+		if event.Type == raft.EventTypeStatus && event.Status == raft.StatusReady {
 			ch <- struct{}{}
 			close(ch)
 		}

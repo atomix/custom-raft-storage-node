@@ -53,8 +53,10 @@ func TestRaftProtocol(t *testing.T) {
 	raft := newProtocol(NewCluster(cluster), &config.ProtocolConfig{ElectionTimeout: &electionTimeout}, &unimplementedClient{}, roles, store)
 	assert.Equal(t, StatusStopped, raft.Status())
 	statusCh := make(chan Status, 1)
-	raft.WatchStatus(func(status Status) {
-		statusCh <- status
+	raft.Watch(func(event Event) {
+		if event.Type == EventTypeStatus {
+			statusCh <- event.Status
+		}
 	})
 	raft.WriteLock()
 	raft.Init()
@@ -169,9 +171,10 @@ func TestRaftProtocol(t *testing.T) {
 
 	// Test a role change
 	roleCh := make(chan RoleType, 1)
-	raft.WatchRole(func(role RoleType) {
-		println(role)
-		roleCh <- role
+	raft.Watch(func(event Event) {
+		if event.Type == EventTypeRole {
+			roleCh <- event.Role
+		}
 	})
 	raft.WriteLock()
 	raft.SetRole(RoleFollower)

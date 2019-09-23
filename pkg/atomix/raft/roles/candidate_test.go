@@ -23,39 +23,50 @@ import (
 	"time"
 )
 
-func TestFollowerPollQuorum(t *testing.T) {
+func TestCandidatePollQuorum(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock.NewMockClient(ctrl)
-	acceptPoll(client)
-	rejectPoll(client).AnyTimes()
-	acceptVote(client).AnyTimes()
-	failAppend(client).AnyTimes()
+	acceptVote(client)
+	rejectVote(client).AnyTimes()
 
 	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
-	role := newFollowerRole(protocol, sm, stores)
+	role := newCandidateRole(protocol, sm, stores)
 	assert.NoError(t, role.Start())
-	role.raft.ReadLock()
-	assert.Equal(t, raft.Term(0), role.raft.Term())
-	assert.Nil(t, role.raft.Leader())
-	role.raft.ReadUnlock()
-	assert.Equal(t, raft.RoleCandidate, <-awaitRole(role.raft, raft.RoleCandidate))
+	assert.Equal(t, raft.RoleLeader, <-awaitRole(role.raft, raft.RoleLeader))
 }
 
-func TestFollowerPollFail(t *testing.T) {
+func TestCandidatePollFail(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock.NewMockClient(ctrl)
-	rejectPoll(client).AnyTimes()
-	acceptVote(client).AnyTimes()
-	failAppend(client).AnyTimes()
+	rejectVote(client).AnyTimes()
 
 	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
-	role := newFollowerRole(protocol, sm, stores)
+	role := newCandidateRole(protocol, sm, stores)
 	assert.NoError(t, role.Start())
+	assert.Equal(t, raft.RoleFollower, <-awaitRole(role.raft, raft.RoleFollower))
+}
+
+func TestCandidateVoteTimeout(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	delayFailVote(client, 5*time.Second).AnyTimes()
+
+	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
+	role := newCandidateRole(protocol, sm, stores)
+	assert.NoError(t, role.Start())
+	assert.Equal(t, raft.Term(1), <-awaitTerm(role.raft, raft.Term(1)))
+
+	// Verify that the term is incremented and the candidate votes for itself
 	role.raft.ReadLock()
-	assert.Equal(t, raft.Term(0), role.raft.Term())
+	assert.Equal(t, raft.Term(1), role.raft.Term())
 	assert.Nil(t, role.raft.Leader())
+	assert.Equal(t, role.raft.Member(), *role.raft.LastVotedFor())
 	role.raft.ReadUnlock()
 
-	time.Sleep(5 * time.Second)
+	// Verify that the term is incremented and the candidate votes for itself again
+	assert.Equal(t, raft.Term(2), <-awaitTerm(role.raft, raft.Term(2)))
 	assert.Equal(t, raft.RoleType(""), role.raft.Role())
+	assert.Equal(t, raft.Term(2), role.raft.Term())
+	assert.Nil(t, role.raft.Leader())
+	assert.Equal(t, role.raft.Member(), *role.raft.LastVotedFor())
 }

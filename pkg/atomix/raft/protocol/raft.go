@@ -44,15 +44,14 @@ func NewRaft(cluster Cluster, config *config.ProtocolConfig, protocol Client, ro
 // newProtocol returns a new Raft protocol state struct
 func newProtocol(cluster Cluster, config *config.ProtocolConfig, protocol Client, roles map[RoleType]func(Raft) Role, store MetadataStore) Raft {
 	return &raft{
-		log:            util.NewNodeLogger(string(cluster.Member())),
-		config:         config,
-		protocol:       protocol,
-		status:         StatusStopped,
-		roles:          roles,
-		roleWatchers:   make([]func(RoleType), 0),
-		statusWatchers: make([]func(Status), 0, 1),
-		cluster:        cluster,
-		metadata:       store,
+		log:      util.NewNodeLogger(string(cluster.Member())),
+		config:   config,
+		protocol: protocol,
+		status:   StatusStopped,
+		watchers: make([]func(Event), 0),
+		roles:    roles,
+		cluster:  cluster,
+		metadata: store,
 	}
 }
 
@@ -72,17 +71,14 @@ type Raft interface {
 	// Init initializes the Raft state
 	Init()
 
+	// Watch watches the Raft protocol state for changes
+	Watch(func(Event))
+
 	// Role is the current role
 	Role() RoleType
 
-	// WatchRole watches the protocol role for changes
-	WatchRole(func(RoleType))
-
 	// Status returns the Raft protocol status
 	Status() Status
-
-	// WatchStatus watches the protocol status for changes
-	WatchStatus(func(Status))
 
 	// Config returns the Raft protocol configuration
 	Config() *config.ProtocolConfig
@@ -145,6 +141,32 @@ type Raft interface {
 	Close() error
 }
 
+// Event is a Raft protocol state change event
+type Event struct {
+	Type   EventType
+	Status Status
+	Role   RoleType
+	Term   Term
+	Leader *MemberID
+}
+
+// EventType is a Raft protocol state change event type
+type EventType string
+
+const (
+	// EventTypeStatus is a status change event
+	EventTypeStatus EventType = "Status"
+
+	// EventTypeRole is a role change event
+	EventTypeRole EventType = "Role"
+
+	// EventTypeTerm is a term change event
+	EventTypeTerm EventType = "Term"
+
+	// EventTypeLeader is a leader change event
+	EventTypeLeader EventType = "Leader"
+)
+
 // RoleType is the name of a role
 type RoleType string
 
@@ -182,9 +204,8 @@ type raft struct {
 	config           *config.ProtocolConfig
 	protocol         Client
 	metadata         MetadataStore
+	watchers         []func(Event)
 	roles            map[RoleType]func(Raft) Role
-	roleWatchers     []func(RoleType)
-	statusWatchers   []func(Status)
 	role             Role
 	term             Term
 	leader           *MemberID
@@ -205,12 +226,25 @@ func (r *raft) Init() {
 	r.SetRole(RoleFollower)
 }
 
-func (r *raft) Status() Status {
-	return r.status
+func (r *raft) Watch(watcher func(Event)) {
+	r.watchers = append(r.watchers, watcher)
 }
 
-func (r *raft) WatchStatus(watcher func(Status)) {
-	r.statusWatchers = append(r.statusWatchers, watcher)
+func (r *raft) notify(eventType EventType) {
+	event := Event{
+		Type:   eventType,
+		Status: r.status,
+		Role:   r.Role(),
+		Term:   r.term,
+		Leader: r.leader,
+	}
+	for _, watcher := range r.watchers {
+		watcher(event)
+	}
+}
+
+func (r *raft) Status() Status {
+	return r.status
 }
 
 // setStatus sets the node's status
@@ -218,9 +252,7 @@ func (r *raft) setStatus(status Status) {
 	if r.status != status {
 		r.log.Info("Server is %s", status)
 		r.status = status
-		for _, watcher := range r.statusWatchers {
-			watcher(status)
-		}
+		r.notify(EventTypeStatus)
 	}
 }
 
@@ -255,13 +287,14 @@ func (r *raft) Term() Term {
 func (r *raft) SetTerm(term Term) error {
 	if term < r.term {
 		return fmt.Errorf("cannot decrease term %d to %d", r.term, term)
+	} else if term > r.term {
+		r.term = term
+		r.leader = nil
+		r.lastVotedFor = nil
+		r.metadata.StoreTerm(term)
+		r.metadata.StoreVote(r.lastVotedFor)
+		r.notify(EventTypeTerm)
 	}
-
-	r.term = term
-	r.leader = nil
-	r.lastVotedFor = nil
-	r.metadata.StoreTerm(term)
-	r.metadata.StoreVote(r.lastVotedFor)
 	return nil
 }
 
@@ -274,11 +307,13 @@ func (r *raft) SetLeader(leader *MemberID) error {
 		// If the leader is being set for the first time, verify it's a member of the cluster configuration
 		if r.GetMember(*leader) != nil {
 			r.leader = leader
+			r.notify(EventTypeLeader)
 		} else {
 			return fmt.Errorf("unknown member %+v", leader)
 		}
 	} else if r.leader != nil && leader == nil {
 		r.leader = nil
+		r.notify(EventTypeLeader)
 	} else if r.leader != nil && leader != nil && r.leader != leader {
 		return fmt.Errorf("cannot change leader %+v to %+v", r.leader, leader)
 	}
@@ -344,13 +379,10 @@ func (r *raft) ReadUnlock() {
 }
 
 func (r *raft) Role() RoleType {
-	r.ReadLock()
-	defer r.ReadUnlock()
-	role := r.role
-	if role == nil {
+	if r.role == nil {
 		return ""
 	}
-	return role.Type()
+	return r.role.Type()
 }
 
 func (r *raft) SetRole(roleType RoleType) {
@@ -381,13 +413,8 @@ func (r *raft) SetRole(roleType RoleType) {
 		r.log.Error("Failed to start %s role", role.Type(), err)
 	}
 
-	for _, watcher := range r.roleWatchers {
-		watcher(role.Type())
-	}
-}
-
-func (r *raft) WatchRole(watcher func(RoleType)) {
-	r.roleWatchers = append(r.roleWatchers, watcher)
+	// Notify watchers
+	r.notify(EventTypeRole)
 }
 
 func (r *raft) getRole() Role {

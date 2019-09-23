@@ -26,6 +26,7 @@ import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 	"github.com/golang/mock/gomock"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -109,6 +110,40 @@ func TestRole(t *testing.T) {
 	appendResponse, err := role.Append(context.TODO(), &raft.AppendRequest{})
 	assert.NoError(t, err)
 	assert.Equal(t, raft.ResponseStatus_ERROR, appendResponse.Status)
+}
+
+// awaitRole returns a channel future that waits for the role to be set to the given role
+func awaitRole(r raft.Raft, role raft.RoleType) <-chan raft.RoleType {
+	ch := make(chan raft.RoleType, 1)
+	r.ReadLock()
+	defer r.ReadUnlock()
+	if r.Role() == role {
+		ch <- role
+	} else {
+		r.Watch(func(event raft.Event) {
+			if event.Type == raft.EventTypeRole && event.Role == role {
+				ch <- role
+			}
+		})
+	}
+	return ch
+}
+
+// awaitTerm returns a channel future that waits for the term to be set to the given term
+func awaitTerm(r raft.Raft, term raft.Term) <-chan raft.Term {
+	ch := make(chan raft.Term, 1)
+	r.ReadLock()
+	defer r.ReadUnlock()
+	if r.Term() == term {
+		ch <- term
+	} else {
+		r.Watch(func(event raft.Event) {
+			if event.Type == raft.EventTypeTerm && event.Term == term {
+				ch <- term
+			}
+		})
+	}
+	return ch
 }
 
 // mockRole mocks a role
@@ -204,9 +239,23 @@ func rejectVote(client *mock.MockClient) *gomock.Call {
 		})
 }
 
+// delayFailVote delays and then fails a vote request
+func delayFailVote(client *mock.MockClient, delay time.Duration) *gomock.Call {
+	return client.EXPECT().
+		Vote(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, request *raft.VoteRequest, member raft.MemberID) (*raft.VoteResponse, error) {
+			time.Sleep(delay)
+			return nil, errors.New("VoteRequest failed")
+		})
+}
+
 // failAppend expects and rejects an append request
 func failAppend(client *mock.MockClient) *gomock.Call {
 	return client.EXPECT().
 		Append(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(nil, errors.New("not implemented"))
+		Return(nil, errors.New("AppendRequest failed"))
+}
+
+func init() {
+	log.SetLevel(log.TraceLevel)
 }
