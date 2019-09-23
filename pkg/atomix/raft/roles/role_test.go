@@ -342,10 +342,42 @@ func delayFailVote(client *mock.MockClient, delay time.Duration) *gomock.Call {
 		})
 }
 
+// succeedInstallTo response successfully to in install request
+func succeedInstallTo(client *mock.MockClient, member raft.MemberID) *gomock.Call {
+	return client.EXPECT().
+		Install(gomock.Any(), member).
+		DoAndReturn(func(ctx context.Context, member raft.MemberID) (chan<- *raft.InstallRequest, <-chan *raft.InstallStreamResponse, error) {
+			requestCh := make(chan *raft.InstallRequest)
+			responseCh := make(chan *raft.InstallStreamResponse)
+			go func() {
+				for range requestCh {
+				}
+				responseCh <- raft.NewInstallStreamResponse(&raft.InstallResponse{
+					Status: raft.ResponseStatus_OK,
+				}, nil)
+			}()
+			return requestCh, responseCh, nil
+		})
+}
+
 // succeedAppend responds successfully to an append request
 func succeedAppend(client *mock.MockClient) *gomock.Call {
 	return client.EXPECT().
 		Append(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, request *raft.AppendRequest, member raft.MemberID) (*raft.AppendResponse, error) {
+			return &raft.AppendResponse{
+				Status:       raft.ResponseStatus_OK,
+				Term:         request.Term,
+				Succeeded:    true,
+				LastLogIndex: request.PrevLogIndex + raft.Index(len(request.Entries)),
+			}, nil
+		})
+}
+
+// succeedAppendTo responds successfully to an append request
+func succeedAppendTo(client *mock.MockClient, member raft.MemberID) *gomock.Call {
+	return client.EXPECT().
+		Append(gomock.Any(), gomock.Any(), member).
 		DoAndReturn(func(ctx context.Context, request *raft.AppendRequest, member raft.MemberID) (*raft.AppendResponse, error) {
 			return &raft.AppendResponse{
 				Status:       raft.ResponseStatus_OK,

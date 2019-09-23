@@ -178,6 +178,58 @@ func TestLeaderAppendGreaterTerm(t *testing.T) {
 	assert.Equal(t, &leader, awaitLeader(role.raft, &leader))
 }
 
+func TestLeaderSendSnapshot(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+
+	// Expect a single install request per node
+	succeedInstallTo(client, raft.MemberID("bar"))
+	succeedInstallTo(client, raft.MemberID("baz"))
+
+	// Expect a single append request per node
+	succeedAppendTo(client, raft.MemberID("bar"))
+	succeedAppendTo(client, raft.MemberID("baz"))
+
+	role := newLeaderRole(newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))).(*LeaderRole)
+
+	// Reset the log to index 100 and add some entries
+	role.store.Log().Writer().Reset(raft.Index(100))
+	role.store.Log().Writer().Append(&raft.LogEntry{
+		Term:      raft.Term(1),
+		Timestamp: time.Now(),
+		Entry: &raft.LogEntry_Initialize{
+			Initialize: &raft.InitializeEntry{},
+		},
+	})
+	role.store.Log().Writer().Append(&raft.LogEntry{
+		Term:      raft.Term(2),
+		Timestamp: time.Now(),
+		Entry: &raft.LogEntry_Initialize{
+			Initialize: &raft.InitializeEntry{},
+		},
+	})
+
+	// Add a snapshot to the log at index 100
+	snapshot := role.store.Snapshot().NewSnapshot(raft.Index(100), time.Now())
+	writer := snapshot.Writer()
+	_, _ = writer.Write([]byte("abc"))
+	writer.Close()
+
+	assert.NoError(t, role.raft.SetTerm(raft.Term(3)))
+	assert.NoError(t, role.Start())
+	assert.Equal(t, raft.Index(102), awaitCommit(role.raft, raft.Index(102)))
+
+	// Verify that the init entry was written at index 102
+	role.raft.ReadLock()
+	reader := role.store.Log().OpenReader(102)
+	entry := reader.NextEntry()
+	assert.Equal(t, raft.Index(102), entry.Index)
+	assert.Equal(t, raft.Term(3), entry.Entry.Term)
+	role.raft.ReadUnlock()
+
+	assert.Equal(t, raft.Index(102), awaitCommit(role.raft, raft.Index(102)))
+}
+
 func TestLeaderCommand(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	client := mock.NewMockClient(ctrl)

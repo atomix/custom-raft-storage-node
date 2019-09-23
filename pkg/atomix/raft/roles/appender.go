@@ -24,6 +24,7 @@ import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store/log"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store/snapshot"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
+	"io"
 	"math"
 	"sort"
 	"sync"
@@ -477,16 +478,21 @@ func (a *memberAppender) sendInstallRequests(snapshot snapshot.Snapshot) {
 		_ = reader.Close()
 	}()
 	bytes := make([]byte, maxBatchSize)
-	n, err := reader.Read(bytes)
-	for n > 0 && err == nil {
+	for {
+		n, err := reader.Read(bytes)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			a.log.Warn("Failed to read snapshot", err)
+			a.requeue()
+			return
+		}
+
 		request := a.newInstallRequest(snapshot, bytes[:n])
 		a.log.SendTo("InstallRequest", request, a.member.MemberID)
 		stream <- request
-		n, err = reader.Read(bytes)
 	}
-	if err != nil {
-		a.log.Warn("Failed to read snapshot", err)
-	}
+	close(stream)
 
 	response := <-future
 	if response.Failed() {
