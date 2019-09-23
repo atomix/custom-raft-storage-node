@@ -302,3 +302,53 @@ func TestPassiveQuery(t *testing.T) {
 	assert.True(t, response.Succeeded())
 	assert.Equal(t, raft.ResponseStatus_OK, response.Response.Status)
 }
+
+func TestPassiveInstall(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	expectQuery(client).AnyTimes()
+	protocol, sm, stores := newTestState(client)
+	role := newPassiveRole(protocol, sm, stores, util.NewNodeLogger(string(protocol.Member())))
+	assert.NoError(t, role.raft.SetTerm(raft.Term(1)))
+	leader := raft.MemberID("bar")
+	assert.NoError(t, role.raft.SetLeader(&leader))
+
+	timestamp := time.Now()
+	ch := make(chan *raft.InstallStreamRequest, 3)
+	ch <- raft.NewInstallStreamRequest(&raft.InstallRequest{
+		Term:      raft.Term(1),
+		Leader:    *role.raft.Leader(),
+		Index:     raft.Index(10),
+		Timestamp: timestamp,
+		Data:      []byte("a"),
+	}, nil)
+	ch <- raft.NewInstallStreamRequest(&raft.InstallRequest{
+		Term:      raft.Term(1),
+		Leader:    *role.raft.Leader(),
+		Index:     raft.Index(10),
+		Timestamp: timestamp,
+		Data:      []byte("b"),
+	}, nil)
+	ch <- raft.NewInstallStreamRequest(&raft.InstallRequest{
+		Term:      raft.Term(1),
+		Leader:    *role.raft.Leader(),
+		Index:     raft.Index(10),
+		Timestamp: timestamp,
+		Data:      []byte("c"),
+	}, nil)
+	close(ch)
+
+	response, err := role.Install(ch)
+	assert.NoError(t, err)
+	assert.Equal(t, raft.ResponseStatus_OK, response.Status)
+
+	role.raft.ReadLock()
+	snapshot := role.store.Snapshot().CurrentSnapshot()
+	assert.Equal(t, raft.Index(10), snapshot.Index())
+	assert.Equal(t, timestamp, snapshot.Timestamp())
+	reader := snapshot.Reader()
+	bytes := make([]byte, 3)
+	_, _ = reader.Read(bytes)
+	assert.Equal(t, "abc", string(bytes))
+	role.raft.ReadUnlock()
+}
