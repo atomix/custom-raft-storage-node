@@ -32,6 +32,7 @@ func TestCandidateVote(t *testing.T) {
 	role := newTestRole(client, newCandidateRole, mockFollower(ctrl), mockLeader(ctrl)).(*CandidateRole)
 	assert.NoError(t, role.raft.SetTerm(1))
 	assert.NoError(t, role.Start())
+	awaitTerm(role.raft, raft.Term(2))
 
 	response, err := role.Vote(context.TODO(), &raft.VoteRequest{
 		Term:         raft.Term(1),
@@ -46,6 +47,7 @@ func TestCandidateVote(t *testing.T) {
 	role = newTestRole(client, newCandidateRole, mockFollower(ctrl), mockLeader(ctrl)).(*CandidateRole)
 	assert.NoError(t, role.raft.SetTerm(1))
 	assert.NoError(t, role.Start())
+	awaitTerm(role.raft, raft.Term(2))
 
 	response, err = role.Vote(context.TODO(), &raft.VoteRequest{
 		Term:         raft.Term(3),
@@ -61,6 +63,7 @@ func TestCandidateVote(t *testing.T) {
 	role = newTestRole(client, newCandidateRole, mockFollower(ctrl), mockLeader(ctrl)).(*CandidateRole)
 	assert.NoError(t, role.raft.SetTerm(1))
 	assert.NoError(t, role.Start())
+	awaitTerm(role.raft, raft.Term(2))
 
 	response, err = role.Vote(context.TODO(), &raft.VoteRequest{
 		Term:         raft.Term(3),
