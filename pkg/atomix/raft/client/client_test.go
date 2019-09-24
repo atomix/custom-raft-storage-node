@@ -61,6 +61,20 @@ func TestClient(t *testing.T) {
 	protocol.EXPECT().
 		Command(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, request *raft.CommandRequest, member raft.MemberID) (<-chan *raft.CommandStreamResponse, error) {
+			ch := make(chan *raft.CommandStreamResponse, 1)
+			ch <- raft.NewCommandStreamResponse(&raft.CommandResponse{
+				Status:  raft.ResponseStatus_ERROR,
+				Error:   raft.ResponseError_ILLEGAL_MEMBER_STATE,
+				Leader:  raft.MemberID("foo"),
+				Term:    raft.Term(1),
+				Members: members,
+			}, nil)
+			close(ch)
+			return ch, nil
+		})
+	protocol.EXPECT().
+		Command(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, request *raft.CommandRequest, member raft.MemberID) (<-chan *raft.CommandStreamResponse, error) {
 			ch := make(chan *raft.CommandStreamResponse, 2)
 			ch <- raft.NewCommandStreamResponse(&raft.CommandResponse{
 				Status:  raft.ResponseStatus_OK,
@@ -79,6 +93,17 @@ func TestClient(t *testing.T) {
 			close(ch)
 			return ch, nil
 		}).AnyTimes()
+	protocol.EXPECT().
+		Query(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, request *raft.QueryRequest, member raft.MemberID) (<-chan *raft.QueryStreamResponse, error) {
+			ch := make(chan *raft.QueryStreamResponse, 1)
+			ch <- raft.NewQueryStreamResponse(&raft.QueryResponse{
+				Status: raft.ResponseStatus_ERROR,
+				Error:  raft.ResponseError_ILLEGAL_MEMBER_STATE,
+			}, nil)
+			close(ch)
+			return ch, nil
+		})
 	protocol.EXPECT().
 		Query(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, request *raft.QueryRequest, member raft.MemberID) (<-chan *raft.QueryStreamResponse, error) {
