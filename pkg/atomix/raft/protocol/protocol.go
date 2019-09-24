@@ -404,15 +404,11 @@ func (p *gRPCClient) Command(ctx context.Context, request *CommandRequest, membe
 				close(ch)
 				break
 			} else if err != nil {
-				ch <- &CommandStreamResponse{
-					StreamMessage: &StreamMessage{Error: err},
-				}
+				ch <- NewCommandStreamResponse(nil, err)
 				break
 			}
 
-			ch <- &CommandStreamResponse{
-				Response: response,
-			}
+			ch <- NewCommandStreamResponse(response, nil)
 		}
 	}()
 	return ch, nil
@@ -437,15 +433,11 @@ func (p *gRPCClient) Query(ctx context.Context, request *QueryRequest, member Me
 				close(ch)
 				break
 			} else if err != nil {
-				ch <- &QueryStreamResponse{
-					StreamMessage: &StreamMessage{Error: err},
-				}
+				ch <- NewQueryStreamResponse(nil, err)
 				break
 			}
 
-			ch <- &QueryStreamResponse{
-				Response: response,
-			}
+			ch <- NewQueryStreamResponse(response, nil)
 		}
 	}()
 	return ch, nil

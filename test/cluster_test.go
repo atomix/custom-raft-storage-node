@@ -49,8 +49,7 @@ func TestRaftNode(t *testing.T) {
 	defer server.Stop()
 	_ = server.WaitForReady()
 
-	client := client.NewClient(protocol.ReadConsistency_SEQUENTIAL)
-	assert.NoError(t, client.Connect(cluster))
+	client := client.NewClient(cluster, protocol.ReadConsistency_SEQUENTIAL)
 
 	ch := make(chan node.Output)
 	assert.NoError(t, client.Write(context.Background(), newOpenSessionRequest(), ch))
@@ -117,8 +116,7 @@ func TestRaftCluster(t *testing.T) {
 	go startServer(serverBaz, wg)
 	wg.Wait()
 
-	client := client.NewClient(protocol.ReadConsistency_SEQUENTIAL)
-	assert.NoError(t, client.Connect(cluster))
+	client := client.NewClient(cluster, protocol.ReadConsistency_SEQUENTIAL)
 
 	ch := make(chan node.Output)
 	assert.NoError(t, client.Write(context.Background(), newOpenSessionRequest(), ch))
@@ -195,8 +193,7 @@ func BenchmarkRaftCluster(b *testing.B) {
 	defer stopServer(serverBar)
 	defer stopServer(serverBaz)
 
-	client := client.NewClient(protocol.ReadConsistency_SEQUENTIAL)
-	assert.NoError(b, client.Connect(cluster))
+	client := client.NewClient(cluster, protocol.ReadConsistency_SEQUENTIAL)
 
 	ch := make(chan node.Output)
 	assert.NoError(b, client.Write(context.Background(), newOpenSessionRequest(), ch))

@@ -38,11 +38,11 @@ const (
 
 // NewRaft returns a new Raft protocol state struct
 func NewRaft(cluster Cluster, config *config.ProtocolConfig, protocol Client, roles map[RoleType]func(Raft) Role) Raft {
-	return newProtocol(cluster, config, protocol, roles, newMemoryMetadataStore())
+	return newRaft(cluster, config, protocol, roles, newMemoryMetadataStore())
 }
 
-// newProtocol returns a new Raft protocol state struct
-func newProtocol(cluster Cluster, config *config.ProtocolConfig, protocol Client, roles map[RoleType]func(Raft) Role, store MetadataStore) Raft {
+// newRaft returns a new Raft protocol state struct
+func newRaft(cluster Cluster, config *config.ProtocolConfig, protocol Client, roles map[RoleType]func(Raft) Role, store MetadataStore) Raft {
 	return &raft{
 		log:      util.NewNodeLogger(string(cluster.Member())),
 		config:   config,

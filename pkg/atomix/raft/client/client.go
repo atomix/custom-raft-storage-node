@@ -18,19 +18,28 @@ import (
 	"container/list"
 	"context"
 	"errors"
-	"fmt"
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
-	"io"
 	"sync"
 )
 
 // NewClient returns a new Raft client
-func NewClient(consistency raft.ReadConsistency) *Client {
+func NewClient(config cluster.Cluster, consistency raft.ReadConsistency) *Client {
+	cluster := raft.NewCluster(config)
+	return newClient(cluster, raft.NewClient(cluster), consistency)
+}
+
+// newClient returns a new Raft client
+func newClient(cluster raft.Cluster, client raft.Client, consistency raft.ReadConsistency) *Client {
+	members := list.New()
+	for _, member := range cluster.Members() {
+		members.PushBack(member)
+	}
 	return &Client{
+		client:      client,
+		members:     members,
 		consistency: consistency,
 	}
 }
@@ -38,28 +47,13 @@ func NewClient(consistency raft.ReadConsistency) *Client {
 // Client is a service Client implementation for the Raft consensus protocol
 type Client struct {
 	node.Client
-	members      map[string]cluster.Member
-	membersList  *list.List
-	memberNode   *list.Element
-	member       cluster.Member
-	memberConn   *grpc.ClientConn
-	client       raft.RaftServiceClient
-	leader       cluster.Member
-	leaderConn   *grpc.ClientConn
-	leaderClient raft.RaftServiceClient
-	consistency  raft.ReadConsistency
-	mu           sync.Mutex
-}
-
-// Connect connects the client to the given cluster
-func (c *Client) Connect(config cluster.Cluster) error {
-	c.members = make(map[string]cluster.Member)
-	c.membersList = list.New()
-	for name, member := range config.Members {
-		c.members[name] = member
-		c.membersList.PushBack(member)
-	}
-	return nil
+	members     *list.List
+	memberNode  *list.Element
+	member      *raft.MemberID
+	leader      *raft.MemberID
+	client      raft.Client
+	consistency raft.ReadConsistency
+	mu          sync.RWMutex
 }
 
 // Write sends a write operation to the cluster
@@ -95,58 +89,42 @@ func (c *Client) Read(ctx context.Context, in []byte, ch chan<- node.Output) err
 	return <-errCh
 }
 
-// resetLeaderConn resets the client's connection to the leader
-func (c *Client) resetLeaderConn() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.leaderConn != nil {
-		_ = c.leaderConn.Close()
-		c.leaderConn = nil
+// getLeader gets the leader node or a random member
+func (c *Client) getLeader() raft.MemberID {
+	c.mu.RLock()
+	if c.leader != nil {
+		defer c.mu.RUnlock()
+		return *c.leader
 	}
-	c.leader = cluster.Member{}
-	c.leaderClient = nil
+	if c.member != nil {
+		defer c.mu.RUnlock()
+		return *c.member
+	}
+	c.mu.RUnlock()
+	return c.getMemberSafe()
 }
 
-// getLeaderConn gets the gRPC client connection to the leader
-func (c *Client) getLeaderConn() (*grpc.ClientConn, error) {
-	if c.leader.ID == "" {
-		return c.getConn()
-	}
-	if c.leaderConn != nil {
-		return c.leaderConn, nil
-	}
-
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", c.leader.Host, c.leader.Port), grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-	c.leaderConn = conn
-	return c.leaderConn, nil
-}
-
-// getClient gets the current Raft client connection for the leader
-func (c *Client) getLeaderClient() (raft.RaftServiceClient, error) {
+// resetLeader resets the leader
+func (c *Client) resetLeader(leader *raft.MemberID) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.leaderClient == nil {
-		conn, err := c.getLeaderConn()
-		if err != nil {
-			return nil, err
-		}
-		c.leaderClient = raft.NewRaftServiceClient(conn)
+	if c.leader == nil && leader != nil {
+		c.leader = leader
+		return true
+	} else if c.leader != nil && leader == nil {
+		c.leader = nil
+		return true
+	} else if c.leader != nil && leader != nil && *c.leader != *leader {
+		c.leader = leader
+		return true
 	}
-	return c.leaderClient, nil
+	return false
 }
 
 // write sends the given write request to the cluster
 func (c *Client) write(ctx context.Context, request *raft.CommandRequest, ch chan<- node.Output) error {
-	client, err := c.getLeaderClient()
-	if err != nil {
-		return err
-	}
-
 	log.Tracef("Sending CommandRequest %+v", request)
-	stream, err := client.Command(ctx, request)
+	stream, err := c.client.Command(ctx, request, c.getLeader())
 	if err != nil {
 		return err
 	}
@@ -154,47 +132,41 @@ func (c *Client) write(ctx context.Context, request *raft.CommandRequest, ch cha
 	return nil
 }
 
-func (c *Client) receiveWrite(ctx context.Context, request *raft.CommandRequest, ch chan<- node.Output, stream raft.RaftService_CommandClient) {
-	for {
-		response, err := stream.Recv()
-		if err != nil {
-			if err != io.EOF {
-				c.resetLeaderConn()
-				ch <- node.Output{
-					Error: err,
-				}
+// receiveWrite process write responses
+func (c *Client) receiveWrite(ctx context.Context, request *raft.CommandRequest, ch chan<- node.Output, stream <-chan *raft.CommandStreamResponse) {
+	for streamResponse := range stream {
+		if streamResponse.Failed() {
+			c.resetLeader(nil)
+			ch <- node.Output{
+				Error: streamResponse.Error,
 			}
 			close(ch)
 			return
 		}
 
+		response := streamResponse.Response
 		log.Tracef("Received CommandResponse %+v", response)
 		if response.Status == raft.ResponseStatus_OK {
 			ch <- node.Output{
 				Value: response.Output,
 			}
 		} else if response.Error == raft.ResponseError_ILLEGAL_MEMBER_STATE {
-			leaderID := string(response.Leader)
-			if c.leader.ID == "" || leaderID != c.leader.ID {
-				leader, ok := c.members[leaderID]
-				if ok {
-					c.resetLeaderConn()
-					c.leader = leader
-					if err := c.write(ctx, request, ch); err != nil {
-						ch <- node.Output{
-							Error: err,
-						}
+			// If possible, update the current leader
+			if c.resetLeader(&response.Leader) {
+				if err := c.write(ctx, request, ch); err != nil {
+					ch <- node.Output{
+						Error: err,
 					}
-					return
-				}
-				ch <- node.Output{
-					Error: errors.New(response.Message),
+					close(ch)
 				}
 				return
 			}
+			c.mu.Unlock()
+
 			ch <- node.Output{
 				Error: errors.New(response.Message),
 			}
+			close(ch)
 			return
 		} else {
 			ch <- node.Output{
@@ -202,68 +174,47 @@ func (c *Client) receiveWrite(ctx context.Context, request *raft.CommandRequest,
 			}
 		}
 	}
+	close(ch)
 }
 
-// resetConn resets the client connection to reconnect to a new member
-func (c *Client) resetConn() {
+// resetMember resets the member connection
+func (c *Client) resetMember() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.memberConn != nil {
-		_ = c.memberConn.Close()
-		c.memberConn = nil
-	}
-	c.member = cluster.Member{}
-	c.client = nil
+	c.member = nil
 }
 
-// getConn gets the current gRPC client connection
-func (c *Client) getConn() (*grpc.ClientConn, error) {
-	if c.member.ID == "" {
-		if c.memberNode == nil {
-			c.memberNode = c.membersList.Front()
-		} else {
+// getMember gets the current member
+func (c *Client) getMember() raft.MemberID {
+	c.mu.RLock()
+	if c.member == nil {
+		c.mu.RUnlock()
+		return c.getMemberSafe()
+	}
+	defer c.mu.RUnlock()
+	return *c.member
+}
+
+// getMemberSafe gets or sets the current member using a write lock
+func (c *Client) getMemberSafe() raft.MemberID {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.member == nil {
+		if c.memberNode != nil && c.memberNode.Next() != nil {
 			c.memberNode = c.memberNode.Next()
-			if c.memberNode == nil {
-				c.memberNode = c.membersList.Front()
-			}
+		} else {
+			c.memberNode = c.members.Front()
 		}
-		c.member = c.memberNode.Value.(cluster.Member)
+		member := c.memberNode.Value.(raft.MemberID)
+		c.member = &member
 	}
-
-	if c.memberConn == nil {
-		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", c.member.Host, c.member.Port), grpc.WithInsecure())
-		if err != nil {
-			return nil, err
-		}
-		c.memberConn = conn
-	}
-	return c.memberConn, nil
-}
-
-// getClient gets the current Raft client connection
-func (c *Client) getClient() (raft.RaftServiceClient, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.client == nil {
-		conn, err := c.getConn()
-		if err != nil {
-			return nil, err
-		}
-		c.client = raft.NewRaftServiceClient(conn)
-	}
-	return c.client, nil
+	return *c.member
 }
 
 // read sends the given read request to the cluster
 func (c *Client) read(ctx context.Context, request *raft.QueryRequest, ch chan<- node.Output) error {
-	client, err := c.getClient()
-	if err != nil {
-		close(ch)
-		return err
-	}
-
 	log.Tracef("Sending QueryRequest %+v", request)
-	stream, err := client.Query(ctx, request)
+	stream, err := c.client.Query(ctx, request, c.getMember())
 	if err != nil {
 		close(ch)
 		return err
@@ -272,30 +223,29 @@ func (c *Client) read(ctx context.Context, request *raft.QueryRequest, ch chan<-
 	return nil
 }
 
-func (c *Client) receiveRead(ctx context.Context, request *raft.QueryRequest, ch chan<- node.Output, stream raft.RaftService_QueryClient) {
-	for {
-		response, err := stream.Recv()
-		if err != nil {
-			if err != io.EOF {
-				ch <- node.Output{
-					Error: err,
-				}
+func (c *Client) receiveRead(ctx context.Context, request *raft.QueryRequest, ch chan<- node.Output, stream <-chan *raft.QueryStreamResponse) {
+	for streamResponse := range stream {
+		if streamResponse.Failed() {
+			ch <- node.Output{
+				Error: streamResponse.Error,
 			}
 			close(ch)
 			return
 		}
 
+		response := streamResponse.Response
 		log.Tracef("Received QueryResponse %+v", response)
 		if response.Status == raft.ResponseStatus_OK {
 			ch <- node.Output{
 				Value: response.Output,
 			}
 		} else if response.Error == raft.ResponseError_ILLEGAL_MEMBER_STATE {
-			c.resetConn()
+			c.resetMember()
 			if err := c.read(ctx, request, ch); err != nil {
 				ch <- node.Output{
 					Error: err,
 				}
+				close(ch)
 			}
 			return
 		} else {
@@ -304,15 +254,10 @@ func (c *Client) receiveRead(ctx context.Context, request *raft.QueryRequest, ch
 			}
 		}
 	}
+	close(ch)
 }
 
 // Close closes the client
 func (c *Client) Close() error {
-	if c.memberConn != nil {
-		_ = c.memberConn.Close()
-	}
-	if c.leaderConn != nil {
-		_ = c.leaderConn.Close()
-	}
 	return nil
 }

@@ -39,11 +39,7 @@ type Protocol struct {
 
 // Start starts the Raft protocol
 func (p *Protocol) Start(cluster cluster.Cluster, registry *node.Registry) error {
-	p.client = client.NewClient(raft.ReadConsistency_SEQUENTIAL)
-	if err := p.client.Connect(cluster); err != nil {
-		return err
-	}
-
+	p.client = client.NewClient(cluster, raft.ReadConsistency_SEQUENTIAL)
 	p.server = NewServer(cluster, registry, p.config)
 	go p.server.Start()
 	return p.server.WaitForReady()

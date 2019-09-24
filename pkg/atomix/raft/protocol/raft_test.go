@@ -50,7 +50,7 @@ func TestRaftProtocol(t *testing.T) {
 	store := newMemoryMetadataStore()
 	electionTimeout := 10 * time.Second
 	roles := make(map[RoleType]func(Raft) Role)
-	raft := newProtocol(NewCluster(cluster), &config.ProtocolConfig{ElectionTimeout: &electionTimeout}, &unimplementedClient{}, roles, store)
+	raft := newRaft(NewCluster(cluster), &config.ProtocolConfig{ElectionTimeout: &electionTimeout}, &unimplementedClient{}, roles, store)
 	assert.Equal(t, StatusStopped, raft.Status())
 	statusCh := make(chan Status, 1)
 	raft.Watch(func(event Event) {
@@ -156,7 +156,7 @@ func TestRaftProtocol(t *testing.T) {
 			return leader
 		},
 	}
-	raft = newProtocol(NewCluster(cluster), &config.ProtocolConfig{}, &unimplementedClient{}, roles, store)
+	raft = newRaft(NewCluster(cluster), &config.ProtocolConfig{}, &unimplementedClient{}, roles, store)
 	assert.Equal(t, StatusStopped, raft.Status())
 	raft.WriteLock()
 	raft.Init()
