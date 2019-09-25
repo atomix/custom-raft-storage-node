@@ -122,6 +122,7 @@ func (r *CandidateRole) resetElectionTimeout() {
 	go func() {
 		select {
 		case <-electionCh:
+			r.raft.ReadLock()
 			if r.active {
 				// When the election times out, clear the previous majority vote
 				// check and restart the election.
@@ -129,6 +130,7 @@ func (r *CandidateRole) resetElectionTimeout() {
 					Debugf("Election round for term %d expired: not enough votes received within the election timeout; restarting election", r.raft.Term())
 				go r.sendVoteRequests()
 			}
+			r.raft.ReadUnlock()
 		case <-expiredCh:
 			return
 		}
