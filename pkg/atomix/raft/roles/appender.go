@@ -541,7 +541,7 @@ func (a *memberAppender) nextAppendRequest() *raft.AppendRequest {
 	// helps avoid doing expensive work until we can ascertain the member is back up.
 	a.raft.ReadLock()
 	defer a.raft.ReadUnlock()
-	if a.failureCount > 0 || a.reader.CurrentIndex() == a.reader.LastIndex() {
+	if a.failureCount > 0 || a.nextIndex > a.reader.LastIndex() {
 		return a.emptyAppendRequest()
 	}
 	return a.entriesAppendRequest()
