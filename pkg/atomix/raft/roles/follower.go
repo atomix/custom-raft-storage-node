@@ -21,7 +21,6 @@ import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 	"math"
-	"math/rand"
 	"time"
 )
 
@@ -74,12 +73,11 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 	// If a timer is already set, cancel the timer.
 	if r.heartbeatTimer != nil && r.heartbeatTimer.Stop() {
 		r.heartbeatStop <- true
-		return
 	}
 
 	// Set the election timeout in a semi-random fashion with the random range
 	// being election timeout and 2 * election timeout.
-	timeout := r.raft.Config().GetElectionTimeoutOrDefault() + time.Duration(rand.Int63n(int64(r.raft.Config().GetElectionTimeoutOrDefault())))
+	timeout := r.raft.Config().GetElectionTimeoutOrDefault()
 	r.heartbeatTimer = time.NewTimer(timeout)
 	heartbeatStop := make(chan bool, 1)
 	r.heartbeatStop = heartbeatStop
@@ -92,12 +90,10 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 				if err := r.raft.SetLeader(nil); err != nil {
 					r.log.Error("Failed to update leader", err)
 				}
-				r.raft.WriteUnlock()
 				r.log.Debug("Heartbeat timed out in %d milliseconds", timeout/time.Millisecond)
 				go r.sendPollRequests()
-			} else {
-				r.raft.WriteUnlock()
 			}
+			r.raft.WriteUnlock()
 		case <-heartbeatStop:
 			return
 		}
@@ -112,10 +108,12 @@ func (r *FollowerRole) sendPollRequests() {
 	go func() {
 		select {
 		case <-timeoutTimer.C:
+			r.raft.ReadLock()
 			if r.active {
 				r.log.Debug("Failed to poll a majority of the cluster in %d", r.raft.Config().GetElectionTimeoutOrDefault())
 				go r.resetHeartbeatTimeout()
 			}
+			r.raft.ReadUnlock()
 		case <-timeoutExpired:
 			return
 		}

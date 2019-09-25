@@ -59,3 +59,20 @@ func TestFollowerPollFail(t *testing.T) {
 	time.Sleep(5 * time.Second)
 	assert.Equal(t, raft.RoleType(""), role.raft.Role())
 }
+
+func TestFollowerPollRestart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	client := mock.NewMockClient(ctrl)
+	rejectPoll(client).Times(4)
+	acceptPoll(client).AnyTimes()
+
+	protocol, sm, stores := newTestState(client, mockFollower(ctrl), mockCandidate(ctrl), mockLeader(ctrl))
+	role := newFollowerRole(protocol, sm, stores).(*FollowerRole)
+	assert.NoError(t, role.Start())
+	role.raft.ReadLock()
+	assert.Equal(t, raft.Term(0), role.raft.Term())
+	assert.Nil(t, role.raft.Leader())
+	role.raft.ReadUnlock()
+
+	assert.Equal(t, raft.RoleCandidate, awaitRole(role.raft, raft.RoleCandidate))
+}
