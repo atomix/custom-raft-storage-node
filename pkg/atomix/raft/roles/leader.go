@@ -210,17 +210,20 @@ func (r *LeaderRole) Command(request *raft.CommandRequest, responseCh chan<- *ra
 	for output := range outputCh {
 		var status raft.ResponseStatus
 		var err raft.ResponseError
+		var message string
 		if output.Succeeded() {
 			status = raft.ResponseStatus_OK
 		} else {
 			status = raft.ResponseStatus_ERROR
 			err = raft.ResponseError_APPLICATION_ERROR
+			message = output.Error.Error()
 		}
 
 		r.raft.ReadLock()
 		response := &raft.CommandResponse{
 			Status:  status,
 			Error:   err,
+			Message: message,
 			Leader:  r.raft.Member(),
 			Term:    r.raft.Term(),
 			Members: r.raft.Members(),
