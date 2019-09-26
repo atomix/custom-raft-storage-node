@@ -194,7 +194,9 @@ func (c *Client) receiveWrite(ctx context.Context, request *raft.CommandRequest,
 			// If possible, update the current leader
 			if leader == response.Leader {
 				c.retryWrite(ctx, request, ch, leader)
-			} else if c.resetLeader(leader, &response.Leader) {
+			} else if response.Leader != "" && c.resetLeader(leader, &response.Leader) {
+				c.sendWrite(ctx, request, ch)
+			} else if response.Leader == "" && c.resetLeader(leader, nil) {
 				c.sendWrite(ctx, request, ch)
 			} else {
 				ch <- node.Output{
