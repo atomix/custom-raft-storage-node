@@ -81,7 +81,7 @@ func (m *manager) ApplyIndex(index raft.Index) {
 	}
 }
 
-// applyEntry enqueues the given entry to be applied to the state machine, returning output on the given channel
+// ApplyEntry enqueues the given entry to be applied to the state machine, returning output on the given channel
 func (m *manager) ApplyEntry(entry *log.Entry, ch chan<- node.Output) {
 	m.ch <- &change{
 		entry:  entry,
@@ -105,6 +105,12 @@ func (m *manager) start() {
 
 // execChange executes the given change on the state machine
 func (m *manager) execChange(change *change) {
+	defer func() {
+		err := recover()
+		if err != nil {
+			m.log.Error("Recovered from panic %v", err)
+		}
+	}()
 	if change.entry.Entry != nil {
 		// If the entry is a query, apply it without incrementing the lastApplied index
 		if query, ok := change.entry.Entry.Entry.(*raft.LogEntry_Query); ok {
@@ -138,7 +144,6 @@ func (m *manager) execPendingChanges(index raft.Index) {
 
 // execEntry applies the given entry to the state machine and returns the result(s) on the given channel
 func (m *manager) execEntry(entry *log.Entry, ch chan<- node.Output) {
-	m.log.Trace("Applying %d", entry.Index)
 	if entry.Entry == nil {
 		m.reader.Reset(entry.Index)
 		entry = m.reader.NextEntry()
@@ -148,6 +153,7 @@ func (m *manager) execEntry(entry *log.Entry, ch chan<- node.Output) {
 	case *raft.LogEntry_Query:
 		m.execQuery(entry.Index, entry.Entry.Timestamp, e.Query, ch)
 	case *raft.LogEntry_Command:
+		m.log.Trace("Applying command %d", entry.Index)
 		m.execCommand(entry.Index, entry.Entry.Timestamp, e.Command, ch)
 	case *raft.LogEntry_Configuration:
 		m.execConfig(entry.Index, entry.Entry.Timestamp, e.Configuration, ch)
@@ -173,6 +179,7 @@ func (m *manager) execConfig(index raft.Index, timestamp time.Time, config *raft
 }
 
 func (m *manager) execQuery(index raft.Index, timestamp time.Time, query *raft.QueryEntry, ch chan<- node.Output) {
+	m.log.Trace("Applying query %d", index)
 	m.operation = service.OpTypeQuery
 	m.state.Query(query.Value, ch)
 }
