@@ -21,6 +21,7 @@ import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 	"math"
+	"math/rand"
 	"time"
 )
 
@@ -77,7 +78,7 @@ func (r *FollowerRole) resetHeartbeatTimeout() {
 
 	// Set the election timeout in a semi-random fashion with the random range
 	// being election timeout and 2 * election timeout.
-	timeout := r.raft.Config().GetElectionTimeoutOrDefault()
+	timeout := r.raft.Config().GetElectionTimeoutOrDefault() + time.Duration(rand.Int63n(int64(r.raft.Config().GetElectionTimeoutOrDefault())))
 	r.heartbeatTimer = time.NewTimer(timeout)
 	heartbeatStop := make(chan bool, 1)
 	r.heartbeatStop = heartbeatStop

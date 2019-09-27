@@ -20,7 +20,6 @@ import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/state"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
-	log "github.com/sirupsen/logrus"
 	"math"
 	"math/rand"
 	"time"
@@ -50,8 +49,7 @@ func (r *CandidateRole) Type() raft.RoleType {
 func (r *CandidateRole) Start() error {
 	// If there are no other members in the cluster, immediately transition to leader.
 	if len(r.raft.Members()) == 1 {
-		log.WithField("memberID", r.raft.Member()).
-			Debug("Single node cluster; skipping election")
+		r.log.Debug("Single node cluster; skipping election")
 		r.raft.SetRole(raft.RoleLeader)
 		return nil
 	}
@@ -126,8 +124,7 @@ func (r *CandidateRole) resetElectionTimeout() {
 			if r.active {
 				// When the election times out, clear the previous majority vote
 				// check and restart the election.
-				log.WithField("memberID", r.raft.Member()).
-					Debugf("Election round for term %d expired: not enough votes received within the election timeout; restarting election", r.raft.Term())
+				r.log.Debug("Election round for term %d expired: not enough votes received within the election timeout; restarting election", r.raft.Term())
 				go r.sendVoteRequests()
 			}
 			r.raft.ReadUnlock()
@@ -188,8 +185,7 @@ func (r *CandidateRole) sendVoteRequests() {
 				// If no other leader has been discovered and a quorum of votes was received, transition to leader.
 				voteCount++
 				if r.raft.Leader() == nil && voteCount == quorum {
-					log.WithField("memberID", r.raft.Member()).
-						Debugf("Won election with %d/%d votes; transitioning to leader", voteCount, len(votingMembers))
+					r.log.Debug("Won election with %d/%d votes; transitioning to leader", voteCount, len(votingMembers))
 					r.raft.SetRole(raft.RoleLeader)
 					r.raft.WriteUnlock()
 					return
@@ -199,8 +195,7 @@ func (r *CandidateRole) sendVoteRequests() {
 				// If a quorum of vote requests were rejected, transition back to follower.
 				rejectCount++
 				if rejectCount == quorum {
-					log.WithField("memberID", r.raft.Member()).
-						Debugf("Lost election with %d/%d votes rejected; transitioning back to follower", rejectCount, len(votingMembers))
+					r.log.Debug("Lost election with %d/%d votes rejected; transitioning back to follower", rejectCount, len(votingMembers))
 					r.raft.SetRole(raft.RoleFollower)
 					r.raft.WriteUnlock()
 					return
@@ -225,8 +220,7 @@ func (r *CandidateRole) sendVoteRequests() {
 		lastTerm = lastEntry.Entry.Term
 	}
 
-	log.WithField("memberID", r.raft.Member()).
-		Debugf("Requesting votes for term %d", term)
+	r.log.Debug("Requesting votes for term %d", term)
 
 	// Once we got the last log term, iterate through each current member
 	// of the cluster and request a vote from each.
@@ -238,8 +232,7 @@ func (r *CandidateRole) sendVoteRequests() {
 		}
 
 		go func(member raft.MemberID) {
-			log.WithField("memberID", r.raft.Member()).
-				Debugf("Requesting vote from %s for term %d", member, term)
+			r.log.Debug("Requesting vote from %s for term %d", member, term)
 			request := &raft.VoteRequest{
 				Term:         term,
 				Candidate:    r.raft.Member(),
@@ -251,29 +244,25 @@ func (r *CandidateRole) sendVoteRequests() {
 			response, err := r.raft.Protocol().Vote(context.Background(), request, member)
 			if err != nil {
 				votes <- false
-				log.WithField("memberID", r.raft.Member()).Warn(err)
+				r.log.Warn("Failed to request vote from %s", member, err)
 			} else {
 				r.log.Receive("VoteResponse", response)
 				r.raft.WriteLock()
 				if response.Term > request.Term {
-					log.WithField("memberID", r.raft.Member()).
-						Debugf("Received greater term from %s; transitioning back to follower", member)
+					r.log.Debug("Received greater term from %s; transitioning back to follower", member)
 					_ = r.raft.SetTerm(response.Term)
 					r.raft.SetRole(raft.RoleFollower)
 					r.raft.WriteUnlock()
 					close(votes)
 					return
 				} else if !response.Voted {
-					log.WithField("memberID", r.raft.Member()).
-						Debugf("Received rejected vote from %s", member)
+					r.log.Debug("Received rejected vote from %s", member)
 					votes <- false
 				} else if response.Term != r.raft.Term() {
-					log.WithField("memberID", r.raft.Member()).
-						Debugf("Received successful vote for a different term from %s", member)
+					r.log.Debug("Received successful vote for a different term from %s", member)
 					votes <- false
 				} else {
-					log.WithField("memberID", r.raft.Member()).
-						Debugf("Received successful vote from %s", member)
+					r.log.Debug("Received successful vote from %s", member)
 					votes <- true
 				}
 				r.raft.WriteUnlock()
