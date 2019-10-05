@@ -19,6 +19,7 @@ github.com/atomix/atomix-go-local v0.0.0-20190828183508-3db728c0fc3b/go.mod h1:V
 github.com/atomix/atomix-go-local v0.0.0-20190830183800-73f964b0f75a/go.mod h1:lt/qUsFF29yT2ofmxOXfFzIz0poN22/Qa5SPdalgTKw=
 github.com/atomix/atomix-go-local v0.0.0-20190917062229-6dbcfea7cd2f/go.mod h1:wGsoqWNZmfM5YkWMETZh24U9b7yZ0W1V8hZ7kVbKBgg=
 github.com/atomix/atomix-go-local v0.0.0-20191002230335-39d2b157c446/go.mod h1:liCwtlGHMXFwW5A1o3BlmEldqkxgYpk99sdOXQhEVhM=
+github.com/atomix/atomix-go-local v0.0.0-20191005004851-a9403b577637/go.mod h1:syI/GoUBKhGASfFqx9sCqoSLCopSC4mEpzxCI7sLjDU=
 github.com/atomix/atomix-go-node v0.0.0-20190719005747-0f8c60e0a3b2 h1:vVBNZD73tjpwkTFsis7NFpPRbJfbISlkQqUiaoKwliU=
 github.com/atomix/atomix-go-node v0.0.0-20190719005747-0f8c60e0a3b2/go.mod h1:Ok8qa4Dhjvzc6c9lNV1r9aboClq/5lQUyMoi51LWA6E=
 github.com/atomix/atomix-go-node v0.0.0-20190719061137-3f86e3486d51 h1:C0W5/6Mf+9mxq6QIGHyrI/XgTM+CMdqQTqw8f/FRPH8=
@@ -140,6 +141,9 @@ github.com/atomix/atomix-go-node v0.0.0-20191003173830-326f8ac44e94 h1:HEkEs3Xv3
 github.com/atomix/atomix-go-node v0.0.0-20191003173830-326f8ac44e94/go.mod h1:m3BU2Yn1nJ/inhJS9I7Epqra4RfjIR2nkTheX8UGcs0=
 github.com/atomix/atomix-go-node v0.0.0-20191005003820-945ff0afee33 h1:xDeeQlCnlbh6Gul7BzlRvxHkgicFP2eP6HGf5NxFnAs=
 github.com/atomix/atomix-go-node v0.0.0-20191005003820-945ff0afee33/go.mod h1:m3BU2Yn1nJ/inhJS9I7Epqra4RfjIR2nkTheX8UGcs0=
+github.com/atomix/atomix-go-node v0.0.0-20191005004840-a11d88ec22cd/go.mod h1:m3BU2Yn1nJ/inhJS9I7Epqra4RfjIR2nkTheX8UGcs0=
+github.com/atomix/atomix-go-node v0.0.0-20191005004913-89f218752fa8 h1:E0lb/nmMLi5bpmKwkBXucMVpqBdjINSaEHcB+YDuBKU=
+github.com/atomix/atomix-go-node v0.0.0-20191005004913-89f218752fa8/go.mod h1:/54WTC76w8KaAvzUI8NfNG1eyBMGczYetkMNkpPCYB8=
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/creack/pty v1.1.7/go.mod h1:lj5s0c3V2DBrqTV7llrYr5NG6My20zk30Fl46Y7DoTY=
