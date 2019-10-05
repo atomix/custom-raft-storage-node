@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/atomix/atomix-api v0.0.0-20191002225141-1ee9c98c7dfd
-	github.com/atomix/atomix-go-node v0.0.0-20191003173830-326f8ac44e94
+	github.com/atomix/atomix-go-node v0.0.0-20191005003820-945ff0afee33
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.2
