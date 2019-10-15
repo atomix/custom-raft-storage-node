@@ -3,8 +3,8 @@ module github.com/atomix/atomix-raft-node
 go 1.12
 
 require (
-	github.com/atomix/atomix-api v0.0.0-20191005223910-aa620357faa0
-	github.com/atomix/atomix-go-node v0.0.0-20191008000533-254ed34bd1d1
+	github.com/atomix/atomix-api v0.0.0-20191014233757-4786daa5a314
+	github.com/atomix/atomix-go-node v0.0.0-20191015003036-c3c92f68ca0c
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.2
