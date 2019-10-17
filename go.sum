@@ -16,6 +16,8 @@ github.com/atomix/atomix-api v0.0.0-20191005223910-aa620357faa0 h1:XHJB3g6Xkxj0G
 github.com/atomix/atomix-api v0.0.0-20191005223910-aa620357faa0/go.mod h1:joWKUd0zIeYbAQ0vmYHGsnV03ZgRalhceHgnJ3EN0mI=
 github.com/atomix/atomix-api v0.0.0-20191014233757-4786daa5a314 h1:P5nVDVOjAOF9JDkw+q9MhThb5MO2isfPH/FMH5x/d4Y=
 github.com/atomix/atomix-api v0.0.0-20191014233757-4786daa5a314/go.mod h1:joWKUd0zIeYbAQ0vmYHGsnV03ZgRalhceHgnJ3EN0mI=
+github.com/atomix/atomix-api v0.0.0-20191017192115-4d6a4f8e87a3 h1:iKZxEUGEJ1ZfWDu3Co8kRXBYCSlBphDw4eyWRuNH7NY=
+github.com/atomix/atomix-api v0.0.0-20191017192115-4d6a4f8e87a3/go.mod h1:joWKUd0zIeYbAQ0vmYHGsnV03ZgRalhceHgnJ3EN0mI=
 github.com/atomix/atomix-go-client v0.0.0-20190827234201-188602d4e780/go.mod h1:/UAIApUE5+Ghzu8oBVcYUoz6nCosrRPa0eUlluBtKz0=
 github.com/atomix/atomix-go-client v0.0.0-20191002230120-837d618e27c5/go.mod h1:MoPkrAL33saKe2GbTi+NJgLzW7ejCwrrLDrYIwGYNcE=
 github.com/atomix/atomix-go-client v0.0.0-20191015003555-98ae5ccbe7bd/go.mod h1:jV1V8j+zo30xhC+hufKM/1XIiJKA3ODjwuMA/rBHu8g=
@@ -165,6 +167,8 @@ github.com/atomix/atomix-go-node v0.0.0-20191015014638-64dd6c85416c h1:ETGyHjdj2
 github.com/atomix/atomix-go-node v0.0.0-20191015014638-64dd6c85416c/go.mod h1:RYBKVIL64s0IJXL9HtoF3Wgc6KRXzdaa2KqCvPEuwhI=
 github.com/atomix/atomix-go-node v0.0.0-20191015235149-a27e7ec80c20 h1:DlQ5bk4Vs5NCfzaxNxYrHyaaBmbrxVDGfH9Bog1Bxvw=
 github.com/atomix/atomix-go-node v0.0.0-20191015235149-a27e7ec80c20/go.mod h1:RYBKVIL64s0IJXL9HtoF3Wgc6KRXzdaa2KqCvPEuwhI=
+github.com/atomix/atomix-go-node v0.0.0-20191017201713-c8f48f52e1cc h1:CYWj3EwFs++T9wyN4IRsd+Qikr+XqNJ9wAV4+24QUf8=
+github.com/atomix/atomix-go-node v0.0.0-20191017201713-c8f48f52e1cc/go.mod h1:SmM+sWPwscnx6AIqGbu9Y2EqCGdUlyHTnrJa/A3XqWA=
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/creack/pty v1.1.7/go.mod h1:lj5s0c3V2DBrqTV7llrYr5NG6My20zk30Fl46Y7DoTY=
