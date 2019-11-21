@@ -22,7 +22,7 @@ import (
 	"github.com/atomix/atomix-go-node/pkg/atomix/registry"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/gogo/protobuf/jsonpb"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
