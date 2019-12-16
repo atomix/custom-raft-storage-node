@@ -20,6 +20,7 @@ import (
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
 	"github.com/hashicorp/raft"
 	"sort"
+	"time"
 )
 
 // newRaft returns a new Raft instance
@@ -50,9 +51,24 @@ func newRaft(cluster cluster.Cluster, protocol *config.ProtocolConfig, fsm *Stat
 	sort.Slice(servers, func(i, j int) bool {
 		return servers[i].ID < servers[j].ID
 	})
-	logs := raft.NewInmemStore()
-	stable := raft.NewInmemStore()
+
+	store := raft.NewInmemStore()
 	snaps := raft.NewInmemSnapshotStore()
-	_, trans := raft.NewInmemTransport(raft.ServerAddress(fmt.Sprintf("%s:%d", member.Host, member.Port)))
-	return raft.NewRaft(config, fsm, logs, stable, snaps, trans)
+	//dir, err := os.Getwd()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//store, err := raftmdb.NewMDBStore(dir)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//snaps, err := raft.NewFileSnapshotStore(dir, 1, nil)
+	//if err != nil {
+	//	return nil, err
+	//}
+	trans, err := raft.NewTCPTransport(fmt.Sprintf("%s:%d", member.Host, member.Port), nil, 2, time.Second, nil)
+	if err != nil {
+		return nil, err
+	}
+	return raft.NewRaft(config, fsm, store, store, snaps, trans)
 }
