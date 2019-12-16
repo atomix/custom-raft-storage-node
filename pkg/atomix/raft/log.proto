@@ -16,24 +16,16 @@ limitations under the License.
 
 syntax = "proto3";
 
-package atomix.raft.protocol;
+package atomix.raft;
 
 import "google/protobuf/timestamp.proto";
 import "gogoproto/gogo.proto";
 
-option (gogoproto.testgen_all) = true;
-option (gogoproto.populate_all) = true;
-option (gogoproto.equal_all) = true;
+// Entry is a Raft log entry
+message Entry {
+    // value is the value of the entry
+    bytes value = 1;
 
-message Member {
-    string member_id = 1 [(gogoproto.casttype) = "MemberID", (gogoproto.customname) = "MemberID"];
-    Type type = 2;
-    google.protobuf.Timestamp updated = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-
-    enum Type {
-        INACTIVE = 0;
-        PASSIVE = 1;
-        PROMOTABLE = 2;
-        ACTIVE = 3;
-    }
+    // timestamp is the entry timestamp
+    google.protobuf.Timestamp timestamp = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }

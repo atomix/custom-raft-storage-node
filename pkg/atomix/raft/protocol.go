@@ -17,9 +17,7 @@ package raft
 import (
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-go-node/pkg/atomix/node"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/client"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
-	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
 )
 
 // NewProtocol returns a new Raft Protocol instance
@@ -33,16 +31,21 @@ func NewProtocol(config *config.ProtocolConfig) *Protocol {
 type Protocol struct {
 	node.Protocol
 	config *config.ProtocolConfig
-	client *client.Client
+	client *Client
 	server *Server
 }
 
 // Start starts the Raft protocol
 func (p *Protocol) Start(cluster cluster.Cluster, registry *node.Registry) error {
-	p.client = client.NewClient(cluster, raft.ReadConsistency_SEQUENTIAL)
-	p.server = NewServer(cluster, registry, p.config)
+	fsm := newStateMachine(cluster, registry)
+	raft, err := newRaft(cluster, p.config, fsm)
+	if err != nil {
+		return err
+	}
+	p.server = newServer(cluster, raft)
+	p.client = newClient(raft, fsm)
 	go p.server.Start()
-	return p.server.WaitForReady()
+	return nil
 }
 
 // Client returns the Raft protocol client
@@ -52,6 +55,5 @@ func (p *Protocol) Client() node.Client {
 
 // Stop stops the Raft protocol
 func (p *Protocol) Stop() error {
-	_ = p.client.Close()
 	return p.server.Stop()
 }

@@ -15,98 +15,48 @@
 package raft
 
 import (
-	"errors"
 	"fmt"
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
-	"github.com/atomix/atomix-go-node/pkg/atomix/node"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
-	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/roles"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/state"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store"
-	"google.golang.org/grpc"
-	"net"
-	"sync"
+	"github.com/hashicorp/raft"
+	"sort"
 )
 
-// NewServer returns a new Raft consensus protocol server
-func NewServer(clusterConfig cluster.Cluster, registry *node.Registry, protocolConfig *config.ProtocolConfig) *Server {
-	member, ok := clusterConfig.Members[clusterConfig.MemberID]
-	if !ok {
-		panic("Local member is not present in cluster configuration!")
+// newServer returns a new Raft consensus protocol server
+func newServer(cluster cluster.Cluster, r *raft.Raft) *Server {
+	servers := make([]raft.Server, 0, len(cluster.Members))
+	for memberID, member := range cluster.Members {
+		servers = append(servers, raft.Server{
+			ID:      raft.ServerID(memberID),
+			Address: raft.ServerAddress(fmt.Sprintf("%s:%d", member.Host, member.Port)),
+		})
 	}
-
-	cluster := raft.NewCluster(clusterConfig)
-	protocol := raft.NewClient(cluster)
-	store := store.NewMemoryStore()
-	state := state.NewManager(cluster.Member(), store, registry)
-	roles := roles.GetRoles(state, store)
-	raft := raft.NewRaft(cluster, protocolConfig, protocol, roles)
-	server := &Server{
-		raft:  raft,
-		state: state,
-		store: store,
-		port:  member.Port,
-		mu:    sync.Mutex{},
+	sort.Slice(servers, func(i, j int) bool {
+		return servers[i].ID < servers[j].ID
+	})
+	config := raft.Configuration{
+		Servers: servers,
 	}
-	return server
+	return &Server{
+		raft:   r,
+		config: config,
+	}
 }
 
 // Server implements the Raft consensus protocol server
 type Server struct {
-	raft   raft.Raft
-	state  state.Manager
-	store  store.Store
-	server *grpc.Server
-	port   int
-	mu     sync.Mutex
+	raft   *raft.Raft
+	config raft.Configuration
 }
 
 // Start starts the Raft server
 func (s *Server) Start() error {
-	s.mu.Lock()
-
-	// Initialize the Raft state
-	s.raft.WriteLock()
-	s.raft.Init()
-	s.raft.WriteUnlock()
-
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
-	if err != nil {
-		return err
+	if err := s.raft.BootstrapCluster(s.config); err.Error() != nil {
+		return err.Error()
 	}
-
-	s.server = grpc.NewServer()
-	raft.RegisterRaftServiceServer(s.server, raft.NewServer(s.raft))
-	s.mu.Unlock()
-	return s.server.Serve(lis)
-}
-
-// WaitForReady blocks the current goroutine until the server is ready
-func (s *Server) WaitForReady() error {
-	ch := make(chan struct{})
-	s.raft.Watch(func(event raft.Event) {
-		if event.Type == raft.EventTypeStatus && event.Status == raft.StatusReady {
-			ch <- struct{}{}
-			close(ch)
-		}
-	})
-	_, ok := <-ch
-	if ok {
-		return nil
-	}
-	return errors.New("server stopped")
+	return nil
 }
 
 // Stop shuts down the Raft server
 func (s *Server) Stop() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.server != nil {
-		s.server.Stop()
-	}
-	s.raft.Close()
-	s.state.Close()
-	s.store.Close()
-	return nil
+	return s.raft.Shutdown().Error()
 }

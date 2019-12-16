@@ -28,25 +28,6 @@ option (gogoproto.equal_all) = true;
 message ProtocolConfig {
     google.protobuf.Duration election_timeout = 1 [(gogoproto.stdduration) = true];
     google.protobuf.Duration heartbeat_interval = 2 [(gogoproto.stdduration) = true];
-    StorageConfig storage = 3;
-    CompactionConfig compaction = 4;
-}
-
-message StorageConfig {
-    string directory = 1;
-    StorageLevel level = 2;
-    uint32 max_entry_size = 3;
-    uint32 segment_size = 4;
-    bool flush_on_commit = 5;
-}
-
-enum StorageLevel {
-    DISK = 0;
-    MAPPED = 1;
-}
-
-message CompactionConfig {
-    bool dynamic = 1;
-    float free_disk_buffer = 2;
-    float free_memory_buffer = 3;
+    google.protobuf.Duration snapshot_interval = 3 [(gogoproto.stdduration) = true];
+    uint64 snapshot_threshold = 4;
 }

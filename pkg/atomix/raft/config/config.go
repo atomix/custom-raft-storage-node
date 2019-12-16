@@ -19,6 +19,8 @@ import "time"
 const (
 	defaultElectionTimeout   = 5 * time.Second
 	defaultHeartbeatInterval = 500 * time.Millisecond
+	defaultSnapshotInterval  = 1 * time.Minute
+	defaultSnapshotThreshold = 1000
 )
 
 // GetElectionTimeoutOrDefault returns the configured election timeout if set, otherwise the default election timeout
@@ -37,4 +39,22 @@ func (c *ProtocolConfig) GetHeartbeatIntervalOrDefault() time.Duration {
 		return *interval
 	}
 	return defaultHeartbeatInterval
+}
+
+// GetSnapshotIntervalOrDefault returns the configured snapshot interval if set, otherwise the default snapshot interval
+func (c *ProtocolConfig) GetSnapshotIntervalOrDefault() time.Duration {
+	interval := c.GetSnapshotInterval()
+	if interval != nil {
+		return *interval
+	}
+	return defaultSnapshotInterval
+}
+
+// GetSnapshotThresholdOrDefault returns the configured snapshot threshold if set, otherwise the default snapshot threshold
+func (c *ProtocolConfig) GetSnapshotThresholdOrDefault() uint64 {
+	threshold := c.GetSnapshotThreshold()
+	if threshold > 0 {
+		return threshold
+	}
+	return defaultSnapshotThreshold
 }

@@ -4,13 +4,16 @@ go 1.12
 
 require (
 	cloud.google.com/go v0.43.0 // indirect
+	github.com/armon/gomdb v0.0.0-20180202201627-75f545a47e89 // indirect
 	github.com/atomix/atomix-api v0.0.0-20191021183656-837bfda65c82
 	github.com/atomix/atomix-go-node v0.0.0-20191021234659-c841a97bec89
-	github.com/gogo/protobuf v1.2.1
+	github.com/gogo/protobuf v1.3.1
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.2
 	github.com/google/pprof v0.0.0-20190723021845-34ac40c74b70 // indirect
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
+	github.com/hashicorp/raft v1.1.1
+	github.com/hashicorp/raft-mdb v0.0.0-20180824152511-9ee9663b6ffa // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/kr/pty v1.1.8 // indirect
 	github.com/sirupsen/logrus v1.4.2

@@ -19,6 +19,7 @@ import (
 	"github.com/atomix/atomix-go-node/pkg/atomix"
 	"github.com/atomix/atomix-go-node/pkg/atomix/registry"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
@@ -42,7 +43,7 @@ func TestProtocol(t *testing.T) {
 	}
 	protocol := NewProtocol(&config.ProtocolConfig{})
 	node := atomix.NewNode("foo", c, protocol, registry.Registry)
-	node.Start()
+	assert.NoError(t, node.Start())
 	time.Sleep(1 * time.Second)
 	defer node.Stop()
 }
