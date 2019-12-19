@@ -15,9 +15,12 @@
 package raft
 
 import (
+	"encoding/binary"
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
+	streams "github.com/atomix/atomix-go-node/pkg/atomix/stream"
+	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/raft"
 	"io"
 	"sync"
@@ -25,9 +28,10 @@ import (
 )
 
 // newStateMachine returns a new primitive state machine
-func newStateMachine(cluster cluster.Cluster, registry *node.Registry) *StateMachine {
+func newStateMachine(cluster cluster.Cluster, registry *node.Registry, streams *streamManager) *StateMachine {
 	fsm := &StateMachine{
-		node: cluster.MemberID,
+		node:    cluster.MemberID,
+		streams: streams,
 	}
 	fsm.state = node.NewPrimitiveStateMachine(registry, fsm)
 	return fsm
@@ -36,6 +40,7 @@ func newStateMachine(cluster cluster.Cluster, registry *node.Registry) *StateMac
 type StateMachine struct {
 	node      string
 	state     node.StateMachine
+	streams   *streamManager
 	index     uint64
 	timestamp time.Time
 	operation service.OperationType
@@ -51,7 +56,7 @@ func (s *StateMachine) Index() uint64 {
 }
 
 func (s *StateMachine) Timestamp() time.Time {
-	panic("implement me")
+	return s.timestamp
 }
 
 func (s *StateMachine) OperationType() service.OperationType {
@@ -59,41 +64,73 @@ func (s *StateMachine) OperationType() service.OperationType {
 }
 
 func (s *StateMachine) Apply(log *raft.Log) interface{} {
+	entry := &Entry{}
+	if err := proto.Unmarshal(log.Data, entry); err != nil {
+		return err
+	}
+
+	var stream streams.Stream
+	ch := s.streams.getStream(entry.StreamID)
+	if ch != nil {
+		stream = streams.NewChannelStream(ch)
+	} else {
+		stream = streams.NewNilStream()
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.index = log.Index
-	// TODO: Write the context timestamp
+	if entry.Timestamp.After(s.timestamp) {
+		s.timestamp = entry.Timestamp
+	}
 	s.operation = service.OpTypeCommand
-	ch := make(chan node.Output)
-	s.state.Command(log.Data, ch)
-	return ch
+	s.state.Command(entry.Value, stream)
+	return nil
 }
 
-func (s *StateMachine) Query(value []byte) chan node.Output {
+func (s *StateMachine) Query(value []byte, ch chan<- streams.Result) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	s.operation = service.OpTypeQuery
-	ch := make(chan node.Output)
-	s.state.Query(value, ch)
-	return ch
+	s.state.Query(value, streams.NewChannelStream(ch))
+	return nil
 }
 
 func (s *StateMachine) Snapshot() (raft.FSMSnapshot, error) {
 	return &stateMachineSnapshot{
-		state: s.state,
+		state: s,
 	}, nil
 }
 
 func (s *StateMachine) Restore(reader io.ReadCloser) error {
+	bytes := make([]byte, 4)
+	if _, err := reader.Read(bytes); err != nil {
+		return err
+	}
+	secs := int64(binary.BigEndian.Uint64(bytes))
+	if _, err := reader.Read(bytes); err != nil {
+		return err
+	}
+	nanos := int64(binary.BigEndian.Uint64(bytes))
+	s.timestamp = time.Unix(secs, nanos)
 	return s.state.Install(reader)
 }
 
 type stateMachineSnapshot struct {
-	state node.StateMachine
+	state *StateMachine
 }
 
 func (s *stateMachineSnapshot) Persist(sink raft.SnapshotSink) error {
-	return s.state.Snapshot(&stateMachineSnapshotWriter{
+	bytes := make([]byte, 4)
+	binary.BigEndian.PutUint64(bytes, uint64(s.state.timestamp.Second()))
+	if _, err := sink.Write(bytes); err != nil {
+		return err
+	}
+	binary.BigEndian.PutUint64(bytes, uint64(s.state.timestamp.Nanosecond()))
+	if _, err := sink.Write(bytes); err != nil {
+		return err
+	}
+	return s.state.state.Snapshot(&stateMachineSnapshotWriter{
 		sink: sink,
 	})
 }

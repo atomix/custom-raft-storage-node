@@ -37,13 +37,14 @@ type Protocol struct {
 
 // Start starts the Raft protocol
 func (p *Protocol) Start(cluster cluster.Cluster, registry *node.Registry) error {
-	fsm := newStateMachine(cluster, registry)
+	streams := newStreamManager()
+	fsm := newStateMachine(cluster, registry, streams)
 	raft, err := newRaft(cluster, p.config, fsm)
 	if err != nil {
 		return err
 	}
 	p.server = newServer(cluster, raft)
-	p.client = newClient(raft, fsm)
+	p.client = newClient(cluster, raft, fsm, streams)
 	go p.server.Start()
 	return nil
 }

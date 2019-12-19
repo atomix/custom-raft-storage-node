@@ -16,7 +16,10 @@ package raft
 
 import (
 	"context"
-	"github.com/atomix/atomix-go-node/pkg/atomix/node"
+	"fmt"
+	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
+	streams "github.com/atomix/atomix-go-node/pkg/atomix/stream"
+	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/raft"
 	"time"
 )
@@ -24,39 +27,74 @@ import (
 const clientTimeout = 15 * time.Second
 
 // newClient returns a new Raft consensus protocol client
-func newClient(r *raft.Raft, fsm *StateMachine) *Client {
+func newClient(cluster cluster.Cluster, r *raft.Raft, fsm *StateMachine, streams *streamManager) *Client {
+	member := cluster.Members[cluster.MemberID]
+	address := fmt.Sprintf("%s:%d", member.Host, member.Port)
 	return &Client{
-		raft:  r,
-		state: fsm,
+		address: raft.ServerAddress(address),
+		cluster: cluster,
+		raft:    r,
+		state:   fsm,
+		streams: streams,
 	}
 }
 
 // Client is the Raft client
 type Client struct {
-	raft  *raft.Raft
-	state *StateMachine
+	address raft.ServerAddress
+	cluster cluster.Cluster
+	raft    *raft.Raft
+	state   *StateMachine
+	streams *streamManager
 }
 
-func (c *Client) Write(ctx context.Context, input []byte, ch chan<- node.Output) error {
-	future := c.raft.Apply(input, clientTimeout)
+func (c *Client) MustLeader() bool {
+	return true
+}
+
+func (c *Client) IsLeader() bool {
+	return c.raft.Leader() == c.address
+}
+
+func (c *Client) Leader() string {
+	return string(c.raft.Leader())
+}
+
+func (c *Client) Write(ctx context.Context, input []byte, stream streams.Stream) error {
+	streamID, ch := c.streams.newStream()
+	entry := &Entry{
+		Value:     input,
+		StreamID:  streamID,
+		Timestamp: time.Now(),
+	}
+	bytes, err := proto.Marshal(entry)
+	if err != nil {
+		return err
+	}
+	go func() {
+		for result := range ch {
+			stream.Send(result)
+		}
+		c.streams.deleteStream(streamID)
+	}()
+	future := c.raft.Apply(bytes, clientTimeout)
 	if future.Error() != nil {
+		c.streams.deleteStream(streamID)
 		return future.Error()
 	}
-	responseCh := future.Response().(chan node.Output)
-	go func() {
-		for response := range responseCh {
-			ch <- response
-		}
-	}()
+	response := future.Response()
+	if response != nil {
+		return response.(error)
+	}
 	return nil
 }
 
-func (c *Client) Read(ctx context.Context, input []byte, ch chan<- node.Output) error {
-	responseCh := c.state.Query(input)
+func (c *Client) Read(ctx context.Context, input []byte, stream streams.Stream) error {
+	resultCh := make(chan streams.Result)
 	go func() {
-		for response := range responseCh {
-			ch <- response
+		for result := range resultCh {
+			stream.Send(result)
 		}
 	}()
-	return nil
+	return c.state.Query(input, resultCh)
 }

@@ -26,6 +26,32 @@ message Entry {
     // value is the value of the entry
     bytes value = 1;
 
+    // stream_id is the entry stream identifier
+    uint64 stream_id = 2 [(gogoproto.customname) = "StreamID", (gogoproto.casttype) = "streamID"];
+
     // timestamp is the entry timestamp
-    google.protobuf.Timestamp timestamp = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp timestamp = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message CommandRequest {
+    bytes value = 1;
+}
+
+message CommandResponse {
+    bytes value = 1;
+    string error = 2;
+}
+
+message QueryRequest {
+    bytes value = 1;
+}
+
+message QueryResponse {
+    bytes value = 1;
+    string error = 2;
+}
+
+service RaftProtocol {
+    rpc Command(CommandRequest) returns (CommandResponse);
+    rpc Query(QueryRequest) returns (QueryResponse);
 }
