@@ -39,12 +39,12 @@ type Protocol struct {
 func (p *Protocol) Start(cluster cluster.Cluster, registry *node.Registry) error {
 	streams := newStreamManager()
 	fsm := newStateMachine(cluster, registry, streams)
-	raft, err := newRaft(cluster, p.config, fsm)
+	address, raft, err := newRaft(cluster, p.config, fsm)
 	if err != nil {
 		return err
 	}
 	p.server = newServer(cluster, raft)
-	p.client = newClient(cluster, raft, fsm, streams)
+	p.client = newClient(address, raft, fsm, streams)
 	go p.server.Start()
 	return nil
 }

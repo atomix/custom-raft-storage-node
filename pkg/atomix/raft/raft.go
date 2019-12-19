@@ -24,7 +24,7 @@ import (
 )
 
 // newRaft returns a new Raft instance
-func newRaft(cluster cluster.Cluster, protocol *config.ProtocolConfig, fsm *StateMachine) (*raft.Raft, error) {
+func newRaft(cluster cluster.Cluster, protocol *config.ProtocolConfig, fsm *StateMachine) (raft.ServerAddress, *raft.Raft, error) {
 	member, ok := cluster.Members[cluster.MemberID]
 	if !ok {
 		panic("Local member is not present in cluster configuration!")
@@ -68,7 +68,11 @@ func newRaft(cluster cluster.Cluster, protocol *config.ProtocolConfig, fsm *Stat
 	//}
 	trans, err := raft.NewTCPTransport(fmt.Sprintf("%s:%d", member.Host, member.Port), nil, 2, time.Second, nil)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	return raft.NewRaft(config, fsm, store, store, snaps, trans)
+	r, err := raft.NewRaft(config, fsm, store, store, snaps, trans)
+	if err != nil {
+		return "", nil, err
+	}
+	return trans.LocalAddr(), r, nil
 }

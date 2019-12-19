@@ -16,8 +16,6 @@ package raft
 
 import (
 	"context"
-	"fmt"
-	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	streams "github.com/atomix/atomix-go-node/pkg/atomix/stream"
 	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/raft"
@@ -27,12 +25,9 @@ import (
 const clientTimeout = 15 * time.Second
 
 // newClient returns a new Raft consensus protocol client
-func newClient(cluster cluster.Cluster, r *raft.Raft, fsm *StateMachine, streams *streamManager) *Client {
-	member := cluster.Members[cluster.MemberID]
-	address := fmt.Sprintf("%s:%d", member.Host, member.Port)
+func newClient(address raft.ServerAddress, r *raft.Raft, fsm *StateMachine, streams *streamManager) *Client {
 	return &Client{
-		address: raft.ServerAddress(address),
-		cluster: cluster,
+		address: address,
 		raft:    r,
 		state:   fsm,
 		streams: streams,
@@ -42,7 +37,6 @@ func newClient(cluster cluster.Cluster, r *raft.Raft, fsm *StateMachine, streams
 // Client is the Raft client
 type Client struct {
 	address raft.ServerAddress
-	cluster cluster.Cluster
 	raft    *raft.Raft
 	state   *StateMachine
 	streams *streamManager
