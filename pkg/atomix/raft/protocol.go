@@ -43,8 +43,12 @@ func (p *Protocol) Start(cluster cluster.Cluster, registry *node.Registry) error
 	if err != nil {
 		return err
 	}
+	ports := make(map[string]int)
+	for _, member := range cluster.Members {
+		ports[member.Host] = member.APIPort
+	}
 	p.server = newServer(cluster, raft)
-	p.client = newClient(address, raft, fsm, streams)
+	p.client = newClient(address, ports, raft, fsm, streams)
 	go p.server.Start()
 	return nil
 }

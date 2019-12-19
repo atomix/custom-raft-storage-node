@@ -19,7 +19,6 @@ import (
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
 	"github.com/hashicorp/raft"
-	"sort"
 	"time"
 )
 
@@ -41,16 +40,6 @@ func newRaft(cluster cluster.Cluster, protocol *config.ProtocolConfig, fsm *Stat
 		LeaderLeaseTimeout: protocol.GetElectionTimeoutOrDefault(),
 		LocalID:            raft.ServerID(cluster.MemberID),
 	}
-	servers := make([]raft.Server, 0, len(cluster.Members))
-	for memberID, member := range cluster.Members {
-		servers = append(servers, raft.Server{
-			ID:      raft.ServerID(memberID),
-			Address: raft.ServerAddress(fmt.Sprintf("%s:%d", member.Host, member.Port)),
-		})
-	}
-	sort.Slice(servers, func(i, j int) bool {
-		return servers[i].ID < servers[j].ID
-	})
 
 	store := raft.NewInmemStore()
 	snaps := raft.NewInmemSnapshotStore()
@@ -66,7 +55,7 @@ func newRaft(cluster cluster.Cluster, protocol *config.ProtocolConfig, fsm *Stat
 	//if err != nil {
 	//	return nil, err
 	//}
-	trans, err := raft.NewTCPTransport(fmt.Sprintf("%s:%d", member.Host, member.Port), nil, 2, time.Second, nil)
+	trans, err := raft.NewTCPTransport(fmt.Sprintf("%s:%d", member.Host, member.ProtocolPort), nil, 2, time.Second, nil)
 	if err != nil {
 		return "", nil, err
 	}

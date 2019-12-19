@@ -27,7 +27,7 @@ func newServer(cluster cluster.Cluster, r *raft.Raft) *Server {
 	for memberID, member := range cluster.Members {
 		servers = append(servers, raft.Server{
 			ID:      raft.ServerID(memberID),
-			Address: raft.ServerAddress(fmt.Sprintf("%s:%d", member.Host, member.Port)),
+			Address: raft.ServerAddress(fmt.Sprintf("%s:%d", member.Host, member.ProtocolPort)),
 		})
 	}
 	sort.Slice(servers, func(i, j int) bool {

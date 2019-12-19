@@ -16,18 +16,21 @@ package raft
 
 import (
 	"context"
+	"fmt"
 	streams "github.com/atomix/atomix-go-node/pkg/atomix/stream"
 	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/raft"
+	"net"
 	"time"
 )
 
 const clientTimeout = 15 * time.Second
 
 // newClient returns a new Raft consensus protocol client
-func newClient(address raft.ServerAddress, r *raft.Raft, fsm *StateMachine, streams *streamManager) *Client {
+func newClient(address raft.ServerAddress, ports map[string]int, r *raft.Raft, fsm *StateMachine, streams *streamManager) *Client {
 	return &Client{
 		address: address,
+		ports:   ports,
 		raft:    r,
 		state:   fsm,
 		streams: streams,
@@ -37,6 +40,7 @@ func newClient(address raft.ServerAddress, r *raft.Raft, fsm *StateMachine, stre
 // Client is the Raft client
 type Client struct {
 	address raft.ServerAddress
+	ports   map[string]int
 	raft    *raft.Raft
 	state   *StateMachine
 	streams *streamManager
@@ -51,7 +55,25 @@ func (c *Client) IsLeader() bool {
 }
 
 func (c *Client) Leader() string {
-	return string(c.raft.Leader())
+	leader := c.raft.Leader()
+	if leader == "" {
+		return ""
+	}
+
+	// Get the IP address of the leader
+	leaderIP, _, err := net.SplitHostPort(string(leader))
+	if err != nil {
+		return ""
+	}
+
+	// Match the leader's IP address to the IP of a node
+	for host, port := range c.ports {
+		addrs, err := net.LookupHost(host)
+		if err == nil && len(addrs) > 0 && addrs[0] == leaderIP {
+			return fmt.Sprintf("%s:%d", host, port)
+		}
+	}
+	return ""
 }
 
 func (c *Client) Write(ctx context.Context, input []byte, stream streams.Stream) error {
