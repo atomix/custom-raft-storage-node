@@ -190,6 +190,8 @@ github.com/atomix/atomix-go-node v0.0.0-20191218180435-f58b519050d0 h1:ys/PwJGKz
 github.com/atomix/atomix-go-node v0.0.0-20191218180435-f58b519050d0/go.mod h1:CwNyxY+AwoQt76lt5EjK7PCIVuNe48c5mh/kJNBBEAg=
 github.com/atomix/atomix-go-node v0.0.0-20191218215657-d6b301251224 h1:K5FaKpcaZV3WCJvMYsCkqKwoYx0nnPAaYfprz1/xieI=
 github.com/atomix/atomix-go-node v0.0.0-20191218215657-d6b301251224/go.mod h1:Io61YHRSVo0k3wgq+ZSZH0Wyjrp7B4pNC5Jj0gQ+Ko8=
+github.com/atomix/atomix-go-node v0.0.0-20191219050432-5d071f57561d h1:kS2w5B3KBjPrm9aWY95VGivXlKPgDNvusLJz2EDN8Hg=
+github.com/atomix/atomix-go-node v0.0.0-20191219050432-5d071f57561d/go.mod h1:Io61YHRSVo0k3wgq+ZSZH0Wyjrp7B4pNC5Jj0gQ+Ko8=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx27Ps=
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=

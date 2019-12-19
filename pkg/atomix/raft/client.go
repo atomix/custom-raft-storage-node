@@ -69,6 +69,7 @@ func (c *Client) Write(ctx context.Context, input []byte, stream streams.Stream)
 		for result := range ch {
 			stream.Send(result)
 		}
+		stream.Close()
 		c.streams.deleteStream(streamID)
 	}()
 	future := c.raft.Apply(bytes, clientTimeout)
@@ -89,6 +90,7 @@ func (c *Client) Read(ctx context.Context, input []byte, stream streams.Stream) 
 		for result := range resultCh {
 			stream.Send(result)
 		}
+		stream.Close()
 	}()
 	return c.state.Query(input, resultCh)
 }
