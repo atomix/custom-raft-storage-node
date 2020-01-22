@@ -61,6 +61,21 @@ type Client struct {
 	log         util.Logger
 }
 
+// MustLeader returns whether requests must be handled by a leader
+func (c *Client) MustLeader() bool {
+	return false
+}
+
+// IsLeader returns whether this node is the leader
+func (c *Client) IsLeader() bool {
+	return false
+}
+
+// Leader returns the current leader
+func (c *Client) Leader() string {
+	return ""
+}
+
 // Write sends a write operation to the cluster
 func (c *Client) Write(ctx context.Context, in []byte, stream streams.WriteStream) error {
 	request := &raft.CommandRequest{
