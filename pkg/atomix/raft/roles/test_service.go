@@ -18,6 +18,7 @@ import (
 	"errors"
 	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
+	"github.com/atomix/atomix-go-node/pkg/atomix/stream"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -42,12 +43,12 @@ type testService struct {
 
 // init initializes the test service
 func (s *testService) init() {
-	s.Executor.Register("Set", s.Set)
-	s.Executor.Register("SetStream", s.SetStream)
-	s.Executor.Register("SetError", s.SetError)
-	s.Executor.Register("Get", s.Get)
-	s.Executor.Register("GetStream", s.GetStream)
-	s.Executor.Register("GetError", s.GetError)
+	s.Executor.RegisterUnaryOperation("Set", s.Set)
+	s.Executor.RegisterStreamOperation("SetStream", s.SetStream)
+	s.Executor.RegisterUnaryOperation("SetError", s.SetError)
+	s.Executor.RegisterUnaryOperation("Get", s.Get)
+	s.Executor.RegisterStreamOperation("GetStream", s.GetStream)
+	s.Executor.RegisterUnaryOperation("GetError", s.GetError)
 }
 
 // Backup backs up the map service
@@ -69,65 +70,59 @@ func (s *testService) Restore(bytes []byte) error {
 }
 
 // Get gets the test value
-func (s *testService) Get(value []byte, ch chan<- service.Result) {
-	defer close(ch)
-	ch <- s.NewResult(proto.Marshal(&GetResponse{
+func (s *testService) Get(value []byte) ([]byte, error) {
+	return proto.Marshal(&GetResponse{
+		Value: s.value,
+	})
+}
+
+// Get gets the test value
+func (s *testService) GetStream(value []byte, stream stream.WriteStream) {
+	defer stream.Close()
+	stream.Result(proto.Marshal(&GetResponse{
+		Value: s.value,
+	}))
+	stream.Result(proto.Marshal(&GetResponse{
+		Value: s.value,
+	}))
+	stream.Result(proto.Marshal(&GetResponse{
 		Value: s.value,
 	}))
 }
 
 // Get gets the test value
-func (s *testService) GetStream(value []byte, ch chan<- service.Result) {
-	defer close(ch)
-	ch <- s.NewResult(proto.Marshal(&GetResponse{
-		Value: s.value,
-	}))
-	ch <- s.NewResult(proto.Marshal(&GetResponse{
-		Value: s.value,
-	}))
-	ch <- s.NewResult(proto.Marshal(&GetResponse{
-		Value: s.value,
-	}))
-}
-
-// Get gets the test value
-func (s *testService) GetError(value []byte, ch chan<- service.Result) {
-	defer close(ch)
-	ch <- s.NewFailure(errors.New("error"))
+func (s *testService) GetError(value []byte) ([]byte, error) {
+	return nil, errors.New("error")
 }
 
 // Set sets the test value
-func (s *testService) Set(value []byte, ch chan<- service.Result) {
-	defer close(ch)
+func (s *testService) Set(value []byte) ([]byte, error) {
 	request := &SetRequest{}
 	if err := proto.Unmarshal(value, request); err != nil {
-		ch <- s.NewFailure(err)
+		return nil, err
+	}
+	s.value = request.Value
+	return proto.Marshal(&SetResponse{})
+}
+
+// Set sets the test value
+func (s *testService) SetStream(value []byte, stream stream.WriteStream) {
+	defer stream.Close()
+	request := &SetRequest{}
+	if err := proto.Unmarshal(value, request); err != nil {
+		stream.Error(err)
 	} else {
-		s.value = request.Value
-		ch <- s.NewResult(proto.Marshal(&SetResponse{}))
+		stream.Result(proto.Marshal(&SetResponse{}))
+		stream.Result(proto.Marshal(&SetResponse{}))
+		stream.Result(proto.Marshal(&SetResponse{}))
 	}
 }
 
 // Set sets the test value
-func (s *testService) SetStream(value []byte, ch chan<- service.Result) {
-	defer close(ch)
+func (s *testService) SetError(value []byte) ([]byte, error) {
 	request := &SetRequest{}
 	if err := proto.Unmarshal(value, request); err != nil {
-		ch <- s.NewFailure(err)
-	} else {
-		ch <- s.NewResult(proto.Marshal(&SetResponse{}))
-		ch <- s.NewResult(proto.Marshal(&SetResponse{}))
-		ch <- s.NewResult(proto.Marshal(&SetResponse{}))
+		return nil, err
 	}
-}
-
-// Set sets the test value
-func (s *testService) SetError(value []byte, ch chan<- service.Result) {
-	defer close(ch)
-	request := &SetRequest{}
-	if err := proto.Unmarshal(value, request); err != nil {
-		ch <- s.NewFailure(err)
-	} else {
-		ch <- s.NewFailure(errors.New("error"))
-	}
+	return nil, errors.New("error")
 }

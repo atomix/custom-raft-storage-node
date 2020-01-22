@@ -16,7 +16,7 @@ package roles
 
 import (
 	"context"
-	"github.com/atomix/atomix-go-node/pkg/atomix/node"
+	"github.com/atomix/atomix-go-node/pkg/atomix/stream"
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/state"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store"
@@ -191,9 +191,9 @@ func (r *LeaderRole) Command(request *raft.CommandRequest, responseCh chan<- *ra
 	// Create a function to apply the entry to the state machine once committed.
 	// This is done in a function to ensure entries are applied in the order in which they
 	// are committed by the appender.
-	outputCh := make(chan node.Output)
+	outputCh := make(chan stream.Result)
 	f := func() {
-		r.state.ApplyEntry(indexed, outputCh)
+		r.state.ApplyEntry(indexed, stream.NewChannelStream(outputCh))
 	}
 
 	// Pass the apply function to the appender to be called when the change is committed.
@@ -227,7 +227,7 @@ func (r *LeaderRole) Command(request *raft.CommandRequest, responseCh chan<- *ra
 			Leader:  r.raft.Member(),
 			Term:    r.raft.Term(),
 			Members: r.raft.Members(),
-			Output:  output.Value,
+			Output:  output.Value.([]byte),
 		}
 		r.raft.ReadUnlock()
 		_ = r.log.Response("CommandResponse", response, nil)
@@ -276,10 +276,10 @@ func (r *LeaderRole) Query(request *raft.QueryRequest, responseCh chan<- *raft.Q
 // queryLinearizable performs a linearizable query
 func (r *LeaderRole) queryLinearizable(entry *log.Entry, responseCh chan<- *raft.QueryStreamResponse) error {
 	// Create a result channel
-	ch := make(chan node.Output)
+	ch := make(chan stream.Result)
 
 	// Apply the entry to the state machine
-	r.state.ApplyEntry(entry, ch)
+	r.state.ApplyEntry(entry, stream.NewChannelStream(ch))
 
 	// Iterate through results and translate them into QueryResponses.
 	for result := range ch {
@@ -290,7 +290,7 @@ func (r *LeaderRole) queryLinearizable(entry *log.Entry, responseCh chan<- *raft
 		if result.Succeeded() {
 			response := &raft.QueryResponse{
 				Status: raft.ResponseStatus_OK,
-				Output: result.Value,
+				Output: result.Value.([]byte),
 			}
 			_ = r.log.Response("QueryResponse", response, nil)
 			responseCh <- raft.NewQueryStreamResponse(response, nil)

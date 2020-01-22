@@ -18,7 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/atomix/atomix-go-node/pkg/atomix/node"
+	"github.com/atomix/atomix-go-node/pkg/atomix/stream"
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/state"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store"
@@ -397,17 +397,17 @@ func (r *PassiveRole) Query(request *raft.QueryRequest, ch chan<- *raft.QueryStr
 // applyQuery applies a query to the state machine
 func (r *PassiveRole) applyQuery(entry *log.Entry, responseCh chan<- *raft.QueryStreamResponse) error {
 	// Create a result channel
-	outputCh := make(chan node.Output)
+	outputCh := make(chan stream.Result)
 
 	// Apply the entry to the state machine
-	r.state.ApplyEntry(entry, outputCh)
+	r.state.ApplyEntry(entry, stream.NewChannelStream(outputCh))
 
 	// Iterate through results and translate them into QueryResponses.
 	for result := range outputCh {
 		if result.Succeeded() {
 			response := &raft.QueryResponse{
 				Status: raft.ResponseStatus_OK,
-				Output: result.Value,
+				Output: result.Value.([]byte),
 			}
 			_ = r.log.Response("QueryResponse", response, nil)
 			responseCh <- raft.NewQueryStreamResponse(response, nil)

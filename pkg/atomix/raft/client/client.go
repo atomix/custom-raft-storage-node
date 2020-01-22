@@ -20,6 +20,7 @@ import (
 	"errors"
 	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
 	"github.com/atomix/atomix-go-node/pkg/atomix/node"
+	streams "github.com/atomix/atomix-go-node/pkg/atomix/stream"
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
 	"google.golang.org/grpc/codes"
@@ -61,14 +62,14 @@ type Client struct {
 }
 
 // Write sends a write operation to the cluster
-func (c *Client) Write(ctx context.Context, in []byte, ch chan<- node.Output) error {
+func (c *Client) Write(ctx context.Context, in []byte, stream streams.WriteStream) error {
 	request := &raft.CommandRequest{
 		Value: in,
 	}
 
 	errCh := make(chan error)
 	go func() {
-		if err := c.write(ctx, request, ch); err != nil {
+		if err := c.write(ctx, request, stream); err != nil {
 			errCh <- err
 		}
 		close(errCh)
@@ -77,7 +78,7 @@ func (c *Client) Write(ctx context.Context, in []byte, ch chan<- node.Output) er
 }
 
 // Read sends a read operation to the cluster
-func (c *Client) Read(ctx context.Context, in []byte, ch chan<- node.Output) error {
+func (c *Client) Read(ctx context.Context, in []byte, stream streams.WriteStream) error {
 	request := &raft.QueryRequest{
 		Value:           in,
 		ReadConsistency: c.consistency,
@@ -85,7 +86,7 @@ func (c *Client) Read(ctx context.Context, in []byte, ch chan<- node.Output) err
 
 	errCh := make(chan error)
 	go func() {
-		if err := c.read(ctx, request, ch); err != nil {
+		if err := c.read(ctx, request, stream); err != nil {
 			errCh <- err
 		}
 		close(errCh)
@@ -131,87 +132,77 @@ func (c *Client) resetLeader(expected raft.MemberID, leader *raft.MemberID) bool
 }
 
 // write sends the given write request to the cluster
-func (c *Client) write(ctx context.Context, request *raft.CommandRequest, ch chan<- node.Output) error {
-	go c.sendWrite(ctx, request, ch)
+func (c *Client) write(ctx context.Context, request *raft.CommandRequest, stream streams.WriteStream) error {
+	go c.sendWrite(ctx, request, stream)
 	return nil
 }
 
 // retryWrite retries a write request
-func (c *Client) retryWrite(ctx context.Context, request *raft.CommandRequest, ch chan<- node.Output, leader raft.MemberID) {
+func (c *Client) retryWrite(ctx context.Context, request *raft.CommandRequest, stream streams.WriteStream, leader raft.MemberID) {
 	c.resetLeader(leader, nil)
-	go c.sendWrite(ctx, request, ch)
+	go c.sendWrite(ctx, request, stream)
 }
 
 // sendWrite sends a write request
-func (c *Client) sendWrite(ctx context.Context, request *raft.CommandRequest, ch chan<- node.Output) {
+func (c *Client) sendWrite(ctx context.Context, request *raft.CommandRequest, stream streams.WriteStream) {
 	leader := c.getLeader()
 	c.log.Trace("Sending CommandRequest %+v to %s", request, leader)
-	stream, err := c.client.Command(ctx, request, leader)
+	ch, err := c.client.Command(ctx, request, leader)
 	if err != nil {
 		c.log.Trace("Received CommandRequest error %s from %s", err, leader)
 		if e, ok := status.FromError(err); ok {
 			if e.Code() == codes.Unavailable {
-				c.retryWrite(ctx, request, ch, leader)
+				c.retryWrite(ctx, request, stream, leader)
 				return
 			}
 		}
-		ch <- node.Output{
-			Error: err,
-		}
-		close(ch)
+		stream.Error(err)
+		stream.Close()
 	} else {
-		c.receiveWrite(ctx, request, ch, leader, stream)
+		c.receiveWrite(ctx, request, stream, leader, ch)
 	}
 }
 
 // receiveWrite process write responses
-func (c *Client) receiveWrite(ctx context.Context, request *raft.CommandRequest, ch chan<- node.Output, leader raft.MemberID, stream <-chan *raft.CommandStreamResponse) {
-	for streamResponse := range stream {
+func (c *Client) receiveWrite(ctx context.Context, request *raft.CommandRequest, stream streams.WriteStream, leader raft.MemberID, ch <-chan *raft.CommandStreamResponse) {
+	for streamResponse := range ch {
 		if streamResponse.Failed() {
 			c.log.Trace("Received CommandResponse error %s from %s", streamResponse.Error, leader)
 			c.resetLeader(leader, nil)
 			if e, ok := status.FromError(streamResponse.Error); ok {
 				if e.Code() == codes.Unavailable {
-					c.retryWrite(ctx, request, ch, leader)
+					c.retryWrite(ctx, request, stream, leader)
 					return
 				}
 			}
 
-			ch <- node.Output{
-				Error: streamResponse.Error,
-			}
-			close(ch)
+			stream.Error(streamResponse.Error)
+			stream.Close()
 			return
 		}
 
 		response := streamResponse.Response
 		c.log.Trace("Received CommandResponse %+v from %s", response, leader)
 		if response.Status == raft.ResponseStatus_OK {
-			ch <- node.Output{
-				Value: response.Output,
-			}
+			stream.Value(response.Output)
 		} else if response.Error == raft.ResponseError_ILLEGAL_MEMBER_STATE {
 			// If possible, update the current leader
 			if leader == response.Leader {
-				c.retryWrite(ctx, request, ch, leader)
+				c.retryWrite(ctx, request, stream, leader)
 			} else if response.Leader != "" && c.resetLeader(leader, &response.Leader) {
-				c.sendWrite(ctx, request, ch)
+				c.sendWrite(ctx, request, stream)
 			} else if response.Leader == "" && c.resetLeader(leader, nil) {
-				c.sendWrite(ctx, request, ch)
+				c.sendWrite(ctx, request, stream)
 			} else {
-				ch <- node.Output{
-					Error: errors.New(response.Message),
-				}
-				close(ch)
+				stream.Error(errors.New(response.Message))
+				stream.Close()
 			}
 			return
 		} else {
-			ch <- node.Output{
-				Error: errors.New(response.Message),
-			}
+			stream.Error(errors.New(response.Message))
 		}
 	}
-	close(ch)
+	stream.Close()
 }
 
 // resetMember resets the member connection
@@ -249,74 +240,66 @@ func (c *Client) getMemberSafe() raft.MemberID {
 }
 
 // read sends the given read request to the cluster
-func (c *Client) read(ctx context.Context, request *raft.QueryRequest, ch chan<- node.Output) error {
-	go c.sendRead(ctx, request, ch)
+func (c *Client) read(ctx context.Context, request *raft.QueryRequest, stream streams.WriteStream) error {
+	go c.sendRead(ctx, request, stream)
 	return nil
 }
 
 // retryRead retries a read request
-func (c *Client) retryRead(ctx context.Context, request *raft.QueryRequest, ch chan<- node.Output) {
+func (c *Client) retryRead(ctx context.Context, request *raft.QueryRequest, stream streams.WriteStream) {
 	c.resetMember()
-	go c.sendRead(ctx, request, ch)
+	go c.sendRead(ctx, request, stream)
 }
 
 // sendRead sends a read request
-func (c *Client) sendRead(ctx context.Context, request *raft.QueryRequest, ch chan<- node.Output) {
+func (c *Client) sendRead(ctx context.Context, request *raft.QueryRequest, stream streams.WriteStream) {
 	member := c.getMember()
 	c.log.Trace("Sending QueryRequest %+v to %s", request, member)
-	stream, err := c.client.Query(ctx, request, member)
+	ch, err := c.client.Query(ctx, request, member)
 	if err != nil {
 		c.log.Trace("Received QueryRequest error %s from %s", err, member)
 		if e, ok := status.FromError(err); ok {
 			if e.Code() == codes.Unavailable {
-				c.retryRead(ctx, request, ch)
+				c.retryRead(ctx, request, stream)
 				return
 			}
 		}
-		ch <- node.Output{
-			Error: err,
-		}
-		close(ch)
+		stream.Error(err)
+		stream.Close()
 	} else {
-		c.receiveRead(ctx, request, ch, member, stream)
+		c.receiveRead(ctx, request, stream, member, ch)
 	}
 }
 
-func (c *Client) receiveRead(ctx context.Context, request *raft.QueryRequest, ch chan<- node.Output, member raft.MemberID, stream <-chan *raft.QueryStreamResponse) {
-	for streamResponse := range stream {
+func (c *Client) receiveRead(ctx context.Context, request *raft.QueryRequest, stream streams.WriteStream, member raft.MemberID, ch <-chan *raft.QueryStreamResponse) {
+	for streamResponse := range ch {
 		if streamResponse.Failed() {
 			c.log.Trace("Received QueryResponse error %s from %s", streamResponse.Error, member)
 			if e, ok := status.FromError(streamResponse.Error); ok {
 				if e.Code() == codes.Unavailable {
-					c.retryRead(ctx, request, ch)
+					c.retryRead(ctx, request, stream)
 					return
 				}
 			}
 
-			ch <- node.Output{
-				Error: streamResponse.Error,
-			}
-			close(ch)
+			stream.Error(streamResponse.Error)
+			stream.Close()
 			return
 		}
 
 		response := streamResponse.Response
 		c.log.Trace("Received QueryResponse %+v from %s", response, member)
 		if response.Status == raft.ResponseStatus_OK {
-			ch <- node.Output{
-				Value: response.Output,
-			}
+			stream.Value(response.Output)
 		} else if response.Error == raft.ResponseError_ILLEGAL_MEMBER_STATE {
 			c.resetMember()
-			c.sendRead(ctx, request, ch)
+			c.sendRead(ctx, request, stream)
 			return
 		} else {
-			ch <- node.Output{
-				Error: errors.New(response.Message),
-			}
+			stream.Error(errors.New(response.Message))
 		}
 	}
-	close(ch)
+	stream.Close()
 }
 
 // Close closes the client

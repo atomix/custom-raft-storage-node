@@ -17,6 +17,7 @@ package state
 import (
 	"github.com/atomix/atomix-go-node/pkg/atomix/node"
 	"github.com/atomix/atomix-go-node/pkg/atomix/service"
+	streams "github.com/atomix/atomix-go-node/pkg/atomix/stream"
 	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store"
 	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store/log"
@@ -43,7 +44,7 @@ type Manager interface {
 	ApplyIndex(index raft.Index)
 
 	// Apply applies a committed entry to the state machine
-	ApplyEntry(entry *log.Entry, ch chan<- node.Output)
+	ApplyEntry(entry *log.Entry, stream streams.WriteStream)
 
 	// Close closes the state manager
 	Close() error
@@ -82,10 +83,10 @@ func (m *manager) ApplyIndex(index raft.Index) {
 }
 
 // ApplyEntry enqueues the given entry to be applied to the state machine, returning output on the given channel
-func (m *manager) ApplyEntry(entry *log.Entry, ch chan<- node.Output) {
+func (m *manager) ApplyEntry(entry *log.Entry, stream streams.WriteStream) {
 	m.ch <- &change{
 		entry:  entry,
-		result: ch,
+		stream: stream,
 	}
 }
 
@@ -114,15 +115,15 @@ func (m *manager) execChange(change *change) {
 	if change.entry.Entry != nil {
 		// If the entry is a query, apply it without incrementing the lastApplied index
 		if query, ok := change.entry.Entry.Entry.(*raft.LogEntry_Query); ok {
-			m.execQuery(change.entry.Index, change.entry.Entry.Timestamp, query.Query, change.result)
+			m.execQuery(change.entry.Index, change.entry.Entry.Timestamp, query.Query, change.stream)
 		} else {
 			m.execPendingChanges(change.entry.Index - 1)
-			m.execEntry(change.entry, change.result)
+			m.execEntry(change.entry, change.stream)
 			m.lastApplied = change.entry.Index
 		}
 	} else if change.entry.Index > m.lastApplied {
 		m.execPendingChanges(change.entry.Index - 1)
-		m.execEntry(change.entry, change.result)
+		m.execEntry(change.entry, change.stream)
 		m.lastApplied = change.entry.Index
 	}
 }
@@ -143,7 +144,7 @@ func (m *manager) execPendingChanges(index raft.Index) {
 }
 
 // execEntry applies the given entry to the state machine and returns the result(s) on the given channel
-func (m *manager) execEntry(entry *log.Entry, ch chan<- node.Output) {
+func (m *manager) execEntry(entry *log.Entry, stream streams.WriteStream) {
 	if entry.Entry == nil {
 		m.reader.Reset(entry.Index)
 		entry = m.reader.NextEntry()
@@ -151,48 +152,48 @@ func (m *manager) execEntry(entry *log.Entry, ch chan<- node.Output) {
 
 	switch e := entry.Entry.Entry.(type) {
 	case *raft.LogEntry_Query:
-		m.execQuery(entry.Index, entry.Entry.Timestamp, e.Query, ch)
+		m.execQuery(entry.Index, entry.Entry.Timestamp, e.Query, stream)
 	case *raft.LogEntry_Command:
 		m.log.Trace("Applying command %d", entry.Index)
-		m.execCommand(entry.Index, entry.Entry.Timestamp, e.Command, ch)
+		m.execCommand(entry.Index, entry.Entry.Timestamp, e.Command, stream)
 	case *raft.LogEntry_Configuration:
-		m.execConfig(entry.Index, entry.Entry.Timestamp, e.Configuration, ch)
+		m.execConfig(entry.Index, entry.Entry.Timestamp, e.Configuration, stream)
 	case *raft.LogEntry_Initialize:
-		m.execInit(entry.Index, entry.Entry.Timestamp, e.Initialize, ch)
+		m.execInit(entry.Index, entry.Entry.Timestamp, e.Initialize, stream)
 	}
 }
 
-func (m *manager) execInit(index raft.Index, timestamp time.Time, init *raft.InitializeEntry, ch chan<- node.Output) {
+func (m *manager) execInit(index raft.Index, timestamp time.Time, init *raft.InitializeEntry, stream streams.WriteStream) {
 	m.updateClock(index, timestamp)
-	if ch != nil {
-		ch <- node.Output{}
-		close(ch)
+	if stream != nil {
+		stream.Value(nil)
+		stream.Close()
 	}
 }
 
-func (m *manager) execConfig(index raft.Index, timestamp time.Time, config *raft.ConfigurationEntry, ch chan<- node.Output) {
+func (m *manager) execConfig(index raft.Index, timestamp time.Time, config *raft.ConfigurationEntry, stream streams.WriteStream) {
 	m.updateClock(index, timestamp)
-	if ch != nil {
-		ch <- node.Output{}
-		close(ch)
+	if stream != nil {
+		stream.Value(nil)
+		stream.Close()
 	}
 }
 
-func (m *manager) execQuery(index raft.Index, timestamp time.Time, query *raft.QueryEntry, ch chan<- node.Output) {
+func (m *manager) execQuery(index raft.Index, timestamp time.Time, query *raft.QueryEntry, stream streams.WriteStream) {
 	m.log.Trace("Applying query %d", index)
 	m.operation = service.OpTypeQuery
-	m.state.Query(query.Value, ch)
+	m.state.Query(query.Value, stream)
 }
 
-func (m *manager) execCommand(index raft.Index, timestamp time.Time, command *raft.CommandEntry, ch chan<- node.Output) {
+func (m *manager) execCommand(index raft.Index, timestamp time.Time, command *raft.CommandEntry, stream streams.WriteStream) {
 	m.updateClock(index, timestamp)
 	m.operation = service.OpTypeCommand
-	m.state.Command(command.Value, ch)
+	m.state.Command(command.Value, stream)
 }
 
 type change struct {
 	entry  *log.Entry
-	result chan<- node.Output
+	stream streams.WriteStream
 }
 
 func (m *manager) Index() uint64 {

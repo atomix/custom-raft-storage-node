@@ -41,8 +41,8 @@ type testService struct {
 
 // init initializes the test service
 func (s *testService) init() {
-	s.Executor.Register("set", s.Set)
-	s.Executor.Register("get", s.Get)
+	s.Executor.RegisterUnaryOperation("set", s.Set)
+	s.Executor.RegisterUnaryOperation("get", s.Get)
 }
 
 // Backup backs up the map service
@@ -64,21 +64,18 @@ func (s *testService) Restore(bytes []byte) error {
 }
 
 // Get gets the test value
-func (s *testService) Get(value []byte, ch chan<- service.Result) {
-	defer close(ch)
-	ch <- s.NewResult(proto.Marshal(&GetResponse{
+func (s *testService) Get(value []byte) ([]byte, error) {
+	return proto.Marshal(&GetResponse{
 		Value: s.value,
-	}))
+	})
 }
 
 // Set sets the test value
-func (s *testService) Set(value []byte, ch chan<- service.Result) {
-	defer close(ch)
+func (s *testService) Set(value []byte) ([]byte, error) {
 	request := &SetRequest{}
 	if err := proto.Unmarshal(value, request); err != nil {
-		ch <- s.NewFailure(err)
-	} else {
-		s.value = request.Value
-		ch <- s.NewResult(proto.Marshal(&SetResponse{}))
+		return nil, err
 	}
+	s.value = request.Value
+	return proto.Marshal(&SetResponse{})
 }

@@ -46,7 +46,7 @@ func NewServer(clusterConfig cluster.Cluster, registry *node.Registry, protocolC
 		raft:  raft,
 		state: state,
 		store: store,
-		port:  member.Port,
+		port:  member.ProtocolPort,
 		mu:    sync.Mutex{},
 	}
 	return server

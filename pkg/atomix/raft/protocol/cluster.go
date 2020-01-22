@@ -98,7 +98,7 @@ func (c *cluster) getConn(member MemberID) (*grpc.ClientConn, error) {
 			return nil, fmt.Errorf("unknown member %s", member)
 		}
 
-		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", location.Host, location.Port), grpc.WithInsecure())
+		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", location.Host, location.ProtocolPort), grpc.WithInsecure())
 		if err != nil {
 			return nil, err
 		}
