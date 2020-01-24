@@ -15,10 +15,10 @@
 package raft
 
 import (
-	"github.com/atomix/atomix-api/proto/atomix/controller"
-	"github.com/atomix/atomix-go-node/pkg/atomix"
-	"github.com/atomix/atomix-go-node/pkg/atomix/registry"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
+	"github.com/atomix/api/proto/atomix/controller"
+	"github.com/atomix/go-framework/pkg/atomix"
+	"github.com/atomix/go-framework/pkg/atomix/registry"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
 	"testing"
 	"time"
 )

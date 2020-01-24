@@ -6,7 +6,7 @@ package mock
 
 import (
 	context "context"
-	protocol "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
+	protocol "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
 	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
 )

@@ -16,8 +16,8 @@ package protocol
 
 import (
 	"context"
-	atomix "github.com/atomix/atomix-go-node/pkg/atomix/cluster"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
+	atomix "github.com/atomix/go-framework/pkg/atomix/cluster"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"

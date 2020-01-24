@@ -16,7 +16,7 @@ package snapshot
 
 import (
 	"bytes"
-	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
+	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
 	"io"
 	"time"
 )

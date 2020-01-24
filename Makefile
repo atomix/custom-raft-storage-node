@@ -13,11 +13,11 @@ build:
 
 test: # @HELP run the unit tests and source code validation
 test: build license_check linters
-	go test github.com/atomix/atomix-raft-node/...
+	go test github.com/atomix/raft-replica/...
 
 coverage: # @HELP generate unit test coverage data
 coverage: build linters license_check
-	go test github.com/atomix/atomix-raft-node/pkg/... -coverprofile=coverage.out.tmp -covermode=count
+	go test github.com/atomix/raft-replica/pkg/... -coverprofile=coverage.out.tmp -covermode=count
 	@cat coverage.out.tmp | grep -v ".pb.go" > coverage.out
 
 linters: # @HELP examines Go source code and reports coding problems
@@ -28,14 +28,14 @@ license_check: # @HELP examine and ensure license headers exist
 
 proto: # @HELP build Protobuf/gRPC generated types
 proto:
-	docker run -it -v `pwd`:/go/src/github.com/atomix/atomix-raft-node \
-		-w /go/src/github.com/atomix/atomix-raft-node \
+	docker run -it -v `pwd`:/go/src/github.com/atomix/raft-replica \
+		-w /go/src/github.com/atomix/raft-replica \
 		--entrypoint build/bin/compile_protos.sh \
 		onosproject/protoc-go:stable
 
 image: # @HELP build atomix-raft-node Docker image
 image: build
-	docker build . -f build/docker/Dockerfile -t atomix/atomix-raft-node:${ATOMIX_RAFT_NODE_VERSION}
+	docker build . -f build/docker/Dockerfile -t atomix/raft-replica:${ATOMIX_RAFT_NODE_VERSION}
 
 push: # @HELP push atomix-raft-node Docker image
-	docker push atomix/atomix-raft-node:${ATOMIX_RAFT_NODE_VERSION}
+	docker push atomix/raft-replica:${ATOMIX_RAFT_NODE_VERSION}

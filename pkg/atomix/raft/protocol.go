@@ -15,11 +15,11 @@
 package raft
 
 import (
-	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
-	"github.com/atomix/atomix-go-node/pkg/atomix/node"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/client"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
-	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
+	"github.com/atomix/go-framework/pkg/atomix/cluster"
+	"github.com/atomix/go-framework/pkg/atomix/node"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/client"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
+	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
 )
 
 // NewProtocol returns a new Raft Protocol instance

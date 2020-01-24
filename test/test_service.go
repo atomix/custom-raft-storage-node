@@ -15,8 +15,8 @@
 package test
 
 import (
-	"github.com/atomix/atomix-go-node/pkg/atomix/node"
-	"github.com/atomix/atomix-go-node/pkg/atomix/service"
+	"github.com/atomix/go-framework/pkg/atomix/node"
+	"github.com/atomix/go-framework/pkg/atomix/service"
 	"github.com/golang/protobuf/proto"
 )
 

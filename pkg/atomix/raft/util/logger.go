@@ -14,7 +14,7 @@
 
 package util
 
-import "github.com/atomix/atomix-go-node/pkg/atomix/util"
+import "github.com/atomix/go-framework/pkg/atomix/util"
 
 // NewNodeLogger creates a new role logger
 func NewNodeLogger(node string) Logger {

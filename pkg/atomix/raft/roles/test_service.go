@@ -16,9 +16,9 @@ package roles
 
 import (
 	"errors"
-	"github.com/atomix/atomix-go-node/pkg/atomix/node"
-	"github.com/atomix/atomix-go-node/pkg/atomix/service"
-	"github.com/atomix/atomix-go-node/pkg/atomix/stream"
+	"github.com/atomix/go-framework/pkg/atomix/node"
+	"github.com/atomix/go-framework/pkg/atomix/service"
+	"github.com/atomix/go-framework/pkg/atomix/stream"
 	"github.com/golang/protobuf/proto"
 )
 

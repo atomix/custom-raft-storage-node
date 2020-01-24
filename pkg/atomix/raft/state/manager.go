@@ -15,13 +15,13 @@
 package state
 
 import (
-	"github.com/atomix/atomix-go-node/pkg/atomix/node"
-	"github.com/atomix/atomix-go-node/pkg/atomix/service"
-	streams "github.com/atomix/atomix-go-node/pkg/atomix/stream"
-	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store/log"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
+	"github.com/atomix/go-framework/pkg/atomix/node"
+	"github.com/atomix/go-framework/pkg/atomix/service"
+	streams "github.com/atomix/go-framework/pkg/atomix/stream"
+	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/store"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/store/log"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/util"
 	"time"
 )
 

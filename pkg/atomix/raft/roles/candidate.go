@@ -16,10 +16,10 @@ package roles
 
 import (
 	"context"
-	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/state"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
+	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/state"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/store"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/util"
 	"math"
 	"math/rand"
 	"time"

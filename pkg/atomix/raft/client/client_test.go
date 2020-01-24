@@ -16,10 +16,10 @@ package client
 
 import (
 	"context"
-	"github.com/atomix/atomix-go-node/pkg/atomix/cluster"
-	"github.com/atomix/atomix-go-node/pkg/atomix/node"
-	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol/mock"
+	"github.com/atomix/go-framework/pkg/atomix/cluster"
+	"github.com/atomix/go-framework/pkg/atomix/node"
+	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/protocol/mock"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"testing"

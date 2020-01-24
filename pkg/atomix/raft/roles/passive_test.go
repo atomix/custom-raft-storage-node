@@ -16,10 +16,10 @@ package roles
 
 import (
 	"context"
-	"github.com/atomix/atomix-go-node/pkg/atomix/service"
-	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol/mock"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
+	"github.com/atomix/go-framework/pkg/atomix/service"
+	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/protocol/mock"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/util"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

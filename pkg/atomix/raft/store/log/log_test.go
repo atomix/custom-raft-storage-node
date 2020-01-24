@@ -15,7 +15,7 @@
 package log
 
 import (
-	raft "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
+	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"

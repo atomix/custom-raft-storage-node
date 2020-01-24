@@ -5,7 +5,7 @@ package snapshot
 
 import (
 	fmt "fmt"
-	github_com_atomix_atomix_raft_node_pkg_atomix_raft_protocol "github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol"
+	github_com_atomix_atomix_raft_node_pkg_atomix_raft_protocol "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	_ "github.com/gogo/protobuf/types"
@@ -30,7 +30,7 @@ const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 // Snapshot descriptor
 type Descriptor struct {
-	Index     github_com_atomix_atomix_raft_node_pkg_atomix_raft_protocol.Index `protobuf:"varint,1,opt,name=index,proto3,casttype=github.com/atomix/atomix-raft-node/pkg/atomix/raft/protocol.Index" json:"index,omitempty"`
+	Index     github_com_atomix_atomix_raft_node_pkg_atomix_raft_protocol.Index `protobuf:"varint,1,opt,name=index,proto3,casttype=github.com/atomix/raft-replica/pkg/atomix/raft/protocol.Index" json:"index,omitempty"`
 	Timestamp *time.Time                                                        `protobuf:"bytes,2,opt,name=timestamp,proto3,stdtime" json:"timestamp,omitempty"`
 }
 

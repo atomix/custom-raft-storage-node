@@ -15,8 +15,8 @@
 package store
 
 import (
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store/log"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/store/snapshot"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/store/log"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/store/snapshot"
 )
 
 // NewMemoryStore returns a new in-memory store

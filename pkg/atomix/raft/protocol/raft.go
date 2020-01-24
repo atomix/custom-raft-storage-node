@@ -17,8 +17,8 @@ package protocol
 import (
 	"context"
 	"fmt"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/config"
-	"github.com/atomix/atomix-raft-node/pkg/atomix/raft/util"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
+	"github.com/atomix/raft-replica/pkg/atomix/raft/util"
 	"sync"
 )
 

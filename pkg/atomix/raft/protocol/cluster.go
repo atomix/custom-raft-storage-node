@@ -16,7 +16,7 @@ package protocol
 
 import (
 	"fmt"
-	node "github.com/atomix/atomix-go-node/pkg/atomix/cluster"
+	node "github.com/atomix/go-framework/pkg/atomix/cluster"
 	"google.golang.org/grpc"
 	"sync"
 	"time"
