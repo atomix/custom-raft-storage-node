@@ -17,6 +17,9 @@ package roles
 import (
 	"context"
 	"errors"
+	"testing"
+	"time"
+
 	"github.com/atomix/go-framework/pkg/atomix/cluster"
 	"github.com/atomix/go-framework/pkg/atomix/node"
 	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
@@ -29,8 +32,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 func newRoleFuncs(roles ...raft.Role) map[raft.RoleType]func(raft.Raft) raft.Role {
@@ -50,19 +51,19 @@ func newTestState(client raft.Client, roles ...raft.Role) (raft.Raft, state.Mana
 		MemberID: "foo",
 		Members: map[string]cluster.Member{
 			"foo": {
-				ID:   "foo",
-				Host: "localhost",
-				Port: 5000,
+				ID:           "foo",
+				Host:         "localhost",
+				ProtocolPort: 5000,
 			},
 			"bar": {
-				ID:   "bar",
-				Host: "localhost",
-				Port: 5001,
+				ID:           "bar",
+				Host:         "localhost",
+				ProtocolPort: 5001,
 			},
 			"baz": {
-				ID:   "baz",
-				Host: "localhost",
-				Port: 5002,
+				ID:           "baz",
+				Host:         "localhost",
+				ProtocolPort: 5002,
 			},
 		},
 	}
@@ -83,19 +84,19 @@ func newTestRole(client raft.Client, f func(raft.Raft, state.Manager, store.Stor
 		MemberID: "foo",
 		Members: map[string]cluster.Member{
 			"foo": {
-				ID:   "foo",
-				Host: "localhost",
-				Port: 5000,
+				ID:           "foo",
+				Host:         "localhost",
+				ProtocolPort: 5000,
 			},
 			"bar": {
-				ID:   "bar",
-				Host: "localhost",
-				Port: 5001,
+				ID:           "bar",
+				Host:         "localhost",
+				ProtocolPort: 5001,
 			},
 			"baz": {
-				ID:   "baz",
-				Host: "localhost",
-				Port: 5002,
+				ID:           "baz",
+				Host:         "localhost",
+				ProtocolPort: 5002,
 			},
 		},
 	}

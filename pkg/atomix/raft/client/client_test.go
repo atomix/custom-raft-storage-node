@@ -16,13 +16,14 @@ package client
 
 import (
 	"context"
+	"testing"
+
 	"github.com/atomix/go-framework/pkg/atomix/cluster"
 	"github.com/atomix/go-framework/pkg/atomix/node"
 	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
 	"github.com/atomix/raft-replica/pkg/atomix/raft/protocol/mock"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func newTestClient(client raft.Client) *Client {
@@ -30,19 +31,19 @@ func newTestClient(client raft.Client) *Client {
 		MemberID: "foo",
 		Members: map[string]cluster.Member{
 			"foo": {
-				ID:   "foo",
-				Host: "localhost",
-				Port: 5000,
+				ID:           "foo",
+				Host:         "localhost",
+				ProtocolPort: 5000,
 			},
 			"bar": {
-				ID:   "bar",
-				Host: "localhost",
-				Port: 5001,
+				ID:           "bar",
+				Host:         "localhost",
+				ProtocolPort: 5001,
 			},
 			"baz": {
-				ID:   "baz",
-				Host: "localhost",
-				Port: 5002,
+				ID:           "baz",
+				Host:         "localhost",
+				ProtocolPort: 5002,
 			},
 		},
 	}

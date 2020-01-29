@@ -5,7 +5,7 @@ go 1.12
 require (
 	cloud.google.com/go v0.43.0 // indirect
 	github.com/atomix/api v0.0.0-20200123231207-4e5fb1cbaf40
-	github.com/atomix/go-framework v0.0.0-20200124005401-251d56394345
+	github.com/atomix/go-framework v0.0.0-20200124061342-61b0ae5140c9
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.2

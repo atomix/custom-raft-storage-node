@@ -16,11 +16,12 @@ package protocol
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	atomix "github.com/atomix/go-framework/pkg/atomix/cluster"
 	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 func TestRaftProtocol(t *testing.T) {
@@ -31,18 +32,18 @@ func TestRaftProtocol(t *testing.T) {
 		MemberID: "foo",
 		Members: map[string]atomix.Member{
 			"foo": {
-				ID:   "foo",
-				Host: "foo",
-				Port: 5678,
+				ID:           "foo",
+				Host:         "foo",
+				ProtocolPort: 5678,
 			},
 			"bar": {
-				ID:   "bar",
-				Host: "bar",
-				Port: 5679,
+				ID:           "bar",
+				Host:         "bar",
+				ProtocolPort: 5679,
 			},
 			"baz": {
-				ID:   "baz",
-				Port: 5680,
+				ID:           "baz",
+				ProtocolPort: 5680,
 			},
 		},
 	}

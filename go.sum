@@ -205,6 +205,8 @@ github.com/atomix/go-framework v0.0.0-20200123235029-e29fc7d6e104/go.mod h1:Dn7t
 github.com/atomix/go-framework v0.0.0-20200124003840-f24758b13aa2/go.mod h1:vo5K/v+rc5mohoZIw9vbyj+Y/EGGaEdF6XVkEvM9CSM=
 github.com/atomix/go-framework v0.0.0-20200124005401-251d56394345 h1:gFEiAzDt/pL0PeNhvNcv8tseCLYGPg5piWseW0HizKc=
 github.com/atomix/go-framework v0.0.0-20200124005401-251d56394345/go.mod h1:G/yTdMGpfwbA2YXym/VEi7op3qZKd1jtGJX0sjcZmpQ=
+github.com/atomix/go-framework v0.0.0-20200124061342-61b0ae5140c9 h1:GyxC/X6SMje0Xg+bQaMHhC76S0mqMfFGN7w+HsElnok=
+github.com/atomix/go-framework v0.0.0-20200124061342-61b0ae5140c9/go.mod h1:G/yTdMGpfwbA2YXym/VEi7op3qZKd1jtGJX0sjcZmpQ=
 github.com/atomix/go-local v0.0.0-20200124003802-357f6682b2f4/go.mod h1:MabPkX/j2bN399GVAYGigyvDaAslu7omZoujEfzdKDg=
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=

@@ -8,8 +8,13 @@ ATOMIX_RAFT_NODE_VERSION := latest
 all: build
 
 build: # @HELP build the source code
-build:
+build: deps
 	GOOS=linux GOARCH=amd64 go build -o build/_output/atomix-raft-node ./cmd/atomix-raft-node
+
+deps: # @HELP ensure that the required dependencies are in place
+	go build -v ./...
+	bash -c "diff -u <(echo -n) <(git diff go.mod)"
+	bash -c "diff -u <(echo -n) <(git diff go.sum)"
 
 test: # @HELP run the unit tests and source code validation
 test: build license_check linters
@@ -33,8 +38,8 @@ proto:
 		--entrypoint build/bin/compile_protos.sh \
 		onosproject/protoc-go:stable
 
-image: # @HELP build atomix-raft-node Docker image
-image: build
+images: # @HELP build atomix-raft-node Docker image
+images: build
 	docker build . -f build/docker/Dockerfile -t atomix/raft-replica:${ATOMIX_RAFT_NODE_VERSION}
 
 push: # @HELP push atomix-raft-node Docker image
