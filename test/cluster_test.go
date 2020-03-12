@@ -24,6 +24,7 @@ import (
 	"github.com/atomix/go-framework/pkg/atomix/cluster"
 	"github.com/atomix/go-framework/pkg/atomix/node"
 	"github.com/atomix/go-framework/pkg/atomix/service"
+	streams "github.com/atomix/go-framework/pkg/atomix/stream"
 	"github.com/atomix/raft-replica/pkg/atomix/raft"
 	"github.com/atomix/raft-replica/pkg/atomix/raft/client"
 	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
@@ -52,36 +53,40 @@ func TestRaftNode(t *testing.T) {
 
 	client := client.NewClient(cluster, protocol.ReadConsistency_SEQUENTIAL)
 
-	ch := make(chan node.Output)
-	assert.NoError(t, client.Write(context.Background(), newOpenSessionRequest(), ch))
+	ch := make(chan streams.Result)
+	chStream := streams.NewChannelStream(ch)
+	assert.NoError(t, client.Write(context.Background(), newOpenSessionRequest(), chStream))
 	out := <-ch
 	assert.True(t, out.Succeeded())
-	openSessionResponse := getOpenSessionResponse(out.Value)
+	openSessionResponse := getOpenSessionResponse(out.Value.([]byte))
 	assert.NotEqual(t, 0, openSessionResponse.SessionID)
 	sessionID := openSessionResponse.SessionID
 
-	ch = make(chan node.Output)
+	ch = make(chan streams.Result)
+	chStream = streams.NewChannelStream(ch)
 	bytes, err := proto.Marshal(&SetRequest{
 		Value: "Hello world!",
 	})
 	assert.NoError(t, err)
-	assert.NoError(t, client.Write(context.Background(), newCommandRequest(sessionID, 1, "set", bytes), ch))
+	assert.NoError(t, client.Write(context.Background(), newCommandRequest(sessionID, 1, "set", bytes), chStream))
 	out = <-ch
 	assert.True(t, out.Succeeded())
-	commandResponse := getCommandResponse(out.Value)
+	commandResponse := getCommandResponse(out.Value.([]byte))
 	setResponse := &SetResponse{}
 	assert.NoError(t, proto.Unmarshal(commandResponse.Output, setResponse))
 
-	ch = make(chan node.Output)
+	ch = make(chan streams.Result)
+	chStream = streams.NewChannelStream(ch)
 	bytes, err = proto.Marshal(&GetRequest{})
 	assert.NoError(t, err)
-	assert.NoError(t, client.Read(context.Background(), newQueryRequest(sessionID, commandResponse.Context.Index, 1, "get", bytes), ch))
+	assert.NoError(t, client.Read(context.Background(), newQueryRequest(sessionID, commandResponse.Context.Index, 1, "get", bytes), chStream))
 	out = <-ch
 	assert.True(t, out.Succeeded())
-	queryResponse := getQueryResponse(out.Value)
+	queryResponse := getQueryResponse(out.Value.([]byte))
 	getResponse := &GetResponse{}
 	assert.NoError(t, proto.Unmarshal(queryResponse.Output, getResponse))
 	assert.Equal(t, "Hello world!", getResponse.Value)
+
 }
 
 func TestRaftCluster(t *testing.T) {
@@ -115,44 +120,47 @@ func TestRaftCluster(t *testing.T) {
 	go startServer(serverFoo, wg)
 	go startServer(serverBar, wg)
 	go startServer(serverBaz, wg)
+	defer stopServer(serverFoo)
+	defer stopServer(serverBar)
+	defer stopServer(serverBaz)
 	wg.Wait()
 
 	client := client.NewClient(cluster, protocol.ReadConsistency_SEQUENTIAL)
 
-	ch := make(chan node.Output)
-	assert.NoError(t, client.Write(context.Background(), newOpenSessionRequest(), ch))
+	ch := make(chan streams.Result)
+	chStream := streams.NewChannelStream(ch)
+	assert.NoError(t, client.Write(context.Background(), newOpenSessionRequest(), chStream))
 	out := <-ch
 	assert.True(t, out.Succeeded())
-	openSessionResponse := getOpenSessionResponse(out.Value)
+	openSessionResponse := getOpenSessionResponse(out.Value.([]byte))
 	assert.NotEqual(t, 0, openSessionResponse.SessionID)
 	sessionID := openSessionResponse.SessionID
 
-	ch = make(chan node.Output)
+	ch = make(chan streams.Result)
+	chStream = streams.NewChannelStream(ch)
 	bytes, err := proto.Marshal(&SetRequest{
 		Value: "Hello world!",
 	})
 	assert.NoError(t, err)
-	assert.NoError(t, client.Write(context.Background(), newCommandRequest(sessionID, 1, "set", bytes), ch))
+	assert.NoError(t, client.Write(context.Background(), newCommandRequest(sessionID, 1, "set", bytes), chStream))
 	out = <-ch
 	assert.True(t, out.Succeeded())
-	commandResponse := getCommandResponse(out.Value)
+	commandResponse := getCommandResponse(out.Value.([]byte))
 	setResponse := &SetResponse{}
 	assert.NoError(t, proto.Unmarshal(commandResponse.Output, setResponse))
 
-	ch = make(chan node.Output)
+	ch = make(chan streams.Result)
+	chStream = streams.NewChannelStream(ch)
 	bytes, err = proto.Marshal(&GetRequest{})
 	assert.NoError(t, err)
-	assert.NoError(t, client.Read(context.Background(), newQueryRequest(sessionID, commandResponse.Context.Index, 1, "get", bytes), ch))
+	assert.NoError(t, client.Read(context.Background(), newQueryRequest(sessionID, commandResponse.Context.Index, 1, "get", bytes), chStream))
 	out = <-ch
 	assert.True(t, out.Succeeded())
-	queryResponse := getQueryResponse(out.Value)
+	queryResponse := getQueryResponse(out.Value.([]byte))
 	getResponse := &GetResponse{}
 	assert.NoError(t, proto.Unmarshal(queryResponse.Output, getResponse))
 	assert.Equal(t, "Hello world!", getResponse.Value)
 
-	defer stopServer(serverFoo)
-	defer stopServer(serverBar)
-	defer stopServer(serverBaz)
 }
 
 func BenchmarkRaftCluster(b *testing.B) {
@@ -196,11 +204,12 @@ func BenchmarkRaftCluster(b *testing.B) {
 
 	client := client.NewClient(cluster, protocol.ReadConsistency_SEQUENTIAL)
 
-	ch := make(chan node.Output)
-	assert.NoError(b, client.Write(context.Background(), newOpenSessionRequest(), ch))
+	ch := make(chan streams.Result)
+	chStream := streams.NewChannelStream(ch)
+	assert.NoError(b, client.Write(context.Background(), newOpenSessionRequest(), chStream))
 	out := <-ch
 	assert.True(b, out.Succeeded())
-	openSessionResponse := getOpenSessionResponse(out.Value)
+	openSessionResponse := getOpenSessionResponse(out.Value.([]byte))
 	assert.NotEqual(b, 0, openSessionResponse.SessionID)
 	sessionID := openSessionResponse.SessionID
 
@@ -213,11 +222,12 @@ func BenchmarkRaftCluster(b *testing.B) {
 			wg.Add(1)
 			go func() {
 				for commandID := range ch {
-					ch := make(chan node.Output)
+					ch := make(chan streams.Result)
+					chStream = streams.NewChannelStream(ch)
 					bytes, _ := proto.Marshal(&SetRequest{
 						Value: "Hello world!",
 					})
-					_ = client.Write(context.Background(), newCommandRequest(sessionID, commandID, "set", bytes), ch)
+					_ = client.Write(context.Background(), newCommandRequest(sessionID, commandID, "set", bytes), chStream)
 					out = <-ch
 				}
 				wg.Done()

@@ -18,8 +18,9 @@ import (
 	"context"
 	"testing"
 
+	streams "github.com/atomix/go-framework/pkg/atomix/stream"
+
 	"github.com/atomix/go-framework/pkg/atomix/cluster"
-	"github.com/atomix/go-framework/pkg/atomix/node"
 	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
 	"github.com/atomix/raft-replica/pkg/atomix/raft/protocol/mock"
 	"github.com/golang/mock/gomock"
@@ -123,17 +124,23 @@ func TestClient(t *testing.T) {
 
 	client := newTestClient(protocol)
 
-	ch := make(chan node.Output)
-	assert.NoError(t, client.Write(context.Background(), []byte("Hello world!"), ch))
-	assert.Equal(t, "foo", string((<-ch).Value))
-	assert.Equal(t, "bar", string((<-ch).Value))
+	ch := make(chan streams.Result)
+	chStream := streams.NewChannelStream(ch)
+	assert.NoError(t, client.Write(context.Background(), []byte("Hello world!"), chStream))
+	val := <-ch
+	assert.Equal(t, "foo", string(val.Value.([]byte)))
+	val = <-ch
+	assert.Equal(t, "bar", string(val.Value.([]byte)))
 	_, ok := <-ch
 	assert.False(t, ok)
 
-	ch = make(chan node.Output)
-	assert.NoError(t, client.Read(context.Background(), []byte("Hello world again!"), ch))
-	assert.Equal(t, "bar", string((<-ch).Value))
-	assert.Equal(t, "baz", string((<-ch).Value))
+	ch = make(chan streams.Result)
+	chStream = streams.NewChannelStream(ch)
+	assert.NoError(t, client.Read(context.Background(), []byte("Hello world again!"), chStream))
+	val = <-ch
+	assert.Equal(t, "bar", string(val.Value.([]byte)))
+	val = <-ch
+	assert.Equal(t, "baz", string(val.Value.([]byte)))
 	_, ok = <-ch
 	assert.False(t, ok)
 }
