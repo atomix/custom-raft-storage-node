@@ -17,6 +17,10 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"os/signal"
+
 	"github.com/atomix/api/proto/atomix/controller"
 	"github.com/atomix/go-framework/pkg/atomix"
 	"github.com/atomix/go-framework/pkg/atomix/registry"
@@ -24,9 +28,6 @@ import (
 	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
 	"github.com/gogo/protobuf/jsonpb"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
-	"os"
-	"os/signal"
 )
 
 func main() {
@@ -54,6 +55,21 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func parseClusterConfig() *controller.ClusterConfig {
+	clusterConfigFile := os.Args[2]
+	clusterConfig := &controller.ClusterConfig{}
+	clusterConfigBytes, err := ioutil.ReadFile(clusterConfigFile)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	if err := jsonpb.Unmarshal(bytes.NewReader(clusterConfigBytes), clusterConfig); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	return clusterConfig
 }
 
 func parsePartitionConfig() *controller.PartitionConfig {

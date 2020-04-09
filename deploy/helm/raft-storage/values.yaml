@@ -1,0 +1,9 @@
+clusters: 3
+partitions: 10
+replicas: 1
+
+image:
+  repository: atomix/raft-storage
+  tag: latest
+  pullPolicy: IfNotPresent
+  pullSecrets: []

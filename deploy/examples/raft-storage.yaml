@@ -1,0 +1,26 @@
+apiVersion: storage.cloud.atomix.io/v1beta1
+kind: RaftStorageClass
+metadata:
+    name: raft
+    labels:
+      app: raft
+spec:
+  image: atomix/raft-storage:latest
+  imagePullPolicy: IfNotPresent
+  replicas: 1
+---
+apiVersion: cloud.atomix.io/v1beta2
+kind: Database
+metadata:
+  name: raft
+spec:
+  clusters: 3
+  template:
+    spec:
+      partitions: 10
+      storage:
+        group: storage.cloud.atomix.io
+        version: v1beta1
+        kind: RaftStorageClass
+        name: raft
+        namespace: kube-system

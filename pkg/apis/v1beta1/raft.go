@@ -15,6 +15,7 @@
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,12 +30,19 @@ const RaftStorageClassKind = "RaftStorageClass"
 
 // RaftStorageClassSpec defines the desired state of RaftStorageClass
 type RaftStorageClassSpec struct {
+	// Replicas is the number of raft replicas
+	Replicas int32 `json:"replicas,omitempty"`
+
+	// Image is the image to run
+	Image string `json:"image,omitempty"`
+
+	// ImagePullPolicy is the pull policy to apply
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // RaftStorageClassStatus defines the observed state of RaftStorageClass
 type RaftStorageClassStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Ready bool `json:"ready,omitempty"`
 }
 
 // +kubebuilder:object:root=true

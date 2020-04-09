@@ -1,0 +1,8 @@
+apiVersion: cloud.atomix.io/v1beta2
+kind: StorageController
+metadata:
+    name: raft
+spec:
+    group: storage.cloud.atomix.io
+    version: v1beta1
+    kind: RaftStorageClass

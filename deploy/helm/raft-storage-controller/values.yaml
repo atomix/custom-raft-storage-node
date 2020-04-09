@@ -1,0 +1,5 @@
+image:
+  repository: atomix/raft-storage-controller
+  tag: latest
+  pullPolicy: IfNotPresent
+  pullSecrets: []
