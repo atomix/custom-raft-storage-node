@@ -40,8 +40,8 @@ proto:
 		--entrypoint build/bin/compile_protos.sh \
 		onosproject/protoc-go:stable
 
-image: # @HELP build atomix storage and atomix storage controller Docker images
-image: build
+images: # @HELP build atomix storage and atomix storage controller Docker images
+images: build
 	docker build . -f build/raft-storage/Dockerfile -t atomix/raft-storage:${ATOMIX_RAFT_STORAGE_VERSION}
 	docker build . -f build/raft-storage-controller/Dockerfile -t atomix/raft-storage-controller:${ATOMIX_RAFT_STORAGE_VERSION}
 
