@@ -16,11 +16,12 @@ package protocol
 
 import (
 	"context"
-	atomix "github.com/atomix/go-framework/pkg/atomix/cluster"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	atomix "github.com/atomix/go-framework/pkg/atomix/cluster"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/config"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRaftProtocol(t *testing.T) {

@@ -8,8 +8,14 @@ ATOMIX_RAFT_NODE_VERSION := latest
 all: build
 
 build: # @HELP build the source code
-build:
+build: deps
 	GOOS=linux GOARCH=amd64 go build -o build/_output/raft-storage ./cmd/raft-storage
+
+
+deps: # @HELP ensure that the required dependencies are in place
+	go build -v ./...
+	bash -c "diff -u <(echo -n) <(git diff go.mod)"
+	bash -c "diff -u <(echo -n) <(git diff go.sum)"
 
 test: # @HELP run the unit tests and source code validation
 test: build license_check linters

@@ -15,10 +15,11 @@
 package snapshot
 
 import (
-	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	raft "github.com/atomix/raft-storage/pkg/atomix/raft/protocol"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSnapshot(t *testing.T) {

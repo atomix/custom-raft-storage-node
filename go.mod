@@ -1,10 +1,12 @@
-module github.com/atomix/raft-replica
+module github.com/atomix/raft-storage
 
 go 1.12
 
 require (
-	github.com/atomix/api v0.0.0-20200123231207-4e5fb1cbaf40
+	github.com/atomix/api v0.0.0-20200202100958-13b24edbe32d
 	github.com/atomix/go-framework v0.0.0-20200124005401-251d56394345
+	github.com/atomix/kubernetes-controller v0.2.0-beta.1
+	github.com/atomix/raft-replica v0.0.0-20200124061410-f429149bc81b
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.2

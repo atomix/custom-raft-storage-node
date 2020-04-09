@@ -16,14 +16,15 @@ package roles
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/atomix/go-framework/pkg/atomix/service"
-	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/protocol/mock"
+	raft "github.com/atomix/raft-storage/pkg/atomix/raft/protocol"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/protocol/mock"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 func TestLeaderInit(t *testing.T) {

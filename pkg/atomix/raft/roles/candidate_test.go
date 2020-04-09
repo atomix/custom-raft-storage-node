@@ -16,12 +16,13 @@ package roles
 
 import (
 	"context"
-	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/protocol/mock"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	raft "github.com/atomix/raft-storage/pkg/atomix/raft/protocol"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/protocol/mock"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCandidateVote(t *testing.T) {

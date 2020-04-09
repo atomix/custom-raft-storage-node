@@ -18,6 +18,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// RaftStorageClassGroup raft storage class group
+const RaftStorageClassGroup = "storage.cloud.atomix.io"
+
+// RaftStorageClassVersion raft storage class version
+const RaftStorageClassVersion = "v1beta1"
+
+// RaftStorageClassKind raft storage class kind
+const RaftStorageClassKind = "RaftStorageClass"
+
 // RaftStorageClassSpec defines the desired state of RaftStorageClass
 type RaftStorageClassSpec struct {
 }

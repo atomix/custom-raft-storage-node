@@ -17,9 +17,10 @@ package protocol
 import (
 	"context"
 	"fmt"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/util"
 	"sync"
+
+	"github.com/atomix/raft-storage/pkg/atomix/raft/config"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/util"
 )
 
 // Status represents the status of a Raft server

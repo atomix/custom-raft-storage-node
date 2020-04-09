@@ -18,17 +18,18 @@ import (
 	"container/list"
 	"context"
 	"errors"
-	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/state"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/store"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/store/log"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/store/snapshot"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/util"
 	"io"
 	"math"
 	"sort"
 	"sync"
 	"time"
+
+	raft "github.com/atomix/raft-storage/pkg/atomix/raft/protocol"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/state"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/store"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/store/log"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/store/snapshot"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/util"
 )
 
 // newAppender returns a new appender

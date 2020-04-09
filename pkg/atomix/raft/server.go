@@ -17,16 +17,17 @@ package raft
 import (
 	"errors"
 	"fmt"
-	"github.com/atomix/go-framework/pkg/atomix/cluster"
-	"github.com/atomix/go-framework/pkg/atomix/node"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
-	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/roles"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/state"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/store"
-	"google.golang.org/grpc"
 	"net"
 	"sync"
+
+	"github.com/atomix/go-framework/pkg/atomix/cluster"
+	"github.com/atomix/go-framework/pkg/atomix/node"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/config"
+	raft "github.com/atomix/raft-storage/pkg/atomix/raft/protocol"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/roles"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/state"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/store"
+	"google.golang.org/grpc"
 )
 
 // NewServer returns a new Raft consensus protocol server

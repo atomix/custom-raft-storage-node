@@ -16,13 +16,14 @@ package client
 
 import (
 	"context"
+	"testing"
+
 	"github.com/atomix/go-framework/pkg/atomix/cluster"
 	"github.com/atomix/go-framework/pkg/atomix/node"
-	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/protocol/mock"
+	raft "github.com/atomix/raft-storage/pkg/atomix/raft/protocol"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/protocol/mock"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func newTestClient(client raft.Client) *Client {
