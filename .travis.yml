@@ -38,4 +38,4 @@ jobs:
       script:
         - make coverage
         - goveralls -coverprofile=coverage.out -service=travis-ci
-        - make image
+        - make images
