@@ -9,14 +9,11 @@ all: build
 
 build: # @HELP build the source code
 build: deps
-	GOOS=linux GOARCH=amd64 go build -o build/_output/raft-storage ./cmd/raft-storage
-	GOOS=linux GOARCH=amd64 go build -o build/_output/raft-storage-controller ./cmd/raft-storage-controller
+	GOOS=linux GOARCH=amd64 go build -o build/raft-storage-node/_output/raft-storage-node ./cmd/raft-storage-node
 
 
 deps: # @HELP ensure that the required dependencies are in place
-	#go build -v ./...
-	#bash -c "diff -u <(echo -n) <(git diff go.mod)"
-	#bash -c "diff -u <(echo -n) <(git diff go.sum)"
+	go build -v ./...
 
 test: # @HELP run the unit tests and source code validation
 test: build license_check linters
@@ -40,11 +37,9 @@ proto:
 		--entrypoint build/bin/compile_protos.sh \
 		onosproject/protoc-go:stable
 
-images: # @HELP build atomix storage and atomix storage controller Docker images
-images: build
-	docker build . -f build/raft-storage/Dockerfile -t atomix/raft-storage:${ATOMIX_RAFT_STORAGE_VERSION}
-	docker build . -f build/raft-storage-controller/Dockerfile -t atomix/raft-storage-controller:${ATOMIX_RAFT_STORAGE_VERSION}
+image: # @HELP build atomix storage and atomix storage controller Docker images
+image: build
+	docker build . -f build/raft-storage-node/Dockerfile -t atomix/raft-storage-node:${ATOMIX_RAFT_STORAGE_VERSION}
 
 push: # @HELP push atomix-raft-node Docker image
-	docker push atomix/raft-storage:${ATOMIX_RAFT_STORAGE_VERSION}
-	docker push atomix/raft-storage-controller:${ATOMIX_RAFT_STORAGE_VERSION}
+	docker push atomix/raft-storage-node:${ATOMIX_RAFT_STORAGE_VERSION}

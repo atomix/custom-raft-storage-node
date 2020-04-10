@@ -3,7 +3,7 @@ partitions: 10
 replicas: 1
 
 image:
-  repository: atomix/raft-storage
+  repository: atomix/raft-storage-node
   tag: latest
   pullPolicy: IfNotPresent
   pullSecrets: []

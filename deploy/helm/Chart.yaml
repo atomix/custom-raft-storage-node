@@ -1,6 +1,6 @@
 apiVersion: v2
-name: raft-storage
-description: raft Storage
+name: raft-database
+description: raft database
 kubeVersion: ">=1.12.0"
 type: application
 version: 0.1.0
