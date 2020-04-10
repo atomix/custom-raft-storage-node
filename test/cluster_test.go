@@ -16,6 +16,11 @@ package test
 
 import (
 	"context"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/atomix/go-framework/pkg/atomix/cluster"
 	"github.com/atomix/go-framework/pkg/atomix/node"
 	"github.com/atomix/go-framework/pkg/atomix/service"
@@ -26,10 +31,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
 func TestRaftNode(t *testing.T) {
@@ -37,9 +38,9 @@ func TestRaftNode(t *testing.T) {
 		MemberID: "foo",
 		Members: map[string]cluster.Member{
 			"foo": {
-				ID:   "foo",
-				Host: "localhost",
-				Port: 5001,
+				ID:           "foo",
+				Host:         "localhost",
+				ProtocolPort: 5001,
 			},
 		},
 	}
@@ -88,19 +89,19 @@ func TestRaftCluster(t *testing.T) {
 		MemberID: "foo",
 		Members: map[string]cluster.Member{
 			"foo": {
-				ID:   "foo",
-				Host: "localhost",
-				Port: 5001,
+				ID:           "foo",
+				Host:         "localhost",
+				ProtocolPort: 5001,
 			},
 			"bar": {
-				ID:   "bar",
-				Host: "localhost",
-				Port: 5002,
+				ID:           "bar",
+				Host:         "localhost",
+				ProtocolPort: 5002,
 			},
 			"baz": {
-				ID:   "baz",
-				Host: "localhost",
-				Port: 5003,
+				ID:           "baz",
+				Host:         "localhost",
+				ProtocolPort: 5003,
 			},
 		},
 	}
@@ -161,19 +162,19 @@ func BenchmarkRaftCluster(b *testing.B) {
 		MemberID: "foo",
 		Members: map[string]cluster.Member{
 			"foo": {
-				ID:   "foo",
-				Host: "localhost",
-				Port: 5001,
+				ID:           "foo",
+				Host:         "localhost",
+				ProtocolPort: 5001,
 			},
 			"bar": {
-				ID:   "bar",
-				Host: "localhost",
-				Port: 5002,
+				ID:           "bar",
+				Host:         "localhost",
+				ProtocolPort: 5002,
 			},
 			"baz": {
-				ID:   "baz",
-				Host: "localhost",
-				Port: 5003,
+				ID:           "baz",
+				Host:         "localhost",
+				ProtocolPort: 5003,
 			},
 		},
 	}

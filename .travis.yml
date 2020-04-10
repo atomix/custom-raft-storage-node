@@ -12,9 +12,9 @@ branches:
   only:
     - master
 
-#cache:
-#  directories:
-#    - $HOME/gopath/pkg/mod         # Cache the Go modules
+cache:
+  directories:
+    - $HOME/gopath/pkg/mod         # Cache the Go modules
 
 services:
   - 'docker'

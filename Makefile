@@ -25,7 +25,7 @@ coverage: build linters license_check
 	#@cat coverage.out.tmp | grep -v ".pb.go" > coverage.out
 
 linters: # @HELP examines Go source code and reports coding problems
-	golangci-lint run
+	GOGC=50 golangci-lint run
 
 license_check: # @HELP examine and ensure license headers exist
 	./build/licensing/boilerplate.py -v
