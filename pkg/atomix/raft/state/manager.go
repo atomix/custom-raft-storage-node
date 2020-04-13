@@ -15,14 +15,15 @@
 package state
 
 import (
+	"time"
+
 	"github.com/atomix/go-framework/pkg/atomix/node"
 	"github.com/atomix/go-framework/pkg/atomix/service"
 	streams "github.com/atomix/go-framework/pkg/atomix/stream"
-	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/store"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/store/log"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/util"
-	"time"
+	raft "github.com/atomix/raft-storage/pkg/atomix/raft/protocol"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/store"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/store/log"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/util"
 )
 
 // NewManager returns a new Raft state manager

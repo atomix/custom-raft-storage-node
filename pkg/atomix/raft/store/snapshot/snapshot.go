@@ -16,9 +16,10 @@ package snapshot
 
 import (
 	"bytes"
-	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
 	"io"
 	"time"
+
+	raft "github.com/atomix/raft-storage/pkg/atomix/raft/protocol"
 )
 
 // NewMemoryStore creates a new in-memory snapshot store

@@ -15,12 +15,13 @@
 package raft
 
 import (
+	"testing"
+	"time"
+
 	"github.com/atomix/api/proto/atomix/controller"
 	"github.com/atomix/go-framework/pkg/atomix"
 	"github.com/atomix/go-framework/pkg/atomix/registry"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
-	"testing"
-	"time"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/config"
 )
 
 func TestProtocol(t *testing.T) {

@@ -18,15 +18,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/atomix/go-framework/pkg/atomix/stream"
-	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/state"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/store"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/store/log"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/util"
 	"io"
 	"math"
 	"time"
+
+	"github.com/atomix/go-framework/pkg/atomix/stream"
+	raft "github.com/atomix/raft-storage/pkg/atomix/raft/protocol"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/state"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/store"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/store/log"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/util"
 )
 
 func newPassiveRole(raft raft.Raft, state state.Manager, store store.Store, log util.Logger) *PassiveRole {

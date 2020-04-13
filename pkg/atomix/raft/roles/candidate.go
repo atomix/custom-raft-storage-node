@@ -16,13 +16,14 @@ package roles
 
 import (
 	"context"
-	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/state"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/store"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/util"
 	"math"
 	"math/rand"
 	"time"
+
+	raft "github.com/atomix/raft-storage/pkg/atomix/raft/protocol"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/state"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/store"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/util"
 )
 
 // newCandidateRole returns a new candidate role

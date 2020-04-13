@@ -15,8 +15,9 @@
 package log
 
 import (
-	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
 	"io"
+
+	raft "github.com/atomix/raft-storage/pkg/atomix/raft/protocol"
 )
 
 // NewMemoryLog creates a new in-memory Log

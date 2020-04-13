@@ -17,20 +17,21 @@ package roles
 import (
 	"context"
 	"errors"
+	"testing"
+	"time"
+
 	"github.com/atomix/go-framework/pkg/atomix/cluster"
 	"github.com/atomix/go-framework/pkg/atomix/node"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
-	raft "github.com/atomix/raft-replica/pkg/atomix/raft/protocol"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/protocol/mock"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/state"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/store"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/store/log"
-	"github.com/atomix/raft-replica/pkg/atomix/raft/util"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/config"
+	raft "github.com/atomix/raft-storage/pkg/atomix/raft/protocol"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/protocol/mock"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/state"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/store"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/store/log"
+	"github.com/atomix/raft-storage/pkg/atomix/raft/util"
 	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 func newRoleFuncs(roles ...raft.Role) map[raft.RoleType]func(raft.Raft) raft.Role {

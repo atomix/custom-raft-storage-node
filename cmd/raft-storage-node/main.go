@@ -17,6 +17,10 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"os/signal"
+
 	"github.com/atomix/api/proto/atomix/controller"
 	"github.com/atomix/go-framework/pkg/atomix"
 	"github.com/atomix/go-framework/pkg/atomix/registry"
@@ -24,9 +28,6 @@ import (
 	"github.com/atomix/raft-replica/pkg/atomix/raft/config"
 	"github.com/gogo/protobuf/jsonpb"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
-	"os"
-	"os/signal"
 )
 
 func main() {
@@ -34,11 +35,11 @@ func main() {
 	log.SetOutput(os.Stdout)
 
 	nodeID := os.Args[1]
-	partitionConfig := parsePartitionConfig()
+	clusterConfig := parseClusterConfig()
 	protocolConfig := parseProtocolConfig()
 
 	// Start the node. The node will be started in its own goroutine.
-	node := atomix.NewNode(nodeID, partitionConfig, raft.NewProtocol(protocolConfig), registry.Registry)
+	node := atomix.NewNode(nodeID, clusterConfig, raft.NewProtocol(protocolConfig), registry.Registry)
 	if err := node.Start(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -56,19 +57,19 @@ func main() {
 	}
 }
 
-func parsePartitionConfig() *controller.PartitionConfig {
-	nodeConfigFile := os.Args[2]
-	nodeConfig := &controller.PartitionConfig{}
-	nodeBytes, err := ioutil.ReadFile(nodeConfigFile)
+func parseClusterConfig() *controller.ClusterConfig {
+	clusterConfigFile := os.Args[2]
+	clusterConfig := &controller.ClusterConfig{}
+	clusterConfigBytes, err := ioutil.ReadFile(clusterConfigFile)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	if err := jsonpb.Unmarshal(bytes.NewReader(nodeBytes), nodeConfig); err != nil {
+	if err := jsonpb.Unmarshal(bytes.NewReader(clusterConfigBytes), clusterConfig); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	return nodeConfig
+	return clusterConfig
 }
 
 func parseProtocolConfig() *config.ProtocolConfig {

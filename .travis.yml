@@ -3,7 +3,7 @@ sudo: false
 language: go
 
 go:
-  - '1.12.x'
+  - '1.13.x'
 
 notifications:
   email: false
@@ -26,16 +26,10 @@ install:
 before_script:
   - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin latest
 
-after_success:
-  - if [[ "$TRAVIS_BRANCH" == "master" ]]; then
-      docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD;
-      make push;
-    fi
 
 jobs:
   include:
     - stage: tests
       script:
         - make coverage
-        - goveralls -coverprofile=coverage.out -service=travis-ci
-        - make image
+        - 'if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then bash ./build/bin/push-images; fi'
